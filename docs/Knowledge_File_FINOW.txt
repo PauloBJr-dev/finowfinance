@@ -1,0 +1,162 @@
+ 
+
+**Resumo rápido** 
+Crie um aplicativo full-stack (PWA responsivo para desktop e mobile) de gestão financeira doméstica chamado **Finow**. Objetivos: clareza, conforto visual, consciência financeira em tempo real e prazer de uso diário. Dados inseridos **manualmente** (sem CSV/import bancário). Público alvo: 20–28 anos. Tom: mentor calmo, casual, em PT-BR.
+
+---
+
+## Decisões estruturais chaves (não altere sem enviar revisão)
+
+* **Modelo de usuário:** *apenas conta individual por usuário.* Não haverá multi-usuário / owners / members. Cada conta corresponde a um usuário único.
+* **Provider IA:** Google **Gemini 3.0 Pro** (Vertex AI). Lovable deve solicitar credenciais (service-account JSON) **apenas** ao usuário que acionar o fluxo de secrets e armazenar no Secret Manager seguro.
+* **Tokens budget inicial:** 100.000 tokens/dia globais. Throttling e alertas definidos.
+
+---
+
+## Regras operacionais cruciais (não negociáveis)
+
+* App sempre online; dados sempre inseridos manualmente.
+* **Não** implementar importação CSV, open banking, OAuth Google (login), nem notificações por SMS/email nesta fase. Notificações: **apenas in-app**.
+* **Cartões e contas bancárias:** somente cadastráveis/visíveis via **Configurações**. Tela **Faturas** exibe apenas *invoices* (faturas) dos cartões cadastrados.
+* **Regra de cartão/fatura:** quando uma compra for registrada no cartão:
+
+  * cria uma transação de despesa imediata;
+  * associa essa transação à fatura correta.
+* **Regra de parcelamento (definitiva):**
+
+  * Ao criar parcelamento, gera um `InstallmentGroup` e cria N `installments`.
+  * **Se a fatura corrente já estiver fechada**, a parcela correspondente será atribuída à **próxima fatura** (próxima do ciclo).
+  * **Não existe** opção de antecipar parcelas.
+  * **Não existe** suporte a estorno/reembolso no sistema (essas operações não são contempladas).
+* **Pagamento de fatura:** só é permitido **pagamento integral da fatura** (sem pagamento parcial). Ao pagar fatura integral:
+
+  * marca a fatura como `paid`;
+  * cria débito na conta selecionada conforme o registro do pagamento;
+  * marca parcelas/transações como reconciled conforme regras internas.
+* **Export:** apenas PDF para relatórios. Não export CSV.
+
+---
+
+## Jornada principal (Herói → Confiança → Ação → Recompensa)
+
+* Herói: dashboard limpo com saudação, despesas do mês (incluindo cartão em tempo real), receitas, fatura atual e CTA “Adicionar transação”.
+* Confiança: consistência entre dashboard / transações / faturas; microfeedbacks; linguagem simples.
+* Ação: Quick Add (≤3 passos), data preenchida por padrão (hoje), categoria sugerida por IA, parcelamento (se cartão) — ver distribuição antes de confirmar.
+* Recompensa: atualização imediata do dashboard e da fatura; micro insight curto.
+
+---
+
+## Navegação (UI)
+
+* Desktop (sidebar): Dashboard, Transações, Contas a pagar, Faturas, Metas, Cofrinho, Configurações.
+* Mobile (barra inferior fixa): [Dashboard] [Transações] [Contas a pagar] [⋯] → overflow (Faturas, Metas, Cofrinho, Configurações).
+* FAB central para Quick Add.
+
+---
+
+## Transações & Quick Add (detalhadíssimo)
+
+* Campos essenciais: `amount`, `type` (expense/income), `payment_method` (cash, debit, transfer, boleto, credit_card, voucher, split), `account_id`, `card_id`, `date` (default hoje, editável), `description`, `category_id` (IA sugere), `tags`, `installments` (se cartão), `attachments`.
+* Parcelamento: `InstallmentGroup` + N `installments`. Distribuição: divisão aritmética com resto aplicado à **última parcela**.
+* Se fatura corrente estiver `closed` no momento do lançamento da compra, a parcela vai para a **next open invoice**.
+* Split payments são permitidos e resultam em sub-transactions vinculadas ao mesmo `event_id`.
+* Edição/exclusão: todas as entidades editáveis/excluíveis; exclusão requer confirmação com checkbox “Eu entendo” + Undo snackbar 8s. Exclusão implementada como soft-delete (campo `deleted_at`).
+
+---
+
+## Vale alimentação (`benefit_card`)
+
+* Conta do tipo `benefit_card` com `track_balance` e `include_in_net_worth`.
+* Depósitos: sempre **manuais** (days_worked opcional, rate_per_day, amount ajustável). Ao salvar, criar entrada e apresentar resumo: “R$ X creditados no Vale Alimentação (Operadora). Saldo: R$ Y.”
+
+---
+
+## Design System — Finow (resumo injetável)
+
+* Minimalista, confortável, espaçamento generoso, prioridade na legibilidade (uma ideia por card).
+* Tokens principais (exemplos): `--color-bg-light: #F7F8F6`, `--color-bg-dark: #0F1A17`, `--glass-blur: 10px`.
+* Glassmorphism: permitido **com parcimônia** em hero cards e modais; evitar em listas longas. Fornecer fallback via `@supports`.
+* Dark Mode: reinterpretação (texto não branco puro). WCAG AA.
+
+---
+
+## Segurança / Privacidade / Dados
+
+* Signup: `name`, `email`, `phone` (opcional), `password`. Phone sem verificação por ora.
+* Soft delete 30 dias; `audit_logs` para ações sensíveis; endpoint para export JSON e requisição de exclusão.
+* `persona_memory.value` deve ser **criptografado** pela aplicação antes de gravar.
+
+---
+
+## IA / AGENTS / CHAT / COACH — Gemini 3.0 Pro (config operacional)
+
+* Provider: **Gemini 3.0 Pro (Vertex AI)**.
+* Secrets endpoint: **POST /secrets/gemini** — aceita `service_account_json`. Lovable DEVE:
+
+  * aceitar credencial **só** de usuário que enviar; validar credencial com chamada de teste e armazenar em Secret Manager.
+  * nunca armazenar credencial em texto claro no DB.
+* Agents definidos: Categorization, Insights, Reminder, Reporting, Anomaly, Chat, Personal Coach.
+* Parâmetros recomendados por agente (temperatura / max_tokens) mantidos conforme documento anteriormente entregue.
+* **Embeddings:** atualizar em **tempo real** ao criar/editar transações; vector DB a ser proposto pelo Lovable (preferência: Pinecone / Supabase — justificar).
+* **Consentimentos granulares** (Configurações → Coach → Permissões):
+
+  * `allow_coach_use_transactions` (sim/não)
+  * `allow_coach_use_invoices` (sim/não)
+  * `allow_coach_use_goals` (sim/não)
+  * `store_conversations` (sim/não) — padrão: **não**
+  * `persona_memory` (sim/não)
+* **Persona memory:** persistir pequenas preferências (ex.: `tone: casual`, `currency: BRL`, `summary_length: short`, `checkin_time`) de forma encriptada e editável em Configurações → Coach → Preferências.
+* **Chat:** não executa criação/edição de transações automaticamente (proibido). Chat pode sugerir ações e instruir usuário como executar.
+* **Coach proativo:** envia check-ins padronizados:
+
+  * Weekly: domingo 20:00 America/Sao_Paulo (ativo por padrão)
+  * Monthly: último domingo do mês 20:00 America/Sao_Paulo (ativo por padrão)
+  * Usuário pode customizar frequências/hora em Configurações → Coach → Check-ins.
+
+---
+
+## Token Budget & Throttling (governança)
+
+* Orçamento global inicial: **100.000 tokens/dia**.
+* Caps por usuário (default): 5.000 tokens/dia.
+* Caps por agente (globais): chat 40k, insights 20k, reporting 20k, categorization 5k, others 5k (ajustáveis).
+* Enforcement:
+
+  * Per-user cap exceeded → **reject** (HTTP 429) with friendly message.
+  * Agent cap exceeded → **degrade** heavy agents (reduzir max_tokens / summary only) and alert admin.
+  * Global 80% → in-app alert; 95% → critical auto-throttle heavy agents e requer ação manual.
+
+---
+
+## API & Entregáveis esperados
+
+* API spec: manter `openapi.yaml` no repo; endpoints essenciais:
+
+  * /auth/register, /auth/login
+  * /accounts (inclui benefit deposits)
+  * /cards (CRUD — apenas em Configurações)
+  * /transactions (GET/POST)
+  * /installments (create)
+  * /invoices (GET, POST pay full)
+  * /reports (POST generate PDF)
+  * /chat/messages (POST)
+  * /agents/personal_coach (control schedules)
+  * /secrets/gemini (POST store credenciais)
+* Entregáveis incrementais esperados do Lovable:
+
+  1. DDL SQL (fornecido) + openapi.yaml
+  2. Prototype PWA (desktop + mobile)
+  3. Implementação core: Quick Add, transactions, installments, invoices, pagamento de fatura (full)
+  4. Integração básica com Gemini (categorization + reminders)
+  5. RAG pipeline + coach (embeddings real-time)
+  6. Tests, security review, deploy guides
+
+---
+
+## Restrições anti-alucinação e compliance
+
+* NÃO fornecer conselhos regulados (investimentos, crédito, seguros). Ao surgir pedido, responder: explicação educativa + recomendar profissional licenciado.
+* TODOS os agentes que gerem mensagens personalizadas devem **citar os dados usados** (campo `data_points`).
+* NUNCA inventar instituições, números de conta ou datas.
+
+---
