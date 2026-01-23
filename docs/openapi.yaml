@@ -1,0 +1,821 @@
+openapi: 3.0.3
+info:
+  title: Finow API
+  version: 1.0.0
+  description: |
+    API de gestão financeira doméstica Finow.
+    Dados inseridos manualmente, sem importação de CSV ou open banking.
+    Público-alvo: 20-28 anos. Tom: mentor calmo, casual, em PT-BR.
+  contact:
+    name: Finow Support
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://fbsuhhmuwkqzpslonlxt.supabase.co/functions/v1
+    description: Production
+
+tags:
+  - name: Accounts
+    description: Gerenciamento de contas bancárias e carteiras
+  - name: Cards
+    description: Gerenciamento de cartões de crédito
+  - name: Transactions
+    description: Transações financeiras
+  - name: Installments
+    description: Parcelamentos
+  - name: Invoices
+    description: Faturas de cartão de crédito
+  - name: Reports
+    description: Relatórios em PDF
+  - name: Chat
+    description: Chat com IA
+  - name: Coach
+    description: Coach financeiro pessoal
+  - name: Secrets
+    description: Gerenciamento de credenciais
+
+paths:
+  /accounts:
+    get:
+      tags:
+        - Accounts
+      summary: Listar contas do usuário
+      description: Retorna todas as contas não deletadas do usuário autenticado
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Incluir contas com soft delete
+      responses:
+        '200':
+          description: Lista de contas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Accounts
+      summary: Criar nova conta
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCreate'
+      responses:
+        '201':
+          description: Conta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cards:
+    get:
+      tags:
+        - Cards
+      summary: Listar cartões do usuário
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de cartões
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Card'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Cards
+      summary: Criar novo cartão
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardCreate'
+      responses:
+        '201':
+          description: Cartão criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Card'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /transactions:
+    get:
+      tags:
+        - Transactions
+      summary: Listar transações
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [expense, income]
+        - name: category_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: account_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: card_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de transações
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Transactions
+      summary: Criar nova transação
+      description: |
+        Cria uma nova transação. Se payment_method for credit_card e installments > 1,
+        cria automaticamente o InstallmentGroup e as parcelas.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201':
+          description: Transação criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /installments:
+    post:
+      tags:
+        - Installments
+      summary: Criar parcelamento
+      description: |
+        Cria um grupo de parcelamento com N parcelas.
+        Regra: se a fatura corrente estiver fechada, a parcela vai para a próxima fatura.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallmentGroupCreate'
+      responses:
+        '201':
+          description: Parcelamento criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallmentGroup'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /invoices:
+    get:
+      tags:
+        - Invoices
+      summary: Listar faturas
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: card_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, paid, overdue]
+      responses:
+        '200':
+          description: Lista de faturas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /pay-invoice:
+    post:
+      tags:
+        - Invoices
+      summary: Pagar fatura integral
+      description: |
+        Paga a fatura integralmente (pagamento parcial não é suportado).
+        Cria débito na conta selecionada e marca parcelas como reconciled.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - invoice_id
+                - account_id
+              properties:
+                invoice_id:
+                  type: string
+                  format: uuid
+                account_id:
+                  type: string
+                  format: uuid
+                  description: Conta de onde será debitado o valor
+      responses:
+        '200':
+          description: Fatura paga
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          description: Fatura já paga ou valor inválido
+
+  /reports:
+    post:
+      tags:
+        - Reports
+      summary: Gerar relatório PDF
+      description: Gera relatório financeiro em formato PDF
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - start_date
+                - end_date
+                - report_type
+              properties:
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                report_type:
+                  type: string
+                  enum: [monthly, quarterly, yearly, custom]
+                include_categories:
+                  type: boolean
+                  default: true
+                include_accounts:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: PDF gerado
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /chat-messages:
+    post:
+      tags:
+        - Chat
+      summary: Enviar mensagem ao chat
+      description: |
+        Envia mensagem para o assistente IA. O chat NÃO executa criação/edição 
+        de transações automaticamente, apenas sugere ações.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  maxLength: 2000
+                context:
+                  type: string
+                  enum: [general, transactions, goals, invoices]
+      responses:
+        '200':
+          description: Resposta do assistente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+                  data_points:
+                    type: array
+                    items:
+                      type: string
+                    description: Dados usados para gerar a resposta
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          description: Limite de tokens excedido
+
+  /personal-coach:
+    post:
+      tags:
+        - Coach
+      summary: Configurar coach pessoal
+      description: Gerencia configurações e check-ins do coach financeiro
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [get_settings, update_settings, trigger_checkin]
+                settings:
+                  type: object
+                  properties:
+                    weekly_checkin_enabled:
+                      type: boolean
+                    monthly_checkin_enabled:
+                      type: boolean
+                    checkin_time:
+                      type: string
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+                    allow_coach_use_transactions:
+                      type: boolean
+                    allow_coach_use_invoices:
+                      type: boolean
+                    allow_coach_use_goals:
+                      type: boolean
+                    store_conversations:
+                      type: boolean
+                    persona_memory:
+                      type: boolean
+      responses:
+        '200':
+          description: Configuração atualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  settings:
+                    type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /secrets-gemini:
+    post:
+      tags:
+        - Secrets
+      summary: Armazenar credenciais Gemini
+      description: |
+        Armazena credenciais do Google Gemini (Vertex AI) de forma segura.
+        A credencial é validada antes de ser armazenada.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - service_account_json
+              properties:
+                service_account_json:
+                  type: string
+                  description: JSON da service account do Google Cloud
+      responses:
+        '200':
+          description: Credencial armazenada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Credencial inválida
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Não autenticado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Unauthorized
+
+  schemas:
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [checking, savings, cash, benefit_card, investment]
+        initial_balance:
+          type: number
+        current_balance:
+          type: number
+        include_in_net_worth:
+          type: boolean
+        track_balance:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AccountCreate:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [checking, savings, cash, benefit_card, investment]
+        initial_balance:
+          type: number
+          default: 0
+        include_in_net_worth:
+          type: boolean
+          default: true
+        track_balance:
+          type: boolean
+          default: true
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        credit_limit:
+          type: number
+        billing_day:
+          type: integer
+          minimum: 1
+          maximum: 31
+        due_day:
+          type: integer
+          minimum: 1
+          maximum: 31
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CardCreate:
+      type: object
+      required:
+        - name
+        - credit_limit
+        - billing_day
+        - due_day
+      properties:
+        name:
+          type: string
+        credit_limit:
+          type: number
+        billing_day:
+          type: integer
+          minimum: 1
+          maximum: 31
+        due_day:
+          type: integer
+          minimum: 1
+          maximum: 31
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        type:
+          type: string
+          enum: [expense, income]
+        payment_method:
+          type: string
+          enum: [cash, debit, transfer, boleto, credit_card, voucher, split]
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+        category_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        card_id:
+          type: string
+          format: uuid
+        invoice_id:
+          type: string
+          format: uuid
+        event_id:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+        attachments:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TransactionCreate:
+      type: object
+      required:
+        - amount
+        - type
+        - payment_method
+        - date
+      properties:
+        amount:
+          type: number
+        type:
+          type: string
+          enum: [expense, income]
+        payment_method:
+          type: string
+          enum: [cash, debit, transfer, boleto, credit_card, voucher, split]
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+        category_id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        card_id:
+          type: string
+          format: uuid
+          description: Obrigatório se payment_method for credit_card
+        tags:
+          type: array
+          items:
+            type: string
+        attachments:
+          type: array
+          items:
+            type: string
+        installments:
+          type: integer
+          minimum: 1
+          maximum: 48
+          description: Número de parcelas (apenas para cartão de crédito)
+
+    InstallmentGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        total_installments:
+          type: integer
+        total_amount:
+          type: number
+        installments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Installment'
+        created_at:
+          type: string
+          format: date-time
+
+    InstallmentGroupCreate:
+      type: object
+      required:
+        - transaction_id
+        - total_installments
+        - total_amount
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+        total_installments:
+          type: integer
+          minimum: 2
+          maximum: 48
+        total_amount:
+          type: number
+
+    Installment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        installment_number:
+          type: integer
+        amount:
+          type: number
+        invoice_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, paid, reconciled]
+        due_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        card_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        reference_month:
+          type: string
+          format: date
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        total_amount:
+          type: number
+        status:
+          type: string
+          enum: [open, closed, paid, overdue]
+        paid_at:
+          type: string
+          format: date-time
+        paid_from_account_id:
+          type: string
+          format: uuid
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
