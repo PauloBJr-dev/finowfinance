@@ -6,8 +6,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Tipos
+interface AccountCreate {
+  name: string;
+  type: 'checking' | 'savings' | 'cash' | 'benefit_card' | 'investment';
+  initial_balance?: number;
+  include_in_net_worth?: boolean;
+  track_balance?: boolean;
+}
+
+interface AccountUpdate {
+  name?: string;
+  type?: 'checking' | 'savings' | 'cash' | 'benefit_card' | 'investment';
+  include_in_net_worth?: boolean;
+  track_balance?: boolean;
+}
+
+// Validação
+function validateAccountCreate(data: unknown): { valid: boolean; error?: string; data?: AccountCreate } {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, error: 'Dados inválidos' };
+  }
+
+  const obj = data as Record<string, unknown>;
+  
+  if (!obj.name || typeof obj.name !== 'string' || obj.name.trim().length < 2) {
+    return { valid: false, error: 'Nome deve ter pelo menos 2 caracteres' };
+  }
+
+  const validTypes = ['checking', 'savings', 'cash', 'benefit_card', 'investment'];
+  if (!obj.type || !validTypes.includes(obj.type as string)) {
+    return { valid: false, error: 'Tipo de conta inválido' };
+  }
+
+  const initialBalance = obj.initial_balance !== undefined ? Number(obj.initial_balance) : 0;
+  if (isNaN(initialBalance)) {
+    return { valid: false, error: 'Saldo inicial inválido' };
+  }
+
+  return {
+    valid: true,
+    data: {
+      name: obj.name.trim(),
+      type: obj.type as AccountCreate['type'],
+      initial_balance: initialBalance,
+      include_in_net_worth: obj.include_in_net_worth !== false,
+      track_balance: obj.track_balance !== false,
+    }
+  };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -20,7 +69,7 @@ serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       console.log('[accounts] Missing or invalid authorization header')
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -37,32 +86,260 @@ serve(async (req) => {
     if (claimsError || !claims?.claims) {
       console.log('[accounts] Invalid token:', claimsError?.message)
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Token inválido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const userId = claims.claims.sub
+    const userId = claims.claims.sub as string
     console.log(`[accounts] Authenticated user: ${userId}`)
 
-    // TODO: Implement accounts CRUD logic
-    return new Response(
-      JSON.stringify({ 
-        error: 'Not Implemented',
-        message: 'Este endpoint ainda não foi implementado',
-        endpoint: '/accounts',
-        methods: ['GET', 'POST', 'PUT', 'DELETE']
-      }),
-      { 
-        status: 501, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const url = new URL(req.url)
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const accountId = pathParts.length > 1 ? pathParts[pathParts.length - 1] : null
+
+    // GET - Listar contas ou buscar uma específica
+    if (req.method === 'GET') {
+      const includeDeleted = url.searchParams.get('include_deleted') === 'true'
+      
+      if (accountId && accountId !== 'accounts') {
+        // Buscar conta específica
+        const { data, error } = await supabase
+          .from('accounts')
+          .select('*')
+          .eq('id', accountId)
+          .eq('user_id', userId)
+          .single()
+
+        if (error) {
+          console.log('[accounts] Error fetching account:', error.message)
+          return new Response(
+            JSON.stringify({ error: 'Conta não encontrada' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify(data),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
+
+      // Listar todas as contas
+      let query = supabase
+        .from('accounts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('name', { ascending: true })
+
+      if (!includeDeleted) {
+        query = query.is('deleted_at', null)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.log('[accounts] Error listing accounts:', error.message)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao listar contas' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // POST - Criar conta
+    if (req.method === 'POST') {
+      const body = await req.json()
+      const validation = validateAccountCreate(body)
+
+      if (!validation.valid) {
+        return new Response(
+          JSON.stringify({ error: validation.error }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const accountData = validation.data!
+      
+      const { data, error } = await supabase
+        .from('accounts')
+        .insert({
+          user_id: userId,
+          name: accountData.name,
+          type: accountData.type,
+          initial_balance: accountData.initial_balance,
+          current_balance: accountData.initial_balance,
+          include_in_net_worth: accountData.include_in_net_worth,
+          track_balance: accountData.track_balance,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.log('[accounts] Error creating account:', error.message)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao criar conta' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('[accounts] Account created:', data.id)
+      return new Response(
+        JSON.stringify(data),
+        { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // PUT - Atualizar conta
+    if (req.method === 'PUT') {
+      if (!accountId || accountId === 'accounts') {
+        return new Response(
+          JSON.stringify({ error: 'ID da conta é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const body = await req.json() as AccountUpdate
+      const updates: Record<string, unknown> = {}
+
+      if (body.name !== undefined) {
+        if (typeof body.name !== 'string' || body.name.trim().length < 2) {
+          return new Response(
+            JSON.stringify({ error: 'Nome deve ter pelo menos 2 caracteres' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        updates.name = body.name.trim()
+      }
+
+      if (body.type !== undefined) {
+        const validTypes = ['checking', 'savings', 'cash', 'benefit_card', 'investment']
+        if (!validTypes.includes(body.type)) {
+          return new Response(
+            JSON.stringify({ error: 'Tipo de conta inválido' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        updates.type = body.type
+      }
+
+      if (body.include_in_net_worth !== undefined) {
+        updates.include_in_net_worth = Boolean(body.include_in_net_worth)
+      }
+
+      if (body.track_balance !== undefined) {
+        updates.track_balance = Boolean(body.track_balance)
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Nenhum campo para atualizar' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .update(updates)
+        .eq('id', accountId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) {
+        console.log('[accounts] Error updating account:', error.message)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao atualizar conta' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('[accounts] Account updated:', accountId)
+      return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // DELETE - Soft delete
+    if (req.method === 'DELETE') {
+      if (!accountId || accountId === 'accounts') {
+        return new Response(
+          JSON.stringify({ error: 'ID da conta é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', accountId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) {
+        console.log('[accounts] Error deleting account:', error.message)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao excluir conta' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('[accounts] Account soft-deleted:', accountId)
+      return new Response(
+        JSON.stringify({ message: 'Conta excluída com sucesso', data }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // PATCH - Restaurar conta
+    if (req.method === 'PATCH') {
+      if (!accountId || accountId === 'accounts') {
+        return new Response(
+          JSON.stringify({ error: 'ID da conta é obrigatório' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .update({ deleted_at: null })
+        .eq('id', accountId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+      if (error) {
+        console.log('[accounts] Error restoring account:', error.message)
+        return new Response(
+          JSON.stringify({ error: 'Erro ao restaurar conta' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      console.log('[accounts] Account restored:', accountId)
+      return new Response(
+        JSON.stringify(data),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Método não permitido' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+
   } catch (error) {
     console.error('[accounts] Error:', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
+    const message = error instanceof Error ? error.message : 'Erro desconhecido'
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message }),
+      JSON.stringify({ error: 'Erro interno do servidor', message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
