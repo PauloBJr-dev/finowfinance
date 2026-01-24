@@ -15,10 +15,10 @@ type PaymentMethod =
   | "cash"
   | "debit"
   | "credit_card"
-  | "pix"
   | "transfer"
   | "boleto"
-  | "voucher";
+  | "voucher"
+  | "split";
 
 interface PaymentMethodSelectProps {
   value: PaymentMethod;
@@ -32,13 +32,13 @@ const paymentMethods: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { value: "pix", label: "Pix", icon: Smartphone },
+  { value: "transfer", label: "Pix/TED", icon: Smartphone },
   { value: "debit", label: "Débito", icon: CreditCard },
   { value: "credit_card", label: "Crédito", icon: CreditCard },
   { value: "cash", label: "Dinheiro", icon: Banknote },
-  { value: "transfer", label: "Transferência", icon: ArrowLeftRight },
   { value: "boleto", label: "Boleto", icon: FileText },
   { value: "voucher", label: "Voucher", icon: Ticket },
+  { value: "split", label: "Dividido", icon: ArrowLeftRight },
 ];
 
 /**

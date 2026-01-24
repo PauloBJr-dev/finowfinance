@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Sidebar } from "@/components/navigation/Sidebar";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { FloatingActionButton } from "@/components/navigation/FloatingActionButton";
+import { QuickAddModal } from "@/components/transactions/QuickAddModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -11,11 +12,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
-
-  const handleQuickAdd = () => {
-    // TODO: Implement quick add modal
-    console.log("Quick Add clicked");
-  };
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,9 +23,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <main
         className={cn(
           "min-h-screen transition-all duration-300",
-          // Desktop: offset for sidebar
           !isMobile && "ml-64",
-          // Mobile: add padding for bottom nav
           isMobile && "pb-20"
         )}
       >
@@ -41,7 +36,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       {isMobile && <BottomNav />}
 
       {/* Floating Action Button */}
-      <FloatingActionButton onClick={handleQuickAdd} />
+      <FloatingActionButton onClick={() => setQuickAddOpen(true)} />
+
+      {/* Quick Add Modal */}
+      <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
     </div>
   );
 }
