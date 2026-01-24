@@ -64,6 +64,82 @@ export type Database = {
           },
         ]
       }
+      ai_settings: {
+        Row: {
+          categorization_enabled: boolean
+          created_at: string
+          daily_token_limit: number
+          id: string
+          reminders_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categorization_enabled?: boolean
+          created_at?: string
+          daily_token_limit?: number
+          id?: string
+          reminders_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categorization_enabled?: boolean
+          created_at?: string
+          daily_token_limit?: number
+          id?: string
+          reminders_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_token_usage: {
+        Row: {
+          agent_name: string
+          created_at: string
+          date: string
+          id: string
+          request_count: number
+          tokens_used: number
+          user_id: string
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string
+          date?: string
+          id?: string
+          request_count?: number
+          tokens_used?: number
+          user_id: string
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string
+          date?: string
+          id?: string
+          request_count?: number
+          tokens_used?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_token_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: Database["public"]["Enums"]["audit_action"]
@@ -473,6 +549,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reminders: {
+        Row: {
+          created_at: string
+          data_points: Json | null
+          dismissed_at: string | null
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string
+          related_entity_id: string | null
+          related_entity_type: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_points?: Json | null
+          dismissed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data_points?: Json | null
+          dismissed_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          related_entity_id?: string | null
+          related_entity_type?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
