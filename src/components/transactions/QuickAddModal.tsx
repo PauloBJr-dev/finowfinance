@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -32,6 +32,9 @@ interface QuickAddModalProps {
 type TransactionType = "expense" | "income";
 type PaymentMethod = "cash" | "debit" | "credit_card" | "transfer" | "boleto" | "voucher" | "split";
 
+// Métodos válidos para receita
+const INCOME_PAYMENT_METHODS: PaymentMethod[] = ["transfer", "cash", "debit"];
+
 export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
@@ -51,13 +54,26 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const [accountId, setAccountId] = useState<string | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
   const [isInstallment, setIsInstallment] = useState(false);
-  const [installments, setInstallments] = useState(2);
+  const [installmentCount, setInstallmentCount] = useState<string>("");
 
   const { data: accounts = [] } = useAccounts();
   const { data: cards = [] } = useCards();
   const { data: aiSettings } = useAISettings();
   const createTransaction = useCreateTransaction();
   const suggestCategory = useSuggestCategory();
+
+  // Determina se cartão de crédito é permitido (apenas despesas)
+  const isCreditCardAllowed = type === "expense";
+  const isCreditCardSelected = paymentMethod === "credit_card";
+  
+  // Parcelamento: apenas despesa + cartão de crédito
+  const canShowInstallment = type === "expense" && isCreditCardSelected;
+
+  // Número de parcelas parseado
+  const parsedInstallments = useMemo(() => {
+    const num = parseInt(installmentCount);
+    return !isNaN(num) && num >= 2 && num <= 48 ? num : 0;
+  }, [installmentCount]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -72,28 +88,56 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setAccountId(null);
       setCardId(null);
       setIsInstallment(false);
-      setInstallments(2);
+      setInstallmentCount("");
       setAiSuggestion(null);
     }
   }, [open]);
 
+  // Quando tipo muda, ajusta método de pagamento se inválido
+  useEffect(() => {
+    if (type === "income" && !INCOME_PAYMENT_METHODS.includes(paymentMethod)) {
+      setPaymentMethod("transfer");
+    }
+    // Reset parcelamento ao mudar para receita
+    if (type === "income") {
+      setIsInstallment(false);
+      setInstallmentCount("");
+      setCardId(null);
+    }
+    // Reset categoria ao mudar tipo (categorias são diferentes)
+    setCategoryId(null);
+    setAiSuggestion(null);
+  }, [type]);
+
+  // Reset parcelamento quando muda método de pagamento
+  useEffect(() => {
+    if (paymentMethod !== "credit_card") {
+      setIsInstallment(false);
+      setInstallmentCount("");
+    }
+  }, [paymentMethod]);
+
   // Auto-select first account/card when step 3 loads
   useEffect(() => {
     if (step === 3) {
-      if (paymentMethod === "credit_card" && cards.length > 0 && !cardId) {
+      if (isCreditCardSelected && cards.length > 0 && !cardId) {
         setCardId(cards[0].id);
-      } else if (paymentMethod !== "credit_card" && accounts.length > 0 && !accountId) {
+      } else if (!isCreditCardSelected && accounts.length > 0 && !accountId) {
         setAccountId(accounts[0].id);
       }
     }
-  }, [step, paymentMethod, accounts, cards, accountId, cardId]);
+  }, [step, isCreditCardSelected, accounts, cards, accountId, cardId]);
 
   const canProceedStep1 = amount > 0;
   const canProceedStep2 = categoryId !== null;
-  const canProceedStep3 = paymentMethod === "credit_card" ? cardId !== null : accountId !== null;
+  const canProceedStep3 = isCreditCardSelected ? cardId !== null : accountId !== null;
 
   const handleSubmit = async () => {
     try {
+      const finalInstallments = canShowInstallment && isInstallment && parsedInstallments >= 2 
+        ? parsedInstallments 
+        : undefined;
+
       await createTransaction.mutateAsync({
         amount,
         type,
@@ -101,9 +145,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         date: date.toISOString().split('T')[0],
         description: description || null,
         category_id: categoryId,
-        account_id: paymentMethod === "credit_card" ? null : accountId,
-        card_id: paymentMethod === "credit_card" ? cardId : null,
-        installments: paymentMethod === "credit_card" && isInstallment ? installments : undefined,
+        account_id: isCreditCardSelected ? null : accountId,
+        card_id: isCreditCardSelected ? cardId : null,
+        installments: finalInstallments,
       });
       onOpenChange(false);
     } catch (error) {
@@ -131,14 +175,14 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         {step === 1 && (
           <div className="space-y-4">
             {/* Type Toggle */}
-            <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-1">
+            <div className="flex items-center justify-center gap-1 rounded-lg bg-muted p-1">
               <button
                 onClick={() => setType("expense")}
                 className={cn(
-                  "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  "flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all",
                   type === "expense"
-                    ? "bg-destructive/10 text-destructive"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-destructive text-destructive-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 )}
               >
                 Despesa
@@ -146,10 +190,10 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               <button
                 onClick={() => setType("income")}
                 className={cn(
-                  "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  "flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-all",
                   type === "income"
-                    ? "bg-success/10 text-success"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-success text-success-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                 )}
               >
                 Receita
@@ -158,7 +202,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
             {/* Amount */}
             <div className="space-y-2">
-              <Label>Valor</Label>
+              <Label>{type === "expense" ? "Quanto gastou?" : "Quanto recebeu?"}</Label>
               <CurrencyInput
                 value={amount}
                 onChange={setAmount}
@@ -180,7 +224,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                     {format(date, "PPP", { locale: ptBR })}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 bg-popover" align="start">
                   <Calendar
                     mode="single"
                     selected={date}
@@ -213,7 +257,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               Voltar
             </button>
 
-            {/* AI Category Suggestion */}
+            {/* AI Category Suggestion - apenas para despesas */}
             {aiSettings?.categorization_enabled && type === "expense" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -278,12 +322,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               />
             </div>
 
-            {/* Payment Method */}
+            {/* Payment Method - adapta ao tipo */}
             <div className="space-y-2">
-              <Label>Forma de pagamento</Label>
+              <Label>{type === "expense" ? "Forma de pagamento" : "Forma de recebimento"}</Label>
               <PaymentMethodSelect
                 value={paymentMethod}
                 onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                transactionType={type}
               />
             </div>
 
@@ -293,7 +338,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Mercado, Almoço..."
+                placeholder={type === "expense" ? "Ex: Mercado, Almoço..." : "Ex: Salário de Janeiro..."}
               />
             </div>
 
@@ -318,7 +363,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               Voltar
             </button>
 
-            {paymentMethod === "credit_card" ? (
+            {isCreditCardSelected && type === "expense" ? (
               <>
                 {/* Card Select */}
                 <div className="space-y-2">
@@ -327,7 +372,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um cartão" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover">
                       {cards.map((card) => (
                         <SelectItem key={card.id} value={card.id}>
                           {card.name}
@@ -342,55 +387,62 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                   )}
                 </div>
 
-                {/* Installments */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="installment-switch">É parcelado?</Label>
-                    <Switch
-                      id="installment-switch"
-                      checked={isInstallment}
-                      onCheckedChange={setIsInstallment}
-                    />
-                  </div>
-
-                  {isInstallment && (
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Número de parcelas</Label>
-                        <Select
-                          value={installments.toString()}
-                          onValueChange={(v) => setInstallments(parseInt(v))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                              <SelectItem key={n} value={n.toString()}>
-                                {n}x
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Preview compacto */}
-                      <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-                        {formatInstallmentPreview(amount, installments)}
-                      </div>
+                {/* Installments - Apenas para cartão de crédito */}
+                {canShowInstallment && (
+                  <div className="space-y-3 rounded-lg border bg-card/50 p-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="installment-switch" className="cursor-pointer">
+                        Compra parcelada?
+                      </Label>
+                      <Switch
+                        id="installment-switch"
+                        checked={isInstallment}
+                        onCheckedChange={setIsInstallment}
+                      />
                     </div>
-                  )}
-                </div>
+
+                    {isInstallment && (
+                      <div className="space-y-3 pt-2 border-t">
+                        <div className="space-y-2">
+                          <Label htmlFor="installment-count">Número de parcelas</Label>
+                          <Input
+                            id="installment-count"
+                            type="number"
+                            inputMode="numeric"
+                            min={2}
+                            max={48}
+                            value={installmentCount}
+                            onChange={(e) => setInstallmentCount(e.target.value)}
+                            placeholder="Ex: 3"
+                            className="text-center text-lg font-medium"
+                          />
+                          <p className="text-xs text-muted-foreground text-center">
+                            De 2 a 48 parcelas
+                          </p>
+                        </div>
+
+                        {/* Preview compacto */}
+                        {parsedInstallments >= 2 && (
+                          <div className="rounded-lg bg-muted/50 p-3 text-sm text-center">
+                            <span className="font-medium text-foreground">
+                              {formatInstallmentPreview(amount, parsedInstallments)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             ) : (
               /* Account Select */
               <div className="space-y-2">
-                <Label>Conta</Label>
+                <Label>{type === "expense" ? "Pagar com" : "Receber em"}</Label>
                 <Select value={accountId || ""} onValueChange={setAccountId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma conta" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover">
                     {accounts.map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name}
@@ -410,7 +462,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
             <div className="rounded-lg border bg-card p-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tipo</span>
-                <span className={type === "expense" ? "text-destructive" : "text-success"}>
+                <span className={type === "expense" ? "text-destructive font-medium" : "text-success font-medium"}>
                   {type === "expense" ? "Despesa" : "Receita"}
                 </span>
               </div>
@@ -422,6 +474,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 <span className="text-muted-foreground">Data</span>
                 <span>{formatDate(date)}</span>
               </div>
+              {isInstallment && parsedInstallments >= 2 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Parcelas</span>
+                  <span className="font-medium">{parsedInstallments}x</span>
+                </div>
+              )}
             </div>
 
             <Button
@@ -451,7 +509,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>
               {step === 1 && "Nova transação"}
-              {step === 2 && "Detalhes"}
+              {step === 2 && (type === "expense" ? "Detalhes da despesa" : "Detalhes da receita")}
               {step === 3 && "Confirmar"}
             </DrawerTitle>
           </DrawerHeader>
@@ -467,7 +525,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {step === 1 && "Nova transação"}
-            {step === 2 && "Detalhes"}
+            {step === 2 && (type === "expense" ? "Detalhes da despesa" : "Detalhes da receita")}
             {step === 3 && "Confirmar"}
           </DialogTitle>
         </DialogHeader>
