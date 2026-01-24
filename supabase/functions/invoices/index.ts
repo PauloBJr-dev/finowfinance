@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -15,20 +14,18 @@ serve(async (req) => {
   console.log(`[invoices] ${req.method} request received`)
 
   try {
-    // Only GET is allowed
+    // Apenas GET é permitido neste endpoint
     if (req.method !== 'GET') {
       return new Response(
-        JSON.stringify({ error: 'Method Not Allowed' }),
+        JSON.stringify({ error: 'Método não permitido' }),
         { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Auth validation
     const authHeader = req.headers.get('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-      console.log('[invoices] Missing or invalid authorization header')
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Não autorizado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -43,40 +40,117 @@ serve(async (req) => {
     const { data: claims, error: claimsError } = await supabase.auth.getClaims(token)
     
     if (claimsError || !claims?.claims) {
-      console.log('[invoices] Invalid token:', claimsError?.message)
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Token inválido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const userId = claims.claims.sub
-    console.log(`[invoices] Authenticated user: ${userId}`)
+    const userId = claims.claims.sub as string
 
-    // TODO: Implement invoices list logic
-    // - List invoices with optional filters (card_id, status)
-    // - Include related transactions and installments
-    return new Response(
-      JSON.stringify({ 
-        error: 'Not Implemented',
-        message: 'Este endpoint ainda não foi implementado',
-        endpoint: '/invoices',
-        methods: ['GET'],
-        notes: [
-          'Lista faturas com filtros opcionais (card_id, status)',
-          'Inclui transações e parcelas relacionadas'
-        ]
-      }),
-      { 
-        status: 501, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const url = new URL(req.url)
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const invoiceId = pathParts.length > 1 ? pathParts[pathParts.length - 1] : null
+
+    // Filtros
+    const cardId = url.searchParams.get('card_id')
+    const status = url.searchParams.get('status')
+    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const offset = parseInt(url.searchParams.get('offset') || '0')
+
+    // Buscar fatura específica com detalhes
+    if (invoiceId && invoiceId !== 'invoices') {
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .select(`
+          *,
+          cards(*),
+          accounts:paid_from_account_id(*)
+        `)
+        .eq('id', invoiceId)
+        .eq('user_id', userId)
+        .single()
+
+      if (invoiceError) {
+        return new Response(
+          JSON.stringify({ error: 'Fatura não encontrada' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
+
+      // Buscar transações associadas (não parceladas)
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*, categories(*)')
+        .eq('invoice_id', invoiceId)
+        .is('deleted_at', null)
+        .order('date', { ascending: false })
+
+      // Buscar parcelas associadas
+      const { data: installments } = await supabase
+        .from('installments')
+        .select(`
+          *,
+          installment_groups(
+            *,
+            transactions(*, categories(*))
+          )
+        `)
+        .eq('invoice_id', invoiceId)
+        .order('installment_number', { ascending: true })
+
+      return new Response(
+        JSON.stringify({
+          ...invoice,
+          transactions: transactions || [],
+          installments: installments || [],
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Listar faturas
+    let query = supabase
+      .from('invoices')
+      .select(`
+        *,
+        cards(*)
+      `, { count: 'exact' })
+      .eq('user_id', userId)
+      .order('due_date', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    if (cardId) {
+      query = query.eq('card_id', cardId)
+    }
+
+    if (status) {
+      const validStatuses = ['open', 'closed', 'paid', 'overdue']
+      if (validStatuses.includes(status)) {
+        query = query.eq('status', status)
+      }
+    }
+
+    const { data, error, count } = await query
+
+    if (error) {
+      console.error('[invoices] Error listing:', error.message)
+      return new Response(
+        JSON.stringify({ error: 'Erro ao listar faturas' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ data, total: count, limit, offset }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+
   } catch (error) {
     console.error('[invoices] Error:', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
+    const message = error instanceof Error ? error.message : 'Erro desconhecido'
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message }),
+      JSON.stringify({ error: 'Erro interno do servidor', message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
