@@ -134,9 +134,11 @@ serve(async (req) => {
 
         const title = daysUntilDue === 0 
           ? `Fatura do ${cardName} vence hoje`
-          : `Fatura do ${cardName} vence em ${daysUntilDue} dias`
+          : `Fatura do ${cardName} vence em ${daysUntilDue} dia${daysUntilDue > 1 ? 's' : ''}`
 
-        const message = `A fatura de R$ ${invoice.total_amount.toFixed(2)} do ${cardName} vence em ${dueDate.toLocaleDateString('pt-BR')}. Lembre-se de efetuar o pagamento.`
+        const message = daysUntilDue === 0
+          ? `Sua fatura de R$ ${invoice.total_amount.toFixed(2)} do ${cardName} vence hoje. Se quiser, dá uma olhada quando for um bom momento.`
+          : `Sua fatura de R$ ${invoice.total_amount.toFixed(2)} do ${cardName} vence em ${daysUntilDue} dia${daysUntilDue > 1 ? 's' : ''}. Fica tranquilo, é só um lembrete amigável.`
 
         await supabaseAdmin
           .from('reminders')
@@ -185,8 +187,8 @@ serve(async (req) => {
         const cardName = (invoice.cards as any)?.name || 'Cartão'
         const dueDate = new Date(invoice.due_date)
 
-        const title = `Fatura do ${cardName} vencida`
-        const message = `A fatura de R$ ${invoice.total_amount.toFixed(2)} do ${cardName} venceu em ${dueDate.toLocaleDateString('pt-BR')}. Considere regularizar o pagamento.`
+        const title = `Fatura do ${cardName} ainda não paga`
+        const message = `Essa fatura de R$ ${invoice.total_amount.toFixed(2)} do ${cardName} já fechou e ainda não foi paga. Quer dar uma olhada?`
 
         await supabaseAdmin
           .from('reminders')
