@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -24,14 +24,18 @@ type PaymentMethod =
   | "voucher"
   | "split";
 
+type TransactionType = "expense" | "income";
+
 interface PaymentMethodSelectProps {
   value: PaymentMethod;
   onChange: (value: PaymentMethod) => void;
+  transactionType?: TransactionType;
   className?: string;
   disabled?: boolean;
 }
 
-const primaryMethods: {
+// Métodos de DESPESA
+const expensePrimaryMethods: {
   value: PaymentMethod;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -42,7 +46,7 @@ const primaryMethods: {
   { value: "cash", label: "Dinheiro", icon: Banknote },
 ];
 
-const secondaryMethods: {
+const expenseSecondaryMethods: {
   value: PaymentMethod;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -52,29 +56,55 @@ const secondaryMethods: {
   { value: "split", label: "Dividido", icon: ArrowLeftRight },
 ];
 
-const allMethods = [...primaryMethods, ...secondaryMethods];
+// Métodos de RECEITA (apenas formas de recebimento)
+const incomeMethods: {
+  value: PaymentMethod;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { value: "transfer", label: "Pix/TED", icon: Smartphone },
+  { value: "cash", label: "Dinheiro", icon: Banknote },
+  { value: "debit", label: "Depósito", icon: CreditCard },
+];
+
+const allExpenseMethods = [...expensePrimaryMethods, ...expenseSecondaryMethods];
+const allMethods = [...allExpenseMethods, ...incomeMethods];
 
 /**
- * Seletor visual de método de pagamento com opção de expandir métodos secundários
+ * Seletor visual de método de pagamento
+ * Adapta-se ao tipo de transação: Despesa ou Receita
  */
 export function PaymentMethodSelect({
   value,
   onChange,
+  transactionType = "expense",
   className,
   disabled = false,
 }: PaymentMethodSelectProps) {
+  const isIncome = transactionType === "income";
+  
   const [showMore, setShowMore] = useState(() => 
-    secondaryMethods.some(m => m.value === value)
+    !isIncome && expenseSecondaryMethods.some(m => m.value === value)
   );
 
-  const visibleMethods = showMore ? allMethods : primaryMethods;
+  // Determina métodos visíveis baseado no tipo
+  const visibleMethods = useMemo(() => {
+    if (isIncome) {
+      return incomeMethods;
+    }
+    return showMore ? allExpenseMethods : expensePrimaryMethods;
+  }, [isIncome, showMore]);
+
+  // Se valor atual não é válido para o tipo, não exibe erro (será resetado pelo parent)
+  const isValueValid = visibleMethods.some(m => m.value === value) || 
+    (isIncome ? incomeMethods : allExpenseMethods).some(m => m.value === value);
 
   return (
     <div className={cn("space-y-2", className)}>
       <RadioGroup
-        value={value}
+        value={isValueValid ? value : undefined}
         onValueChange={(v) => onChange(v as PaymentMethod)}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-2"
         disabled={disabled}
       >
         {visibleMethods.map((method) => {
@@ -107,7 +137,7 @@ export function PaymentMethodSelect({
                 />
                 <span
                   className={cn(
-                    "text-[10px] sm:text-xs font-medium",
+                    "text-[10px] sm:text-xs font-medium text-center",
                     isSelected ? "text-primary" : "text-foreground"
                   )}
                 >
@@ -119,25 +149,28 @@ export function PaymentMethodSelect({
         })}
       </RadioGroup>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => setShowMore(!showMore)}
-        className="w-full text-xs text-muted-foreground hover:text-foreground gap-1"
-      >
-        {showMore ? (
-          <>
-            <ChevronUp className="h-3 w-3" />
-            Menos opções
-          </>
-        ) : (
-          <>
-            <ChevronDown className="h-3 w-3" />
-            Outras formas
-          </>
-        )}
-      </Button>
+      {/* Botão "Outras formas" apenas para despesas */}
+      {!isIncome && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowMore(!showMore)}
+          className="w-full text-xs text-muted-foreground hover:text-foreground gap-1"
+        >
+          {showMore ? (
+            <>
+              <ChevronUp className="h-3 w-3" />
+              Menos opções
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3 w-3" />
+              Outras formas
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }
@@ -146,6 +179,6 @@ export function PaymentMethodSelect({
  * Retorna ícone e label do método de pagamento
  */
 export function getPaymentMethodDisplay(method: PaymentMethod) {
-  const found = allMethods.find((m) => m.value === method);
+  const found = [...allExpenseMethods, ...incomeMethods].find((m) => m.value === method);
   return found || { label: method, icon: Wallet };
 }
