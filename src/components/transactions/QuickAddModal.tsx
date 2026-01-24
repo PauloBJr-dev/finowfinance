@@ -112,341 +112,343 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   };
 
   const content = (
-    <div className="flex flex-col gap-6 p-4">
-      {/* Progress indicator */}
-      <div className="flex items-center justify-center gap-2">
-        {[1, 2, 3].map((s) => (
-          <div
-            key={s}
-            className={cn(
-              "h-2 w-8 rounded-full transition-colors",
-              s === step ? "bg-primary" : s < step ? "bg-primary/50" : "bg-muted"
-            )}
-          />
-        ))}
-      </div>
-
-      {/* Step 1: Type, Amount, Date */}
-      {step === 1 && (
-        <div className="space-y-6">
-          {/* Type Toggle */}
-          <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-1">
-            <button
-              onClick={() => setType("expense")}
+    <div className="flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-4 p-4 pb-8">
+        {/* Progress indicator */}
+        <div className="flex items-center justify-center gap-2">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
               className={cn(
-                "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                type === "expense"
-                  ? "bg-destructive/10 text-destructive"
-                  : "text-muted-foreground hover:text-foreground"
+                "h-2 w-8 rounded-full transition-colors",
+                s === step ? "bg-primary" : s < step ? "bg-primary/50" : "bg-muted"
               )}
-            >
-              Despesa
-            </button>
-            <button
-              onClick={() => setType("income")}
-              className={cn(
-                "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                type === "income"
-                  ? "bg-success/10 text-success"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Receita
-            </button>
-          </div>
-
-          {/* Amount */}
-          <div className="space-y-2">
-            <Label>Valor</Label>
-            <CurrencyInput
-              value={amount}
-              onChange={setAmount}
-              placeholder="R$ 0,00"
-              className="text-2xl font-semibold h-14"
             />
-          </div>
-
-          {/* Date */}
-          <div className="space-y-2">
-            <Label>Data</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(date, "PPP", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => d && setDate(d)}
-                  locale={ptBR}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          <Button
-            onClick={() => setStep(2)}
-            disabled={!canProceedStep1}
-            className="w-full"
-          >
-            Continuar
-          </Button>
+          ))}
         </div>
-      )}
 
-      {/* Step 2: Category, Payment Method, Description */}
-      {step === 2 && (
-        <div className="space-y-6">
-          <button
-            onClick={() => setStep(1)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </button>
+        {/* Step 1: Type, Amount, Date */}
+        {step === 1 && (
+          <div className="space-y-4">
+            {/* Type Toggle */}
+            <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-1">
+              <button
+                onClick={() => setType("expense")}
+                className={cn(
+                  "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  type === "expense"
+                    ? "bg-destructive/10 text-destructive"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Despesa
+              </button>
+              <button
+                onClick={() => setType("income")}
+                className={cn(
+                  "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+                  type === "income"
+                    ? "bg-success/10 text-success"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Receita
+              </button>
+            </div>
 
-          {/* AI Category Suggestion */}
-          {aiSettings?.categorization_enabled && type === "expense" && (
+            {/* Amount */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    if (!description && amount <= 0) return;
-                    const result = await suggestCategory.mutateAsync({
-                      description: description || `Transação de ${formatCurrency(amount)}`,
-                      amount,
-                      payment_method: paymentMethod,
-                    });
-                    if (result && !result.fallback) {
-                      setAiSuggestion({
-                        category_id: result.category_id,
-                        category_name: result.category_name,
-                        confidence: result.confidence_score,
-                      });
-                    }
-                  }}
-                  disabled={suggestCategory.isPending || (!description && amount <= 0)}
-                  className="gap-2"
-                >
-                  {suggestCategory.isPending ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3 w-3" />
-                  )}
-                  Sugerir categoria
-                </Button>
+              <Label>Valor</Label>
+              <CurrencyInput
+                value={amount}
+                onChange={setAmount}
+                placeholder="R$ 0,00"
+                className="text-2xl font-semibold h-14"
+              />
+            </div>
 
-                {aiSuggestion && (
-                  <Badge
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-primary/20"
-                    onClick={() => {
-                      setCategoryId(aiSuggestion.category_id);
-                      setAiSuggestion(null);
-                    }}
+            {/* Date */}
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
                   >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Sugestão: {aiSuggestion.category_name}
-                  </Badge>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(date, "PPP", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(d) => d && setDate(d)}
+                    locale={ptBR}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button
+              onClick={() => setStep(2)}
+              disabled={!canProceedStep1}
+              className="w-full"
+            >
+              Continuar
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Category, Payment Method, Description */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setStep(1)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+
+            {/* AI Category Suggestion */}
+            {aiSettings?.categorization_enabled && type === "expense" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!description && amount <= 0) return;
+                      const result = await suggestCategory.mutateAsync({
+                        description: description || `Transação de ${formatCurrency(amount)}`,
+                        amount,
+                        payment_method: paymentMethod,
+                      });
+                      if (result && !result.fallback) {
+                        setAiSuggestion({
+                          category_id: result.category_id,
+                          category_name: result.category_name,
+                          confidence: result.confidence_score,
+                        });
+                      }
+                    }}
+                    disabled={suggestCategory.isPending || (!description && amount <= 0)}
+                    className="gap-2"
+                  >
+                    {suggestCategory.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Sugerir categoria
+                  </Button>
+
+                  {aiSuggestion && (
+                    <Badge
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-primary/20"
+                      onClick={() => {
+                        setCategoryId(aiSuggestion.category_id);
+                        setAiSuggestion(null);
+                      }}
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Sugestão: {aiSuggestion.category_name}
+                    </Badge>
+                  )}
+                </div>
+                {aiSuggestion && (
+                  <p className="text-xs text-muted-foreground">
+                    Clique na sugestão para aplicar
+                  </p>
                 )}
               </div>
-              {aiSuggestion && (
-                <p className="text-xs text-muted-foreground">
-                  Clique na sugestão para aplicar
-                </p>
-              )}
+            )}
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <CategorySelect
+                value={categoryId}
+                onChange={setCategoryId}
+                type={type}
+              />
             </div>
-          )}
 
-          {/* Category */}
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <CategorySelect
-              value={categoryId}
-              onChange={setCategoryId}
-              type={type}
-            />
+            {/* Payment Method */}
+            <div className="space-y-2">
+              <Label>Forma de pagamento</Label>
+              <PaymentMethodSelect
+                value={paymentMethod}
+                onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Descrição (opcional)</Label>
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ex: Mercado, Almoço..."
+              />
+            </div>
+
+            <Button
+              onClick={() => setStep(3)}
+              disabled={!canProceedStep2}
+              className="w-full"
+            >
+              Continuar
+            </Button>
           </div>
+        )}
 
-          {/* Payment Method */}
-          <div className="space-y-2">
-            <Label>Forma de pagamento</Label>
-            <PaymentMethodSelect
-              value={paymentMethod}
-              onChange={(v) => setPaymentMethod(v as PaymentMethod)}
-            />
-          </div>
+        {/* Step 3: Account/Card + Installments */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label>Descrição (opcional)</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ex: Mercado, Almoço..."
-            />
-          </div>
+            {paymentMethod === "credit_card" ? (
+              <>
+                {/* Card Select */}
+                <div className="space-y-2">
+                  <Label>Cartão</Label>
+                  <Select value={cardId || ""} onValueChange={setCardId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um cartão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {card.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {cards.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum cartão cadastrado. Cadastre um em Configurações.
+                    </p>
+                  )}
+                </div>
 
-          <Button
-            onClick={() => setStep(3)}
-            disabled={!canProceedStep2}
-            className="w-full"
-          >
-            Continuar
-          </Button>
-        </div>
-      )}
+                {/* Installments */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="installment-switch">É parcelado?</Label>
+                    <Switch
+                      id="installment-switch"
+                      checked={isInstallment}
+                      onCheckedChange={setIsInstallment}
+                    />
+                  </div>
 
-      {/* Step 3: Account/Card + Installments */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <button
-            onClick={() => setStep(2)}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </button>
+                  {isInstallment && (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label>Número de parcelas</Label>
+                        <Select
+                          value={installments.toString()}
+                          onValueChange={(v) => setInstallments(parseInt(v))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                              <SelectItem key={n} value={n.toString()}>
+                                {n}x
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-          {paymentMethod === "credit_card" ? (
-            <>
-              {/* Card Select */}
+                      {/* Preview compacto */}
+                      <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+                        {formatInstallmentPreview(amount, installments)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Account Select */
               <div className="space-y-2">
-                <Label>Cartão</Label>
-                <Select value={cardId || ""} onValueChange={setCardId}>
+                <Label>Conta</Label>
+                <Select value={accountId || ""} onValueChange={setAccountId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cartão" />
+                    <SelectValue placeholder="Selecione uma conta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {cards.map((card) => (
-                      <SelectItem key={card.id} value={card.id}>
-                        {card.name}
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {cards.length === 0 && (
+                {accounts.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Nenhum cartão cadastrado. Cadastre um em Configurações.
+                    Nenhuma conta cadastrada. Cadastre uma em Configurações.
                   </p>
                 )}
               </div>
-
-              {/* Installments */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="installment-switch">É parcelado?</Label>
-                  <Switch
-                    id="installment-switch"
-                    checked={isInstallment}
-                    onCheckedChange={setIsInstallment}
-                  />
-                </div>
-
-                {isInstallment && (
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label>Número de parcelas</Label>
-                      <Select
-                        value={installments.toString()}
-                        onValueChange={(v) => setInstallments(parseInt(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                            <SelectItem key={n} value={n.toString()}>
-                              {n}x
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Preview compacto */}
-                    <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-                      {formatInstallmentPreview(amount, installments)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            /* Account Select */
-            <div className="space-y-2">
-              <Label>Conta</Label>
-              <Select value={accountId || ""} onValueChange={setAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma conta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {accounts.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Nenhuma conta cadastrada. Cadastre uma em Configurações.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Summary */}
-          <div className="rounded-lg border bg-card p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Tipo</span>
-              <span className={type === "expense" ? "text-destructive" : "text-success"}>
-                {type === "expense" ? "Despesa" : "Receita"}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Valor</span>
-              <span className="font-medium">{formatCurrency(amount)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Data</span>
-              <span>{formatDate(date)}</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleSubmit}
-            disabled={!canProceedStep3 || createTransaction.isPending}
-            className="w-full"
-          >
-            {createTransaction.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Confirmar"
             )}
-          </Button>
-        </div>
-      )}
+
+            {/* Summary */}
+            <div className="rounded-lg border bg-card p-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tipo</span>
+                <span className={type === "expense" ? "text-destructive" : "text-success"}>
+                  {type === "expense" ? "Despesa" : "Receita"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Valor</span>
+                <span className="font-medium">{formatCurrency(amount)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Data</span>
+                <span>{formatDate(date)}</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={!canProceedStep3 || createTransaction.isPending}
+              className="w-full"
+            >
+              {createTransaction.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Confirmar"
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <DrawerHeader>
+        <DrawerContent className="max-h-[85vh] flex flex-col">
+          <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>
               {step === 1 && "Nova transação"}
               {step === 2 && "Detalhes"}
@@ -461,8 +463,8 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {step === 1 && "Nova transação"}
             {step === 2 && "Detalhes"}

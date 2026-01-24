@@ -86,7 +86,11 @@ export function CategorySelect({
   }
 
   return (
-    <div className={cn("grid grid-cols-4 gap-2", className)}>
+    <div className={cn(
+      "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2",
+      "max-h-48 overflow-y-auto pr-1",
+      className
+    )}>
       {categories.map((category) => {
         const IconComponent = iconMap[category.icon || "Tag"] || Tag;
         const isSelected = value === category.id;
@@ -97,7 +101,7 @@ export function CategorySelect({
             type="button"
             onClick={() => onChange(category.id)}
             className={cn(
-              "flex flex-col items-center justify-center rounded-lg p-3 transition-all",
+              "flex flex-col items-center justify-center rounded-lg p-2 sm:p-3 transition-all",
               "border-2 hover:bg-muted/50",
               isSelected
                 ? "border-primary bg-primary/5"
@@ -105,7 +109,7 @@ export function CategorySelect({
             )}
           >
             <div
-              className="flex h-8 w-8 items-center justify-center rounded-full mb-1"
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full mb-1"
               style={{
                 backgroundColor: category.color
                   ? `${category.color}20`
@@ -113,7 +117,7 @@ export function CategorySelect({
               }}
             >
               <IconComponent
-                className="h-4 w-4"
+                className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                 style={{
                   color: category.color || "hsl(var(--muted-foreground))",
                 }}
@@ -121,7 +125,7 @@ export function CategorySelect({
             </div>
             <span
               className={cn(
-                "text-xs font-medium text-center line-clamp-1",
+                "text-[10px] sm:text-xs font-medium text-center line-clamp-1",
                 isSelected ? "text-primary" : "text-foreground"
               )}
             >
