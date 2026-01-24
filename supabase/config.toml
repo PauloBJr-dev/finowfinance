@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.secrets-gemini]
 verify_jwt = false
+
+[functions.ai-categorize]
+verify_jwt = false
+
+[functions.ai-reminders]
+verify_jwt = false

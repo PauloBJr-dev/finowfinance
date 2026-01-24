@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Wallet, TrendingDown, TrendingUp, CreditCard, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { RemindersCard } from "@/components/dashboard/RemindersCard";
 
 export default function Dashboard() {
   const { data: profile } = useProfile();
@@ -31,6 +32,9 @@ export default function Dashboard() {
           <h1 className="text-2xl font-semibold">{greeting}{firstName ? `, ${firstName}` : ""}!</h1>
           <p className="text-muted-foreground">Seu resumo financeiro do mês.</p>
         </div>
+
+        {/* Reminders - Discreto no topo */}
+        <RemindersCard />
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -56,10 +60,10 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-success" />
+              <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              {loadingTx ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-bold text-success">{formatCurrency(income)}</p>}
+              {loadingTx ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-bold text-primary">{formatCurrency(income)}</p>}
             </CardContent>
           </Card>
 
