@@ -415,14 +415,14 @@ export type Database = {
       invoices: {
         Row: {
           card_id: string
+          closing_date: string
           created_at: string
+          cycle_end_date: string
+          cycle_start_date: string
           due_date: string
-          end_date: string
           id: string
           paid_at: string | null
           paid_from_account_id: string | null
-          reference_month: string
-          start_date: string
           status: Database["public"]["Enums"]["invoice_status"]
           total_amount: number
           updated_at: string
@@ -430,14 +430,14 @@ export type Database = {
         }
         Insert: {
           card_id: string
+          closing_date: string
           created_at?: string
+          cycle_end_date: string
+          cycle_start_date: string
           due_date: string
-          end_date: string
           id?: string
           paid_at?: string | null
           paid_from_account_id?: string | null
-          reference_month: string
-          start_date: string
           status?: Database["public"]["Enums"]["invoice_status"]
           total_amount?: number
           updated_at?: string
@@ -445,14 +445,14 @@ export type Database = {
         }
         Update: {
           card_id?: string
+          closing_date?: string
           created_at?: string
+          cycle_end_date?: string
+          cycle_start_date?: string
           due_date?: string
-          end_date?: string
           id?: string
           paid_at?: string | null
           paid_from_account_id?: string | null
-          reference_month?: string
-          start_date?: string
           status?: Database["public"]["Enums"]["invoice_status"]
           total_amount?: number
           updated_at?: string
@@ -704,6 +704,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_invoice_cycle: {
+        Args: {
+          p_closing_day: number
+          p_due_day: number
+          p_transaction_date: string
+        }
+        Returns: {
+          closing_date: string
+          cycle_end_date: string
+          cycle_start_date: string
+          due_date: string
+        }[]
+      }
+      close_due_invoices: { Args: never; Returns: number }
+      find_or_create_invoice: {
+        Args: {
+          p_card_id: string
+          p_transaction_date: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       get_current_user_id: { Args: never; Returns: string }
     }
     Enums: {

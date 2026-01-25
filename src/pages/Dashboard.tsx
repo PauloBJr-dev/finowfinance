@@ -3,7 +3,8 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { useMonthlyTransactions } from "@/hooks/use-transactions";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useProfile } from "@/hooks/use-profile";
-import { formatCurrency, getGreeting, getFirstName, formatMonth } from "@/lib/format";
+import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
+import { formatInvoiceMonth } from "@/lib/invoice-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wallet, TrendingDown, TrendingUp, CreditCard, Plus } from "lucide-react";
@@ -76,7 +77,7 @@ export default function Dashboard() {
               {currentInvoice ? (
                 <Link to="/faturas" className="block">
                   <p className="text-2xl font-bold">{formatCurrency(Number(currentInvoice.total_amount))}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{formatMonth(currentInvoice.reference_month)}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{formatInvoiceMonth(currentInvoice.closing_date)}</p>
                 </Link>
               ) : (
                 <p className="text-sm text-muted-foreground">Nenhuma fatura aberta</p>

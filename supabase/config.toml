@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.ai-reminders]
 verify_jwt = false
+
+[functions.close-invoices]
+verify_jwt = false

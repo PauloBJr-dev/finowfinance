@@ -75,40 +75,6 @@ function validateTransactionCreate(data: unknown): { valid: boolean; error?: str
   };
 }
 
-// Utilitários para faturas
-function generateInvoicePeriod(billingDay: number, dueDay: number, targetDate: Date) {
-  const year = targetDate.getFullYear();
-  const month = targetDate.getMonth();
-  
-  // Data de fechamento deste mês
-  const closingDate = new Date(year, month, billingDay);
-  
-  // Se a data alvo é antes do fechamento, pertence à fatura atual
-  // Se é depois, pertence à próxima fatura
-  let referenceMonth: Date;
-  if (targetDate <= closingDate) {
-    referenceMonth = new Date(year, month, 1);
-  } else {
-    referenceMonth = new Date(year, month + 1, 1);
-  }
-  
-  const refYear = referenceMonth.getFullYear();
-  const refMonth = referenceMonth.getMonth();
-  
-  // Período da fatura
-  const prevMonth = new Date(refYear, refMonth - 1, 1);
-  const startDate = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), billingDay + 1);
-  const endDate = new Date(refYear, refMonth, billingDay);
-  const dueDateObj = new Date(refYear, refMonth, dueDay);
-  
-  return {
-    referenceMonth: referenceMonth.toISOString().split('T')[0],
-    startDate: startDate.toISOString().split('T')[0],
-    endDate: endDate.toISOString().split('T')[0],
-    dueDate: dueDateObj.toISOString().split('T')[0],
-  };
-}
-
 // Calcular parcelas com resto na última
 function calculateInstallments(total: number, count: number): number[] {
   if (count <= 1) return [total];
@@ -257,89 +223,35 @@ serve(async (req) => {
 
       const txData = validation.data!
       const transactionDate = txData.date ? new Date(txData.date) : new Date()
+      const transactionDateStr = transactionDate.toISOString().split('T')[0]
       let invoiceId: string | null = null
 
-      // Se for cartão de crédito, encontrar/criar fatura
+      // Se for cartão de crédito, usar função SQL para encontrar/criar fatura correta
       if (txData.payment_method === 'credit_card' && txData.card_id) {
-        // Buscar cartão para obter billing_day e due_day
-        const { data: card, error: cardError } = await supabase
-          .from('cards')
-          .select('*')
-          .eq('id', txData.card_id)
-          .eq('user_id', userId)
-          .single()
+        console.log(`[transactions] Credit card payment - finding invoice for date ${transactionDateStr}`)
+        
+        // Usar a função SQL find_or_create_invoice para obter a fatura correta
+        const { data: invoiceIdResult, error: invoiceError } = await supabase
+          .rpc('find_or_create_invoice', {
+            p_card_id: txData.card_id,
+            p_user_id: userId,
+            p_transaction_date: transactionDateStr
+          })
 
-        if (cardError || !card) {
+        if (invoiceError) {
+          console.error('[transactions] Error finding/creating invoice:', invoiceError.message)
           return new Response(
-            JSON.stringify({ error: 'Cartão não encontrado' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ error: 'Erro ao encontrar/criar fatura' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
 
-        // Calcular período da fatura
-        const period = generateInvoicePeriod(card.billing_day, card.due_day, transactionDate)
-
-        // Buscar fatura existente
-        let { data: invoice } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('card_id', txData.card_id)
-          .eq('reference_month', period.referenceMonth)
-          .single()
-
-        // Se não existe ou está fechada/paga, buscar próxima ou criar
-        if (!invoice || invoice.status === 'closed' || invoice.status === 'paid') {
-          // Buscar próxima fatura aberta
-          const { data: nextInvoice } = await supabase
-            .from('invoices')
-            .select('*')
-            .eq('card_id', txData.card_id)
-            .eq('status', 'open')
-            .gt('reference_month', period.referenceMonth)
-            .order('reference_month', { ascending: true })
-            .limit(1)
-            .single()
-
-          if (nextInvoice) {
-            invoice = nextInvoice
-          } else {
-            // Criar nova fatura para o próximo mês
-            const nextMonth = new Date(transactionDate)
-            nextMonth.setMonth(nextMonth.getMonth() + 1)
-            const nextPeriod = generateInvoicePeriod(card.billing_day, card.due_day, nextMonth)
-
-            const { data: newInvoice, error: createError } = await supabase
-              .from('invoices')
-              .insert({
-                card_id: txData.card_id,
-                user_id: userId,
-                reference_month: nextPeriod.referenceMonth,
-                start_date: nextPeriod.startDate,
-                end_date: nextPeriod.endDate,
-                due_date: nextPeriod.dueDate,
-                status: 'open',
-                total_amount: 0,
-              })
-              .select()
-              .single()
-
-            if (createError) {
-              console.error('[transactions] Error creating invoice:', createError.message)
-              return new Response(
-                JSON.stringify({ error: 'Erro ao criar fatura' }),
-                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              )
-            }
-
-            invoice = newInvoice
-          }
-        }
-
-        invoiceId = invoice.id
+        invoiceId = invoiceIdResult
+        console.log(`[transactions] Using invoice ${invoiceId}`)
 
         // Se tiver parcelas > 1, criar InstallmentGroup e Installments
         if (txData.installments && txData.installments > 1) {
-          // Primeiro criar a transação principal
+          // Primeiro criar a transação principal (sem invoice_id direto)
           const { data: newTransaction, error: txError } = await supabase
             .from('transactions')
             .insert({
@@ -347,11 +259,11 @@ serve(async (req) => {
               amount: txData.amount,
               type: txData.type,
               payment_method: txData.payment_method,
-              date: transactionDate.toISOString().split('T')[0],
+              date: transactionDateStr,
               description: txData.description,
               category_id: txData.category_id,
               card_id: txData.card_id,
-              invoice_id: null, // Transação principal não tem invoice_id diretamente
+              invoice_id: null, // Transação principal não tem invoice_id - parcelas têm
               tags: txData.tags || [],
             })
             .select()
@@ -388,60 +300,38 @@ serve(async (req) => {
           // Calcular valores das parcelas
           const installmentAmounts = calculateInstallments(txData.amount, txData.installments)
 
-          // Criar cada parcela e encontrar/criar fatura correspondente
+          // Criar cada parcela com sua fatura correta
           const installments = []
           let currentDate = new Date(transactionDate)
 
           for (let i = 0; i < txData.installments; i++) {
-            const period = generateInvoicePeriod(card.billing_day, card.due_day, currentDate)
+            const installmentDateStr = currentDate.toISOString().split('T')[0]
             
-            // Buscar ou criar fatura para esta parcela
-            let { data: instInvoice } = await supabase
-              .from('invoices')
-              .select('*')
-              .eq('card_id', txData.card_id)
-              .eq('reference_month', period.referenceMonth)
-              .single()
+            // Usar função SQL para encontrar/criar fatura para esta parcela
+            const { data: instInvoiceId, error: instInvoiceError } = await supabase
+              .rpc('find_or_create_invoice', {
+                p_card_id: txData.card_id,
+                p_user_id: userId,
+                p_transaction_date: installmentDateStr
+              })
 
-            if (!instInvoice || instInvoice.status === 'closed' || instInvoice.status === 'paid') {
-              // Buscar próxima aberta ou criar
-              const { data: nextOpen } = await supabase
-                .from('invoices')
-                .select('*')
-                .eq('card_id', txData.card_id)
-                .eq('status', 'open')
-                .gte('reference_month', period.referenceMonth)
-                .order('reference_month', { ascending: true })
-                .limit(1)
-                .single()
-
-              if (nextOpen) {
-                instInvoice = nextOpen
-              } else {
-                const { data: newInv } = await supabase
-                  .from('invoices')
-                  .insert({
-                    card_id: txData.card_id,
-                    user_id: userId,
-                    reference_month: period.referenceMonth,
-                    start_date: period.startDate,
-                    end_date: period.endDate,
-                    due_date: period.dueDate,
-                    status: 'open',
-                    total_amount: 0,
-                  })
-                  .select()
-                  .single()
-                instInvoice = newInv
-              }
+            if (instInvoiceError) {
+              console.error(`[transactions] Error finding invoice for installment ${i + 1}:`, instInvoiceError.message)
             }
+
+            // Buscar due_date da fatura
+            const { data: invoiceData } = await supabase
+              .from('invoices')
+              .select('due_date')
+              .eq('id', instInvoiceId)
+              .single()
 
             installments.push({
               group_id: group.id,
               installment_number: i + 1,
               amount: installmentAmounts[i],
-              due_date: period.dueDate,
-              invoice_id: instInvoice?.id,
+              due_date: invoiceData?.due_date || installmentDateStr,
+              invoice_id: instInvoiceId,
               status: 'pending',
             })
 
@@ -478,7 +368,7 @@ serve(async (req) => {
           amount: txData.amount,
           type: txData.type,
           payment_method: txData.payment_method,
-          date: transactionDate.toISOString().split('T')[0],
+          date: transactionDateStr,
           description: txData.description,
           category_id: txData.category_id,
           account_id: txData.account_id,
