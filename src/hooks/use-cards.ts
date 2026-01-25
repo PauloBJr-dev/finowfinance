@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
-import { generateInvoicePeriods } from "@/lib/invoice-utils";
 
 type Card = Tables<"cards">;
 type CardInsert = TablesInsert<"cards">;
@@ -59,7 +58,9 @@ export function useCard(id: string | null) {
 }
 
 /**
- * Hook para criar cartão (com geração automática de faturas)
+ * Hook para criar cartão
+ * NOTA: Faturas são criadas sob demanda (quando há transações),
+ * não mais pré-criadas ao cadastrar o cartão.
  */
 export function useCreateCard() {
   const queryClient = useQueryClient();
@@ -69,7 +70,7 @@ export function useCreateCard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // 1. Criar cartão
+      // Criar cartão (faturas serão criadas sob demanda)
       const { data: newCard, error: cardError } = await supabase
         .from("cards")
         .insert({
@@ -80,33 +81,6 @@ export function useCreateCard() {
         .single();
 
       if (cardError) throw cardError;
-
-      // 2. Gerar faturas automáticas (mês atual + próximo)
-      const periods = generateInvoicePeriods(
-        card.billing_day,
-        card.due_day,
-        2
-      );
-
-      const invoices = periods.map((period) => ({
-        card_id: newCard.id,
-        user_id: user.id,
-        reference_month: period.referenceMonth.toISOString().split('T')[0],
-        start_date: period.startDate.toISOString().split('T')[0],
-        end_date: period.endDate.toISOString().split('T')[0],
-        due_date: period.dueDate.toISOString().split('T')[0],
-        status: 'open' as const,
-        total_amount: 0,
-      }));
-
-      const { error: invoiceError } = await supabase
-        .from("invoices")
-        .insert(invoices);
-
-      if (invoiceError) {
-        console.error("Erro ao criar faturas:", invoiceError);
-        // Não bloqueia a criação do cartão, mas loga o erro
-      }
 
       return newCard as Card;
     },

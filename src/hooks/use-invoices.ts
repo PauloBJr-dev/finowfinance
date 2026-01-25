@@ -17,6 +17,7 @@ interface InvoiceFilters {
 
 /**
  * Hook para listar faturas
+ * Usa closing_date para ordenação (novo schema com ciclo bancário)
  */
 export function useInvoices(filters?: InvoiceFilters) {
   return useQuery({
@@ -32,7 +33,7 @@ export function useInvoices(filters?: InvoiceFilters) {
             credit_limit
           )
         `)
-        .order("reference_month", { ascending: false });
+        .order("closing_date", { ascending: false });
 
       if (filters?.cardId) {
         query = query.eq("card_id", filters.cardId);
@@ -133,6 +134,7 @@ export function useInvoice(id: string | null) {
 
 /**
  * Hook para buscar fatura atual (aberta) de um cartão
+ * Usa closing_date para ordenação (ciclo bancário)
  */
 export function useCurrentInvoice(cardId: string | null) {
   return useQuery({
@@ -145,19 +147,13 @@ export function useCurrentInvoice(cardId: string | null) {
         .select("*")
         .eq("card_id", cardId)
         .eq("status", "open")
-        .order("reference_month", { ascending: true })
+        .order("closing_date", { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          // Nenhuma fatura encontrada
-          return null;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
-      return data as Invoice;
+      return data as Invoice | null;
     },
     enabled: !!cardId,
   });
@@ -165,8 +161,8 @@ export function useCurrentInvoice(cardId: string | null) {
 
 /**
  * Hook para pagar fatura integralmente
+ * REGRA: Só pode pagar fatura com status = 'closed'
  * IMPORTANTE: O saldo da conta é atualizado via trigger quando a transação é criada.
- * NÃO atualizar manualmente aqui para evitar duplicidade.
  */
 export function usePayInvoice() {
   const queryClient = useQueryClient();
@@ -187,8 +183,14 @@ export function usePayInvoice() {
         .single();
 
       if (invoiceError) throw invoiceError;
+      
+      // Validação: só pode pagar fatura fechada
       if (invoice.status === "paid") {
         throw new Error("Esta fatura já foi paga");
+      }
+      
+      if (invoice.status === "open") {
+        throw new Error("Esta fatura ainda está aberta. Aguarde o fechamento para efetuar o pagamento.");
       }
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -223,8 +225,6 @@ export function usePayInvoice() {
 
       if (txError) throw txError;
 
-      // NOTA: NÃO atualizar saldo manualmente - o trigger cuida disso
-
       // 4. Marcar parcelas como reconciled
       const { error: installmentsError } = await supabase
         .from("installments")
@@ -242,9 +242,9 @@ export function usePayInvoice() {
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       
-      const month = new Date(invoice.reference_month).toLocaleDateString('pt-BR', { 
-        month: 'long' 
-      });
+      // Formatar mês a partir do closing_date
+      const closingDate = new Date(invoice.closing_date);
+      const month = closingDate.toLocaleDateString('pt-BR', { month: 'long' });
       toast.success(`Fatura de ${month} paga com sucesso!`);
     },
     onError: (error) => {

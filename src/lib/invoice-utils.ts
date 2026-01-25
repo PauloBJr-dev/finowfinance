@@ -1,111 +1,97 @@
 /**
  * Utilitários para cálculo e gerenciamento de faturas
+ * Atualizado para usar ciclo bancário real (closing_date ao invés de reference_month)
  */
 
 export interface InvoicePeriod {
-  referenceMonth: Date;
-  startDate: Date;
-  endDate: Date;
+  cycleStartDate: Date;
+  cycleEndDate: Date;
+  closingDate: Date;
   dueDate: Date;
 }
 
 /**
  * Calcula o período de uma fatura baseado no dia de fechamento e vencimento
- * @param billingDay Dia do fechamento (1-31)
+ * REGRA: Se a data da transação é APÓS o fechamento, vai para o próximo ciclo
+ * 
+ * @param closingDay Dia do fechamento (1-31)
  * @param dueDay Dia do vencimento (1-31)
- * @param referenceDate Data de referência (default: hoje)
+ * @param transactionDate Data da transação (default: hoje)
  */
-export function calculateInvoicePeriod(
-  billingDay: number,
+export function calculateInvoiceCycle(
+  closingDay: number,
   dueDay: number,
-  referenceDate: Date = new Date()
+  transactionDate: Date = new Date()
 ): InvoicePeriod {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth();
+  const year = transactionDate.getFullYear();
+  const month = transactionDate.getMonth();
   
-  // Mês de referência é o mês do fechamento
-  const referenceMonth = new Date(year, month, 1);
+  // Calcular o dia de fechamento real (ajustando para meses com menos dias)
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const actualClosingDay = Math.min(closingDay, daysInMonth);
   
-  // Data de início: dia após fechamento do mês anterior
-  const startDate = new Date(year, month - 1, billingDay + 1);
+  // Data de fechamento deste mês
+  let closingDate = new Date(year, month, actualClosingDay);
   
-  // Data de fechamento: dia do fechamento do mês atual
-  const endDate = new Date(year, month, billingDay);
+  // Se a transação é APÓS o fechamento, vai para o ciclo do PRÓXIMO mês
+  if (transactionDate > closingDate) {
+    closingDate = new Date(closingDate);
+    closingDate.setMonth(closingDate.getMonth() + 1);
+    // Recalcular para o novo mês
+    const newDaysInMonth = new Date(closingDate.getFullYear(), closingDate.getMonth() + 1, 0).getDate();
+    const newActualClosingDay = Math.min(closingDay, newDaysInMonth);
+    closingDate.setDate(newActualClosingDay);
+  }
   
-  // Data de vencimento: dia do vencimento
-  // Se dueDay < billingDay, vencimento é no mês seguinte
-  const dueMonth = dueDay < billingDay ? month + 1 : month;
-  const dueDate = new Date(year, dueMonth, dueDay);
+  // Ciclo: do dia após fechamento anterior até o dia de fechamento atual
+  const cycleEndDate = new Date(closingDate);
+  const cycleStartDate = new Date(closingDate);
+  cycleStartDate.setMonth(cycleStartDate.getMonth() - 1);
+  cycleStartDate.setDate(cycleStartDate.getDate() + 1);
+  
+  // Calcular data de vencimento
+  let dueDate: Date;
+  if (dueDay <= closingDay) {
+    // Vencimento no mês seguinte ao fechamento
+    dueDate = new Date(closingDate.getFullYear(), closingDate.getMonth() + 1, 1);
+    const dueDaysInMonth = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0).getDate();
+    const actualDueDay = Math.min(dueDay, dueDaysInMonth);
+    dueDate.setDate(actualDueDay);
+  } else {
+    // Vencimento no mesmo mês do fechamento
+    const dueDaysInMonth = new Date(closingDate.getFullYear(), closingDate.getMonth() + 1, 0).getDate();
+    const actualDueDay = Math.min(dueDay, dueDaysInMonth);
+    dueDate = new Date(closingDate.getFullYear(), closingDate.getMonth(), actualDueDay);
+  }
   
   return {
-    referenceMonth,
-    startDate,
-    endDate,
+    cycleStartDate,
+    cycleEndDate,
+    closingDate,
     dueDate,
   };
 }
 
 /**
- * Encontra a fatura correta para uma transação
- * Se a fatura atual estiver fechada ou paga, retorna a próxima
+ * Formata período do ciclo para exibição
+ * Ex: "02/jan - 01/fev"
  */
-export function findCorrectInvoicePeriod(
-  billingDay: number,
-  dueDay: number,
-  transactionDate: Date,
-  currentInvoiceStatus: 'open' | 'closed' | 'paid'
-): InvoicePeriod {
-  const currentPeriod = calculateInvoicePeriod(billingDay, dueDay, transactionDate);
+export function formatCyclePeriod(cycleStartDate: Date | string, cycleEndDate: Date | string): string {
+  const start = new Date(cycleStartDate);
+  const end = new Date(cycleEndDate);
   
-  // Se a fatura atual está aberta, usa ela
-  if (currentInvoiceStatus === 'open') {
-    return currentPeriod;
-  }
+  const formatOptions: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
   
-  // Se fechada ou paga, vai para a próxima fatura
-  const nextMonth = new Date(transactionDate);
-  nextMonth.setMonth(nextMonth.getMonth() + 1);
-  
-  return calculateInvoicePeriod(billingDay, dueDay, nextMonth);
+  return `${start.toLocaleDateString('pt-BR', formatOptions)} - ${end.toLocaleDateString('pt-BR', formatOptions)}`;
 }
 
 /**
- * Gera períodos de faturas para os próximos N meses
+ * Formata mês da fatura para exibição baseado no closing_date
+ * Ex: "Fevereiro 2026"
  */
-export function generateInvoicePeriods(
-  billingDay: number,
-  dueDay: number,
-  count: number = 2,
-  startDate: Date = new Date()
-): InvoicePeriod[] {
-  const periods: InvoicePeriod[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    const date = new Date(startDate);
-    date.setMonth(date.getMonth() + i);
-    periods.push(calculateInvoicePeriod(billingDay, dueDay, date));
-  }
-  
-  return periods;
-}
-
-/**
- * Verifica se uma data está dentro de um período de fatura
- */
-export function isDateInInvoicePeriod(
-  date: Date,
-  period: InvoicePeriod
-): boolean {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  
-  const start = new Date(period.startDate);
-  start.setHours(0, 0, 0, 0);
-  
-  const end = new Date(period.endDate);
-  end.setHours(23, 59, 59, 999);
-  
-  return d >= start && d <= end;
+export function formatInvoiceMonth(closingDate: Date | string): string {
+  const date = new Date(closingDate);
+  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
 /**
@@ -130,4 +116,26 @@ export function getInvoiceStatusColor(status: 'open' | 'closed' | 'paid'): strin
     paid: 'bg-success/10 text-success',
   };
   return colorMap[status] || 'bg-muted text-muted-foreground';
+}
+
+/**
+ * Verifica se uma fatura pode ser paga
+ * REGRA: Só pode pagar faturas com status 'closed'
+ */
+export function canPayInvoice(status: 'open' | 'closed' | 'paid'): boolean {
+  return status === 'closed';
+}
+
+/**
+ * Retorna mensagem explicativa sobre pagamento
+ */
+export function getPaymentStatusMessage(status: 'open' | 'closed' | 'paid'): string | null {
+  switch (status) {
+    case 'open':
+      return 'Esta fatura ainda está aberta. Aguarde o fechamento para efetuar o pagamento.';
+    case 'paid':
+      return 'Esta fatura já foi paga.';
+    default:
+      return null;
+  }
 }

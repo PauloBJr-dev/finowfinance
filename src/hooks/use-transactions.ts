@@ -201,13 +201,13 @@ export function useCreateTransaction() {
 
         if (groupError) throw groupError;
 
-        // Buscar faturas disponíveis
+        // Buscar faturas disponíveis (usando novo campo closing_date)
         const { data: invoices } = await supabase
           .from("invoices")
-          .select("id, reference_month, status, total_amount")
+          .select("id, closing_date, status, total_amount")
           .eq("card_id", transaction.card_id)
           .in("status", ["open", "closed"])
-          .order("reference_month", { ascending: true })
+          .order("closing_date", { ascending: true })
           .limit(numInstallments + 1);
 
         // Encontrar primeira fatura aberta
