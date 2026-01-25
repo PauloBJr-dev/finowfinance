@@ -162,6 +162,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         <PaymentMethodSelect
           value={paymentMethod}
           onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+          transactionType={type}
         />
       </div>
 
