@@ -173,48 +173,6 @@ export function useRestoreAccount() {
   });
 }
 
-/**
- * Hook para atualizar saldo de conta
- */
-export function useUpdateAccountBalance() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, amount, operation }: { 
-      id: string; 
-      amount: number; 
-      operation: 'add' | 'subtract' 
-    }) => {
-      // Primeiro busca o saldo atual
-      const { data: account, error: fetchError } = await supabase
-        .from("accounts")
-        .select("current_balance")
-        .eq("id", id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const currentBalance = Number(account.current_balance);
-      const newBalance = operation === 'add' 
-        ? currentBalance + amount 
-        : currentBalance - amount;
-
-      const { data, error } = await supabase
-        .from("accounts")
-        .update({ current_balance: newBalance })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Account;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-    },
-    onError: (error) => {
-      console.error("Erro ao atualizar saldo:", error);
-      toast.error("Erro ao atualizar saldo. Tente novamente.");
-    },
-  });
-}
+// NOTA: A função useUpdateAccountBalance foi REMOVIDA.
+// O saldo das contas é atualizado exclusivamente via trigger no banco de dados.
+// Isso evita duplicidade de atualizações e garante consistência financeira.

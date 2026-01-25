@@ -138,6 +138,8 @@ export function useTransaction(id: string | null) {
 
 /**
  * Hook para criar transação (com suporte a parcelamento)
+ * IMPORTANTE: O saldo das contas é atualizado via trigger no banco de dados.
+ * NÃO atualizar manualmente aqui para evitar duplicidade.
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
@@ -150,21 +152,10 @@ export function useCreateTransaction() {
       const isCreditCard = transaction.payment_method === "credit_card";
       const hasInstallments = isCreditCard && numInstallments && numInstallments > 1;
 
-      // 1. Criar transação principal
-      const { data: newTransaction, error: txError } = await supabase
-        .from("transactions")
-        .insert({
-          ...transaction,
-          user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (txError) throw txError;
-
-      // 2. Se cartão de crédito, encontrar/atualizar fatura
+      // Buscar fatura antes de criar a transação (para vincular atomicamente)
+      let invoiceId: string | null = null;
+      
       if (isCreditCard && transaction.card_id) {
-        // Buscar fatura aberta do cartão
         const { data: invoice } = await supabase
           .from("invoices")
           .select("id, status, total_amount")
@@ -175,25 +166,24 @@ export function useCreateTransaction() {
           .single();
 
         if (invoice) {
-          // Atualizar invoice_id da transação
-          await supabase
-            .from("transactions")
-            .update({ invoice_id: invoice.id })
-            .eq("id", newTransaction.id);
-
-          // Atualizar total da fatura (apenas se não parcelado)
-          if (!hasInstallments) {
-            await supabase
-              .from("invoices")
-              .update({ 
-                total_amount: Number(invoice.total_amount) + Number(transaction.amount) 
-              })
-              .eq("id", invoice.id);
-          }
+          invoiceId = invoice.id;
         }
       }
 
-      // 3. Se parcelado, criar grupo e parcelas
+      // 1. Criar transação principal (JÁ com invoice_id se for cartão)
+      const { data: newTransaction, error: txError } = await supabase
+        .from("transactions")
+        .insert({
+          ...transaction,
+          user_id: user.id,
+          invoice_id: invoiceId, // Vincular atomicamente
+        })
+        .select()
+        .single();
+
+      if (txError) throw txError;
+
+      // 2. Se parcelado, criar grupo e parcelas
       if (hasInstallments && transaction.card_id) {
         const amounts = calculateInstallments(Number(transaction.amount), numInstallments);
 
@@ -253,43 +243,14 @@ export function useCreateTransaction() {
 
         if (installmentsError) throw installmentsError;
 
-        // Atualizar totais das faturas
-        for (const installment of installmentsData) {
-          if (installment.invoice_id) {
-            const invoice = invoices?.find(inv => inv.id === installment.invoice_id);
-            if (invoice) {
-              await supabase
-                .from("invoices")
-                .update({
-                  total_amount: Number(invoice.total_amount) + installment.amount
-                })
-                .eq("id", invoice.id);
-            }
-          }
-        }
+        // NOTA: O trigger update_invoice_total_from_installments atualiza os totais das faturas
+        // automaticamente ao inserir parcelas. Não precisamos fazer manualmente.
       }
 
-      // 4. Se pagamento em conta (não cartão), atualizar saldo
-      if (!isCreditCard && transaction.account_id) {
-        const { data: account } = await supabase
-          .from("accounts")
-          .select("current_balance")
-          .eq("id", transaction.account_id)
-          .single();
-
-        if (account) {
-          const currentBalance = Number(account.current_balance);
-          const amount = Number(transaction.amount);
-          const newBalance = transaction.type === "income"
-            ? currentBalance + amount
-            : currentBalance - amount;
-
-          await supabase
-            .from("accounts")
-            .update({ current_balance: newBalance })
-            .eq("id", transaction.account_id);
-        }
-      }
+      // NOTA: O trigger update_account_balance atualiza o saldo da conta
+      // automaticamente ao inserir a transação. Não precisamos fazer manualmente.
+      // NOTA: O trigger update_invoice_total atualiza o total da fatura
+      // automaticamente ao inserir a transação. Não precisamos fazer manualmente.
 
       return newTransaction;
     },
@@ -319,6 +280,7 @@ export function useCreateTransaction() {
 
 /**
  * Hook para atualizar transação
+ * IMPORTANTE: O saldo é recalculado via trigger. Não fazer manualmente.
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
@@ -350,69 +312,21 @@ export function useUpdateTransaction() {
 
 /**
  * Hook para soft delete de transação
+ * IMPORTANTE: O saldo é revertido via trigger. Não fazer manualmente.
+ * IMPORTANTE: O total da fatura é revertido via trigger. Não fazer manualmente.
  */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Buscar transação para reverter saldo se necessário
-      const { data: transaction } = await supabase
+      // Soft delete - o trigger cuida de reverter saldo e total da fatura
+      const { error } = await supabase
         .from("transactions")
-        .select("*")
-        .eq("id", id)
-        .single();
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
 
-      if (transaction) {
-        // Soft delete
-        const { error } = await supabase
-          .from("transactions")
-          .update({ deleted_at: new Date().toISOString() })
-          .eq("id", id);
-
-        if (error) throw error;
-
-        // Reverter saldo se era pagamento em conta
-        if (transaction.account_id && transaction.payment_method !== "credit_card") {
-          const { data: account } = await supabase
-            .from("accounts")
-            .select("current_balance")
-            .eq("id", transaction.account_id)
-            .single();
-
-          if (account) {
-            const currentBalance = Number(account.current_balance);
-            const amount = Number(transaction.amount);
-            const newBalance = transaction.type === "income"
-              ? currentBalance - amount
-              : currentBalance + amount;
-
-            await supabase
-              .from("accounts")
-              .update({ current_balance: newBalance })
-              .eq("id", transaction.account_id);
-          }
-        }
-
-        // Atualizar total da fatura se era cartão
-        if (transaction.invoice_id) {
-          const { data: invoice } = await supabase
-            .from("invoices")
-            .select("total_amount")
-            .eq("id", transaction.invoice_id)
-            .single();
-
-          if (invoice) {
-            await supabase
-              .from("invoices")
-              .update({
-                total_amount: Math.max(0, Number(invoice.total_amount) - Number(transaction.amount))
-              })
-              .eq("id", transaction.invoice_id);
-          }
-        }
-      }
-
+      if (error) throw error;
       return id;
     },
     onSuccess: () => {
@@ -429,6 +343,7 @@ export function useDeleteTransaction() {
 
 /**
  * Hook para restaurar transação
+ * IMPORTANTE: O saldo é restaurado via trigger. Não fazer manualmente.
  */
 export function useRestoreTransaction() {
   const queryClient = useQueryClient();

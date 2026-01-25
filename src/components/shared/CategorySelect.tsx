@@ -33,7 +33,7 @@ interface CategorySelectProps {
   className?: string;
 }
 
-// Mapeamento de nomes de ícones para componentes
+// Mapeamento de nomes de ícones para componentes (PascalCase)
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   ShoppingBag,
   Car,
@@ -54,6 +54,40 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Users,
   HelpCircle,
   Tag,
+};
+
+// Mapeamento kebab-case (banco de dados) para PascalCase (componentes)
+const iconNameMap: Record<string, string> = {
+  "shopping-bag": "ShoppingBag",
+  "shopping-cart": "ShoppingCart",
+  "car": "Car",
+  "home": "Home",
+  "utensils": "Utensils",
+  "heart": "Heart",
+  "briefcase": "Briefcase",
+  "graduation-cap": "GraduationCap",
+  "plane": "Plane",
+  "gift": "Gift",
+  "smartphone": "Smartphone",
+  "dumbbell": "Dumbbell",
+  "music": "Music",
+  "wallet": "Wallet",
+  "trending-up": "TrendingUp",
+  "building": "Building",
+  "users": "Users",
+  "help-circle": "HelpCircle",
+  "tag": "Tag",
+};
+
+/**
+ * Resolve nome do ícone de kebab-case para PascalCase
+ */
+const resolveIconName = (icon: string | null | undefined): string => {
+  if (!icon) return "Tag";
+  // Primeiro tenta o mapeamento kebab-case
+  if (iconNameMap[icon]) return iconNameMap[icon];
+  // Se não encontrar, retorna como está (pode já estar em PascalCase)
+  return icon;
 };
 
 /**
@@ -91,8 +125,9 @@ export function CategorySelect({
       "max-h-48 overflow-y-auto pr-1",
       className
     )}>
-      {categories.map((category) => {
-        const IconComponent = iconMap[category.icon || "Tag"] || Tag;
+    {categories.map((category) => {
+        const resolvedIcon = resolveIconName(category.icon);
+        const IconComponent = iconMap[resolvedIcon] || Tag;
         const isSelected = value === category.id;
 
         return (

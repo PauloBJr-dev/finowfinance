@@ -165,6 +165,8 @@ export function useCurrentInvoice(cardId: string | null) {
 
 /**
  * Hook para pagar fatura integralmente
+ * IMPORTANTE: O saldo da conta é atualizado via trigger quando a transação é criada.
+ * NÃO atualizar manualmente aqui para evitar duplicidade.
  */
 export function usePayInvoice() {
   const queryClient = useQueryClient();
@@ -205,6 +207,7 @@ export function usePayInvoice() {
       if (updateError) throw updateError;
 
       // 3. Criar transação de débito na conta
+      // NOTA: O trigger update_account_balance irá deduzir do saldo automaticamente
       const cardName = (invoice.cards as { name: string })?.name || "Cartão";
       const { error: txError } = await supabase
         .from("transactions")
@@ -220,25 +223,9 @@ export function usePayInvoice() {
 
       if (txError) throw txError;
 
-      // 4. Atualizar saldo da conta
-      const { data: account, error: accError } = await supabase
-        .from("accounts")
-        .select("current_balance")
-        .eq("id", accountId)
-        .single();
+      // NOTA: NÃO atualizar saldo manualmente - o trigger cuida disso
 
-      if (accError) throw accError;
-
-      const newBalance = Number(account.current_balance) - Number(invoice.total_amount);
-      
-      const { error: balanceError } = await supabase
-        .from("accounts")
-        .update({ current_balance: newBalance })
-        .eq("id", accountId);
-
-      if (balanceError) throw balanceError;
-
-      // 5. Marcar parcelas como reconciled
+      // 4. Marcar parcelas como reconciled
       const { error: installmentsError } = await supabase
         .from("installments")
         .update({ status: "reconciled" })
@@ -263,47 +250,6 @@ export function usePayInvoice() {
     onError: (error) => {
       console.error("Erro ao pagar fatura:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao pagar fatura");
-    },
-  });
-}
-
-/**
- * Hook para atualizar total da fatura
- */
-export function useUpdateInvoiceTotal() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, amount, operation }: {
-      id: string;
-      amount: number;
-      operation: 'add' | 'subtract';
-    }) => {
-      const { data: invoice, error: fetchError } = await supabase
-        .from("invoices")
-        .select("total_amount")
-        .eq("id", id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      const currentTotal = Number(invoice.total_amount);
-      const newTotal = operation === 'add'
-        ? currentTotal + amount
-        : currentTotal - amount;
-
-      const { data, error } = await supabase
-        .from("invoices")
-        .update({ total_amount: Math.max(0, newTotal) })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
     },
   });
 }
