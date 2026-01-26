@@ -27,12 +27,14 @@ export function useInvoices(filters?: InvoiceFilters) {
         .from("invoices")
         .select(`
           *,
-          cards (
+          cards!inner (
             id,
             name,
-            credit_limit
+            credit_limit,
+            deleted_at
           )
         `)
+        .is("deleted_at", null) // Filtrar faturas não excluídas
         .order("closing_date", { ascending: false });
 
       if (filters?.cardId) {
@@ -42,6 +44,9 @@ export function useInvoices(filters?: InvoiceFilters) {
       if (filters?.status) {
         query = query.eq("status", filters.status);
       }
+
+      // Filtrar apenas cartões não excluídos
+      query = query.is("cards.deleted_at", null);
 
       const { data, error } = await query;
 

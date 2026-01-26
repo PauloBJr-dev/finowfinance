@@ -502,6 +502,7 @@ export type Database = {
           created_at: string
           cycle_end_date: string
           cycle_start_date: string
+          deleted_at: string | null
           due_date: string
           id: string
           paid_at: string | null
@@ -517,6 +518,7 @@ export type Database = {
           created_at?: string
           cycle_end_date: string
           cycle_start_date: string
+          deleted_at?: string | null
           due_date: string
           id?: string
           paid_at?: string | null
@@ -532,6 +534,7 @@ export type Database = {
           created_at?: string
           cycle_end_date?: string
           cycle_start_date?: string
+          deleted_at?: string | null
           due_date?: string
           id?: string
           paid_at?: string | null
