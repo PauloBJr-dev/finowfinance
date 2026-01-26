@@ -152,10 +152,13 @@ export function useCreateTransaction() {
       const isCreditCard = transaction.payment_method === "credit_card";
       const hasInstallments = isCreditCard && numInstallments && numInstallments > 1;
 
-      // Usar RPC find_or_create_invoice para garantir fatura correta
+      // REGRA CORRIGIDA:
+      // - Compra PARCELADA: transação principal NÃO tem invoice_id (parcelas têm)
+      // - Compra À VISTA: transação tem invoice_id
       let invoiceId: string | null = null;
       
-      if (isCreditCard && transaction.card_id) {
+      if (isCreditCard && transaction.card_id && !hasInstallments) {
+        // Apenas compras à vista no cartão vinculam a transação à fatura
         const transactionDate = transaction.date || new Date().toISOString().split('T')[0];
         
         const { data: foundInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
@@ -171,13 +174,14 @@ export function useCreateTransaction() {
         }
       }
 
-      // 1. Criar transação principal (JÁ com invoice_id se for cartão)
+      // 1. Criar transação principal
+      // IMPORTANTE: Para parceladas, invoice_id = null (apenas parcelas vinculam às faturas)
       const { data: newTransaction, error: txError } = await supabase
         .from("transactions")
         .insert({
           ...transaction,
           user_id: user.id,
-          invoice_id: invoiceId, // Vincular atomicamente
+          invoice_id: invoiceId, // null para parceladas, preenchido para à vista
         })
         .select()
         .single();
@@ -202,41 +206,38 @@ export function useCreateTransaction() {
 
         if (groupError) throw groupError;
 
-        // Buscar faturas disponíveis (usando novo campo closing_date)
-        const { data: invoices } = await supabase
-          .from("invoices")
-          .select("id, closing_date, status, total_amount")
-          .eq("card_id", transaction.card_id)
-          .in("status", ["open", "closed"])
-          .order("closing_date", { ascending: true })
-          .limit(numInstallments + 1);
+        // Buscar/criar faturas para cada parcela
+        const transactionDate = new Date(transaction.date || new Date());
+        const installmentsData = [];
 
-        // Encontrar primeira fatura aberta
-        const openInvoices = invoices?.filter(inv => inv.status === "open") || [];
-        let startIndex = 0;
-        
-        // Se primeira fatura não está aberta, começar da próxima
-        if (invoices && invoices[0]?.status !== "open") {
-          startIndex = openInvoices.length > 0 ? invoices.indexOf(openInvoices[0]) : 0;
-        }
-
-        // Criar parcelas
-        const installmentsData = amounts.map((amount, index) => {
-          const invoiceIndex = startIndex + index;
-          const invoice = invoices?.[invoiceIndex];
+        for (let index = 0; index < numInstallments; index++) {
+          const parcela = amounts[index];
           
-          const dueDate = new Date(transaction.date || new Date());
-          dueDate.setMonth(dueDate.getMonth() + index);
+          // Calcular data da parcela (incrementando mês a mês)
+          const parcelaDate = new Date(transactionDate);
+          parcelaDate.setMonth(parcelaDate.getMonth() + index);
+          const parcelaDateStr = parcelaDate.toISOString().split('T')[0];
 
-          return {
+          // Buscar/criar fatura para esta parcela
+          const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+            p_card_id: transaction.card_id,
+            p_user_id: user.id,
+            p_transaction_date: parcelaDateStr
+          });
+
+          if (invoiceError) {
+            console.error(`Erro ao buscar fatura para parcela ${index + 1}:`, invoiceError);
+          }
+
+          installmentsData.push({
             group_id: group.id,
             installment_number: index + 1,
-            amount,
-            due_date: dueDate.toISOString().split('T')[0],
-            invoice_id: invoice?.id || null,
+            amount: parcela,
+            due_date: parcelaDateStr,
+            invoice_id: parcelaInvoiceId || null,
             status: "pending" as const,
-          };
-        });
+          });
+        }
 
         const { error: installmentsError } = await supabase
           .from("installments")
@@ -251,7 +252,7 @@ export function useCreateTransaction() {
       // NOTA: O trigger update_account_balance atualiza o saldo da conta
       // automaticamente ao inserir a transação. Não precisamos fazer manualmente.
       // NOTA: O trigger update_invoice_total atualiza o total da fatura
-      // automaticamente ao inserir a transação. Não precisamos fazer manualmente.
+      // automaticamente ao inserir a transação (apenas para compras à vista).
 
       return newTransaction;
     },

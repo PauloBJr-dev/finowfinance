@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useInvoices, useInvoice, usePayInvoice } from "@/hooks/use-invoices";
 import { useAccounts } from "@/hooks/use-accounts";
@@ -19,16 +19,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CreditCard, Calendar, Loader2, Info, AlertCircle, RefreshCw } from "lucide-react";
+import { CreditCard, Calendar, Loader2, Info, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, addMonths, subMonths, isSameMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Faturas() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payAccountId, setPayAccountId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
-  // NOTE: Supabase can return `null` for `data` when a request errors; normalize to arrays
-  // to avoid runtime errors like "Cannot read properties of null (reading 'length')".
   const { data: cardsData } = useCards();
   const cards = Array.isArray(cardsData) ? cardsData : [];
 
@@ -41,7 +42,15 @@ export default function Faturas() {
   } = useInvoices(
     selectedCardId ? { cardId: selectedCardId } : undefined
   );
-  const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+  const allInvoices = Array.isArray(invoicesData) ? invoicesData : [];
+
+  // Filtrar faturas pelo mês selecionado (baseado em closing_date)
+  const invoices = useMemo(() => {
+    return allInvoices.filter(invoice => {
+      const closingDate = new Date(invoice.closing_date);
+      return isSameMonth(closingDate, selectedMonth);
+    });
+  }, [allInvoices, selectedMonth]);
 
   const { data: invoiceDetails } = useInvoice(selectedInvoiceId);
 
@@ -56,6 +65,13 @@ export default function Faturas() {
     setPayDialogOpen(false);
     setSelectedInvoiceId(null);
   };
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    setSelectedMonth(prev => direction === "prev" ? subMonths(prev, 1) : addMonths(prev, 1));
+  };
+
+  const formattedMonth = format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR });
+  const capitalizedMonth = formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1);
 
   if (isLoading) {
     return (
@@ -99,29 +115,56 @@ export default function Faturas() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Faturas</h1>
             <p className="text-muted-foreground">Acompanhe suas faturas de cartão.</p>
           </div>
-          {cards.length > 0 && (
-            <Select value={selectedCardId || "all"} onValueChange={(v) => setSelectedCardId(v === "all" ? null : v)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Todos os cartões" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os cartões</SelectItem>
-                {cards.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
+          <div className="flex items-center gap-2">
+            {cards.length > 0 && (
+              <Select value={selectedCardId || "all"} onValueChange={(v) => setSelectedCardId(v === "all" ? null : v)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Todos os cartões" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os cartões</SelectItem>
+                  {cards.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        {/* Navegação mensal */}
+        <div className="flex items-center justify-center gap-4 py-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigateMonth("prev")}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <span className="text-lg font-medium min-w-[180px] text-center">
+            {capitalizedMonth}
+          </span>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigateMonth("next")}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
         </div>
 
         {invoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <CreditCard className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Nenhuma fatura</h3>
-            <p className="text-sm text-muted-foreground">Cadastre um cartão em Configurações para ver faturas.</p>
+            <h3 className="text-lg font-medium">Nenhuma fatura em {capitalizedMonth.toLowerCase()}</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {allInvoices.length === 0 
+                ? "Cadastre um cartão em Configurações para ver faturas."
+                : "Use as setas para navegar entre os meses."}
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
