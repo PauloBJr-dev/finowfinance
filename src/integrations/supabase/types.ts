@@ -187,6 +187,60 @@ export type Database = {
           },
         ]
       }
+      benefit_deposits: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          daily_rate: number | null
+          date: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          user_id: string
+          working_days: number
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          daily_rate?: number | null
+          date?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          user_id: string
+          working_days?: number
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          daily_rate?: number | null
+          date?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          user_id?: string
+          working_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benefit_deposits_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "benefit_deposits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bills: {
         Row: {
           account_id: string | null
