@@ -11,6 +11,18 @@ const CARDS_KEY = ["cards"];
 const INVOICES_KEY = ["invoices"];
 
 /**
+ * Dados para criação de cartão com fatura inicial
+ */
+export interface CreateCardData {
+  name: string;
+  credit_limit: number;
+  billing_day: number;
+  due_day: number;
+  initial_invoice_month?: string; // Formato: YYYY-MM-01
+  create_previous_closed?: boolean;
+}
+
+/**
  * Hook para listar cartões do usuário
  */
 export function useCards(includeDeleted = false) {
@@ -58,29 +70,51 @@ export function useCard(id: string | null) {
 }
 
 /**
- * Hook para criar cartão
- * NOTA: Faturas são criadas sob demanda (quando há transações),
- * não mais pré-criadas ao cadastrar o cartão.
+ * Hook para criar cartão com fatura inicial definida pelo usuário
+ * 
+ * NOVA MECÂNICA:
+ * - Usuário escolhe qual é a fatura atual aberta (mês/ano)
+ * - Sistema cria a fatura como status 'open'
+ * - Opcionalmente cria a fatura anterior como 'closed'
  */
 export function useCreateCard() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (card: Omit<CardInsert, "user_id">) => {
+    mutationFn: async (cardData: CreateCardData) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Criar cartão (faturas serão criadas sob demanda)
+      // 1. Criar cartão
       const { data: newCard, error: cardError } = await supabase
         .from("cards")
         .insert({
-          ...card,
           user_id: user.id,
+          name: cardData.name,
+          credit_limit: cardData.credit_limit,
+          billing_day: cardData.billing_day,
+          due_day: cardData.due_day,
         })
         .select()
         .single();
 
       if (cardError) throw cardError;
+
+      // 2. Se escolheu mês inicial, criar fatura(s) usando RPC
+      if (cardData.initial_invoice_month) {
+        const { error: invoiceError } = await supabase.rpc('create_initial_invoice', {
+          p_card_id: newCard.id,
+          p_user_id: user.id,
+          p_initial_invoice_month: cardData.initial_invoice_month,
+          p_create_previous_closed: cardData.create_previous_closed ?? false,
+        });
+
+        if (invoiceError) {
+          console.error("Erro ao criar fatura inicial:", invoiceError);
+          // Não bloqueia a criação do cartão, apenas loga o erro
+          toast.warning("Cartão criado, mas houve um erro ao criar a fatura inicial.");
+        }
+      }
 
       return newCard as Card;
     },
