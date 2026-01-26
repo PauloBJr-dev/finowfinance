@@ -179,6 +179,7 @@ export function useDeleteCard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+      queryClient.invalidateQueries({ queryKey: INVOICES_KEY }); // Invalidar faturas também
     },
     onError: (error) => {
       console.error("Erro ao excluir cartão:", error);
