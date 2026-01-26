@@ -51,32 +51,34 @@ export function NotificationsPanel({ className }: NotificationsPanelProps) {
   };
 
   return (
-    <div className={cn("border-t border-border", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 pb-2">
-        <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">Notificações</span>
-          {unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-              {unreadCount}
-            </span>
+    <div className={cn("p-3", className)}>
+      {/* Container with accent background */}
+      <div className="rounded-xl bg-sidebar-accent p-3">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Notificações</span>
+            {unreadCount > 0 && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+          {reminders.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleDismissAll}
+            >
+              Limpar tudo
+            </Button>
           )}
         </div>
-        {reminders.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground hover:text-foreground"
-            onClick={handleDismissAll}
-          >
-            Limpar tudo
-          </Button>
-        )}
-      </div>
 
       {/* Notifications List */}
-      <ScrollArea className={cn("px-4", expanded ? "max-h-64" : "max-h-48")}>
+      <ScrollArea className={cn(expanded ? "max-h-64" : "max-h-48")}>
         {isLoading ? (
           <div className="py-4 text-center text-sm text-muted-foreground">
             Carregando...
@@ -149,29 +151,30 @@ export function NotificationsPanel({ className }: NotificationsPanelProps) {
         )}
       </ScrollArea>
 
-      {/* Toggle More/Less */}
-      {hasMore && (
-        <div className="p-2 pt-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="h-3 w-3 mr-1" />
-                Ver menos
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3 mr-1" />
-                Ver mais ({reminders.length - 3})
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+        {/* Toggle More/Less */}
+        {hasMore && (
+          <div className="pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full h-8 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3 mr-1" />
+                  Ver menos
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  Ver mais ({reminders.length - 3})
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
