@@ -14,20 +14,20 @@ interface RightSidebarDrawerProps {
 export function RightSidebarDrawer({ open, onOpenChange }: RightSidebarDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0">
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="sr-only">
           <SheetTitle>Painel de Notificações e Chat</SheetTitle>
         </SheetHeader>
-        <ScrollArea className="h-full">
+        <ScrollArea className="flex-1">
           {/* Clock Widget */}
           <ClockWidget className="rounded-none border-b border-border" />
 
           {/* Notifications */}
           <NotificationsPanel />
-
-          {/* Mentor Chat */}
-          <MentorChat />
         </ScrollArea>
+
+        {/* Mentor Chat - Fixed at bottom */}
+        <MentorChat />
       </SheetContent>
     </Sheet>
   );

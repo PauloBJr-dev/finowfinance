@@ -22,10 +22,10 @@ export function RightSidebar({ className }: RightSidebarProps) {
 
         {/* Notifications */}
         <NotificationsPanel />
-
-        {/* Mentor Chat */}
-        <MentorChat />
       </ScrollArea>
+
+      {/* Mentor Chat - Fixed at bottom */}
+      <MentorChat />
     </aside>
   );
 }
