@@ -718,6 +718,18 @@ export type Database = {
         }[]
       }
       close_due_invoices: { Args: never; Returns: number }
+      create_initial_invoice: {
+        Args: {
+          p_card_id: string
+          p_create_previous_closed?: boolean
+          p_initial_invoice_month: string
+          p_user_id: string
+        }
+        Returns: {
+          current_invoice_id: string
+          previous_invoice_id: string
+        }[]
+      }
       find_or_create_invoice: {
         Args: {
           p_card_id: string
