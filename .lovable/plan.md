@@ -1,320 +1,406 @@
 
-# Plano: Layout de Três Colunas com Sidebars Fixas
+# Plano: Implementação da Tela de Contas a Pagar
 
-## Visão Geral
-
-Adaptar o layout atual do Finow para um design de três colunas inspirado na referência do V0:
+## Visão Geral do Fluxo
 
 ```text
-┌────────────┬───────────────────────────────┬─────────────────┐
-│            │                               │                 │
-│  SIDEBAR   │         CONTEÚDO              │    SIDEBAR      │
-│  ESQUERDA  │        SCROLLÁVEL             │    DIREITA      │
-│   (fixa)   │                               │     (fixa)      │
-│            │                               │                 │
-│  - Menu    │  Dashboard, Transações, etc.  │ - Relógio       │
-│  - Logo    │                               │ - Data/Local    │
-│            │                               │ - Notificações  │
-│ ────────── │                               │ - Chat IA       │
-│  Perfil +  │                               │   (escondido)   │
-│  Opções    │                               │                 │
-└────────────┴───────────────────────────────┴─────────────────┘
-```
-
----
-
-## Comportamento Responsivo
-
-### Desktop (>= 1280px)
-- Layout completo de três colunas
-- Sidebar esquerda: 240px (fixa)
-- Sidebar direita: 320px (fixa)
-- Centro: Scrollável, ocupa o restante
-
-### Tablet (768px - 1279px)
-- Sidebar esquerda: colapsável para 64px (mini)
-- Sidebar direita: botão flutuante abre um drawer
-- Centro: ocupa toda a largura restante
-
-### Mobile (< 768px)
-- Sidebar esquerda: oculta (menu via BottomNav existente)
-- Sidebar direita: botão flutuante no canto superior direito abre um Sheet/Drawer
-- Centro: ocupa toda a tela
-
----
-
-## Sidebar Esquerda (Atualizada)
-
-### Estrutura
-
-```text
+[Quick Add - Despesa]
+       │
+       ▼
 ┌─────────────────────────────────┐
-│  ┌─────┐                        │
-│  │  F  │  Finow                 │
-│  └─────┘                        │
-├─────────────────────────────────┤
-│                                 │
-│  MENU (com fundo destacado)     │
-│  ┌─────────────────────────────┐│
-│  │ ▣ Dashboard                 ││
-│  │ ▢ Transações                ││
-│  │ ▢ Contas a pagar            ││
-│  │ ▢ Faturas                   ││
-│  │ ▢ Metas                     ││
-│  │ ▢ Cofrinho                  ││
-│  └─────────────────────────────┘│
-│                                 │
-│                                 │
-├─────────────────────────────────┤
-│  ┌──────────────────────────┐   │
-│  │ ⬤  João Silva        ⋯  │   │
-│  │     joao@email.com   🚪  │   │
-│  └──────────────────────────┘   │
+│   Toggle: "Já paguei?"          │
+│   [ON] Pago (padrão)            │
+│   [OFF] Não pago                │
 └─────────────────────────────────┘
+       │
+       ├─── ON ───► Fluxo normal (cria transação)
+       │
+       └─── OFF ──► Novo fluxo:
+                      │
+                      ▼
+              ┌──────────────────────────────┐
+              │  Data de vencimento          │
+              │  (placeholder: "Quando vence │
+              │  esta conta?")               │
+              └──────────────────────────────┘
+                      │
+                      ▼
+              ┌──────────────────────────────┐
+              │  Recorrência:                │
+              │  [Apenas este mês]           │
+              │  [Repetir por 6 meses]       │
+              └──────────────────────────────┘
+                      │
+                      ▼
+              ┌──────────────────────────────┐
+              │  Cria "Conta a Pagar"        │
+              │  (não cria transação ainda)  │
+              └──────────────────────────────┘
 ```
-
-### Alterações
-- Remover botão "Configurações" da navegação principal
-- Adicionar seção de perfil no rodapé com:
-  - Avatar do usuário (iniciais se não houver foto)
-  - Nome e email
-  - Botão de três pontos (⋯) abrindo menu com "Configurações"
-  - Ícone de sair (🚪) ao lado
-- Aplicar fundo destacado nos botões de navegação usando a cor `sidebar-accent`
 
 ---
 
-## Sidebar Direita (Nova)
+## 1. Banco de Dados
 
-### Estrutura
+### Nova Tabela: `bills`
+
+Armazena contas a pagar (pendentes ou pagas).
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | uuid | PK |
+| `user_id` | uuid | FK para profiles |
+| `description` | text | Nome da conta (ex: "Conta de luz") |
+| `amount` | numeric | Valor |
+| `category_id` | uuid | FK para categories |
+| `due_date` | date | Data de vencimento |
+| `status` | enum | `pending`, `paid`, `overdue` |
+| `recurrence_group_id` | uuid | Agrupa contas recorrentes (nullable) |
+| `paid_at` | timestamp | Quando foi marcada como paga |
+| `paid_transaction_id` | uuid | FK para transactions (criada ao pagar) |
+| `account_id` | uuid | Conta usada para pagamento (nullable até pagar) |
+| `payment_method` | enum | Método usado (nullable até pagar) |
+| `deleted_at` | timestamp | Soft delete |
+| `created_at` | timestamp | |
+| `updated_at` | timestamp | |
+
+### Novo Enum: `bill_status`
+
+```sql
+CREATE TYPE bill_status AS ENUM ('pending', 'paid', 'overdue');
+```
+
+### RLS Policies
+
+- Users can view own bills (user_id = get_current_user_id())
+- Users can create own bills
+- Users can update own bills
+- Users can delete own bills
+
+---
+
+## 2. Modificações no Quick Add
+
+### Step 1 - Após selecionar "Despesa"
+
+Adicionar toggle **"Já paguei?"** com comportamento:
 
 ```text
-┌─────────────────────────────────┐
-│                                 │
-│  ████████████████████████████   │  <- Background animado
-│  ███   14:27   ███████████████  │     (partículas ou
-│  █████████████████████████████  │      gradiente suave)
-│  █  Segunda-feira, 26 Jan  ███  │
-│  █████████████████████████████  │
-│  █  📍 São Paulo, BR • UTC-3 █  │
-│  ████████████████████████████   │
-│                                 │
-├─────────────────────────────────┤
-│                                 │
-│  2  NOTIFICAÇÕES    Limpar tudo │
-│  ─────────────────────────────  │
-│  ● Fatura vence em 3 dias       │
-│    Nubank - R$ 1.240,00         │
-│                                 │
-│  ● Conta de luz pendente        │
-│    Vence amanhã - R$ 180,00     │
-│                                 │
-│  [Ver menos ▲]                  │
-│  [Ver mais ▼] (se houver mais)  │
-│                                 │
-├─────────────────────────────────┤
-│                                 │
-│  ▼ Chat com Mentor IA           │
-│    (clique para expandir)       │
-│                                 │
-│  ┌─────────────────────────────┐│
-│  │                             ││
-│  │  [Área de chat quando       ││
-│  │   expandido]                ││
-│  │                             ││
-│  │  ┌─────────────────────┐    ││
-│  │  │ Digite sua dúvida...│    ││
-│  │  └─────────────────────┘    ││
-│  └─────────────────────────────┘│
-│                                 │
-└─────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Despesa          Receita                   │
+│  ━━━━━━━━━━━━━    ─────────                 │
+│                                             │
+│  Quanto gastou?                             │
+│  ┌────────────────────────────────────┐     │
+│  │ R$ 0,00                            │     │
+│  └────────────────────────────────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │  ✓ Já paguei                       │    │
+│  │  ────────────────────── [ON]       │    │
+│  │  (Desative se esta conta ainda     │    │
+│  │   não foi paga)                    │    │
+│  └─────────────────────────────────────┘    │
+│                                             │
+│  Data: 26 de janeiro de 2026                │
+│                                             │
+│  [Continuar]                                │
+└─────────────────────────────────────────────┘
 ```
 
-### Componentes
+### Quando "Já paguei?" está OFF
 
-1. **Área do Relógio/Data/Local**
-   - Relógio digital grande (formato 24h)
-   - Data completa com dia da semana em PT-BR
-   - Localização: cidade e país
-   - Fuso horário (UTC-3)
-   - Background animado com partículas sutis nas cores do Finow (verde #1F7A63)
+Transformar em "Conta a Pagar":
 
-2. **Área de Notificações**
-   - Título com contador de não lidas
-   - Botão "Limpar tudo"
-   - Lista de notificações vindas do sistema de reminders existente
-   - Botão toggle "Ver mais/Ver menos" (padrão: mostra 3, expandido: mostra todas)
-   - Reutiliza lógica do `useReminders` já existente
+```text
+┌─────────────────────────────────────────────┐
+│  Nova Conta a Pagar                         │
+│                                             │
+│  Quanto vai pagar?                          │
+│  ┌────────────────────────────────────┐     │
+│  │ R$ 150,00                          │     │
+│  └────────────────────────────────────┘     │
+│                                             │
+│  Data de vencimento                         │
+│  ┌────────────────────────────────────┐     │
+│  │ 📅 10 de fevereiro de 2026         │     │
+│  └────────────────────────────────────┘     │
+│  (Quando esta conta vence?)                 │
+│                                             │
+│  Esta conta se repete todo mês?             │
+│  ┌─────────────────────────────────────┐    │
+│  │ ( ) Apenas este mês                 │    │
+│  │ (•) Repetir pelos próximos 6 meses  │    │
+│  │     (usa a mesma data de vencimento │    │
+│  │      para os próximos meses)        │    │
+│  └─────────────────────────────────────┘    │
+│                                             │
+│  [Continuar]                                │
+└─────────────────────────────────────────────┘
+```
 
-3. **Chat com Mentor IA**
-   - Colapsado por padrão (apenas header clicável)
-   - Ao clicar, expande área de chat
-   - Campo de input para enviar mensagens
-   - Histórico de conversa scrollável
-   - Usa Lovable AI (Gemini) com streaming
-   - Persona: mentor financeiro calmo, casual, em PT-BR
+### Step 2 - Categoria (obrigatória)
+
+Mantém o fluxo de categoria existente, mas sem método de pagamento (será definido ao pagar).
+
+### Step 3 - Confirmação
+
+Exibir resumo e confirmar criação da(s) conta(s) a pagar.
 
 ---
 
-## Arquivos a Criar
+## 3. Tela de Contas a Pagar
+
+### Header + Filtros
+
+```text
+┌─────────────────────────────────────────────┐
+│  Contas a Pagar                             │
+│  Gerencie suas contas e compromissos.       │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │ ◄ Janeiro 2026 ►                    │    │
+│  └─────────────────────────────────────┘    │
+│                                             │
+│  [A Vencer] [Vencidas] [Pagas] [Todas]      │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+### Card de Conta a Pagar
+
+```text
+┌─────────────────────────────────────────────┐
+│  [Icone Categoria]                          │
+│  Conta de Luz                    R$ 180,00  │
+│  Moradia                                    │
+│                                             │
+│  ⏰ Vence em 5 dias (10/02)      [Pagar]    │
+└─────────────────────────────────────────────┘
+```
+
+### Estados visuais
+
+- **A vencer (>3 dias)**: Cor neutra
+- **Vence em breve (1-3 dias)**: Badge amarelo/warning
+- **Vencida**: Badge vermelho/destructive, texto "Vencida há X dias"
+- **Paga**: Badge verde, texto "Paga em DD/MM"
+
+### Modal de Pagamento
+
+Ao clicar em "Pagar":
+
+```text
+┌─────────────────────────────────────────────┐
+│  Pagar Conta                                │
+│                                             │
+│  Conta de Luz - R$ 180,00                   │
+│  Vencimento: 10/02/2026                     │
+│                                             │
+│  ─────────────────────────────────────────  │
+│                                             │
+│  Forma de pagamento                         │
+│  ┌────────────────────────────────────┐     │
+│  │ Boleto                             │     │
+│  └────────────────────────────────────┘     │
+│                                             │
+│  Pagar com                                  │
+│  ┌────────────────────────────────────┐     │
+│  │ Nubank (Conta Corrente)            │     │
+│  └────────────────────────────────────┘     │
+│                                             │
+│  Data do pagamento                          │
+│  ┌────────────────────────────────────┐     │
+│  │ Hoje (26/01/2026)                  │     │
+│  └────────────────────────────────────┘     │
+│                                             │
+│  [Cancelar]              [Confirmar Pagamento]│
+└─────────────────────────────────────────────┘
+```
+
+**Ao confirmar**:
+1. Atualiza bill.status = 'paid'
+2. Cria transação de despesa com os dados
+3. Vincula transação à bill (paid_transaction_id)
+4. Toast: "Conta paga! Despesa de R$ 180,00 registrada."
+
+---
+
+## 4. Arquivos a Criar/Modificar
+
+### Novos Arquivos
 
 | Arquivo | Descrição |
 |---------|-----------|
-| `src/components/layout/ThreeColumnLayout.tsx` | Novo layout principal de 3 colunas |
-| `src/components/layout/RightSidebar.tsx` | Sidebar direita completa |
-| `src/components/layout/ClockWidget.tsx` | Widget de relógio, data e localização |
-| `src/components/layout/NotificationsPanel.tsx` | Painel de notificações expandível |
-| `src/components/layout/MentorChat.tsx` | Chat com IA colapsável |
-| `src/components/layout/AnimatedBackground.tsx` | Background com partículas animadas |
-| `src/components/layout/UserProfileFooter.tsx` | Rodapé da sidebar com perfil |
-| `supabase/functions/mentor-chat/index.ts` | Edge function para chat com Lovable AI |
+| `supabase/migrations/xxx_create_bills_table.sql` | DDL da tabela bills |
+| `src/hooks/use-bills.ts` | Hooks React Query para CRUD de bills |
+| `src/components/bills/BillCard.tsx` | Card individual de conta a pagar |
+| `src/components/bills/BillList.tsx` | Lista de contas com filtros |
+| `src/components/bills/PayBillModal.tsx` | Modal de pagamento |
+| `src/components/bills/BillFilters.tsx` | Filtros (mês, status) |
+| `supabase/functions/bills/index.ts` | Edge function para operações |
 
----
-
-## Arquivos a Modificar
+### Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/components/layout/MainLayout.tsx` | Substituir pela nova estrutura de 3 colunas |
-| `src/components/navigation/Sidebar.tsx` | Adicionar fundo destacado nos botões e trocar rodapé |
-| `src/components/navigation/navigation-items.ts` | Remover settings da navegação principal |
-| `src/index.css` | Adicionar variáveis CSS para sidebar direita e animações |
-| `tailwind.config.ts` | Adicionar keyframes para partículas animadas |
+| `src/components/transactions/QuickAddModal.tsx` | Adicionar toggle "Já paguei?" e fluxo de conta a pagar |
+| `src/pages/ContasPagar.tsx` | Implementar tela completa |
+| `src/integrations/supabase/types.ts` | Será atualizado automaticamente |
+
+---
+
+## 5. Regras de Negócio
+
+### Criação de Bills
+
+1. Validar campos obrigatórios: amount, due_date, category_id
+2. Se recorrente: criar 6 bills com due_date incrementado mês a mês
+3. Todas as bills recorrentes compartilham o mesmo `recurrence_group_id`
+4. Status inicial: `pending`
+
+### Atualização de Status
+
+- **Automático via cron/trigger**: Se due_date < hoje e status = pending, mudar para `overdue`
+- **Manual**: Ao pagar, mudar para `paid` e criar transação
+
+### Pagamento
+
+1. Criar transação de despesa:
+   - amount = bill.amount
+   - type = 'expense'
+   - category_id = bill.category_id
+   - payment_method = selecionado no modal
+   - account_id = selecionado no modal
+   - date = data do pagamento
+   - description = bill.description
+2. Atualizar bill:
+   - status = 'paid'
+   - paid_at = now()
+   - paid_transaction_id = transação criada
+
+### Exclusão
+
+- Soft delete padrão
+- Se bill está vinculada a transação, manter histórico
+
+---
+
+## 6. Considerações de UX
+
+### Placeholders e Microcopy
+
+- Toggle "Já paguei?": "Desative se esta conta ainda não foi paga"
+- Data de vencimento: "Quando esta conta vence?"
+- Recorrência: "Gera automaticamente esta conta para os próximos 6 meses, usando a mesma data de vencimento"
+
+### Feedback Visual
+
+- Animação suave ao marcar como paga
+- Toast de sucesso com valor
+- Contadores no header (ex: "3 contas a vencer")
+
+### Mobile-First
+
+- Cards com swipe para pagar (futuro)
+- Bottom sheet para modal de pagamento
+- FAB permanece para Quick Add
+
+---
+
+## 7. Sequência de Implementação
+
+1. Migração SQL (criar tabela bills + enum + RLS)
+2. Hook `use-bills.ts` com operações CRUD
+3. Modificar QuickAddModal para fluxo de contas a pagar
+4. Componentes da tela Contas a Pagar (BillCard, BillList, BillFilters)
+5. PayBillModal com criação de transação
+6. Testes e ajustes de responsividade
 
 ---
 
 ## Seção Técnica
 
-### Estrutura CSS do Layout
+### SQL da Migração
 
-```css
-/* Layout de 3 colunas */
-.three-column-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr 320px;
-  min-height: 100vh;
-}
+```sql
+-- Enum para status
+CREATE TYPE bill_status AS ENUM ('pending', 'paid', 'overdue');
 
-/* Tablet */
-@media (max-width: 1279px) {
-  .three-column-layout {
-    grid-template-columns: 64px 1fr;
-  }
-}
+-- Tabela bills
+CREATE TABLE public.bills (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id),
+  description TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  category_id UUID NOT NULL REFERENCES public.categories(id),
+  due_date DATE NOT NULL,
+  status bill_status NOT NULL DEFAULT 'pending',
+  recurrence_group_id UUID,
+  paid_at TIMESTAMPTZ,
+  paid_transaction_id UUID REFERENCES public.transactions(id),
+  account_id UUID REFERENCES public.accounts(id),
+  payment_method payment_method,
+  deleted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
-/* Mobile */
-@media (max-width: 767px) {
-  .three-column-layout {
-    grid-template-columns: 1fr;
-  }
-}
+-- RLS
+ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own bills"
+  ON public.bills FOR SELECT
+  USING (user_id = get_current_user_id());
+
+CREATE POLICY "Users can create own bills"
+  ON public.bills FOR INSERT
+  WITH CHECK (user_id = get_current_user_id());
+
+CREATE POLICY "Users can update own bills"
+  ON public.bills FOR UPDATE
+  USING (user_id = get_current_user_id());
+
+CREATE POLICY "Users can delete own bills"
+  ON public.bills FOR DELETE
+  USING (user_id = get_current_user_id());
+
+-- Trigger para updated_at
+CREATE TRIGGER update_bills_updated_at
+  BEFORE UPDATE ON public.bills
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger para audit log
+CREATE TRIGGER audit_bills
+  AFTER INSERT OR UPDATE OR DELETE ON public.bills
+  FOR EACH ROW
+  EXECUTE FUNCTION create_audit_log();
+
+-- Índices
+CREATE INDEX idx_bills_user_id ON public.bills(user_id);
+CREATE INDEX idx_bills_due_date ON public.bills(due_date);
+CREATE INDEX idx_bills_status ON public.bills(status);
+CREATE INDEX idx_bills_recurrence ON public.bills(recurrence_group_id);
 ```
 
-### Animação de Partículas (Canvas ou CSS)
-
-Opção 1: CSS puro com pseudo-elementos e keyframes
-Opção 2: Canvas simples com partículas flutuantes nas cores do Finow
-
-Recomendação: CSS puro para melhor performance, com gradientes animados e pequenos pontos de luz.
-
-```css
-@keyframes float-particle {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
-  50% { transform: translateY(-10px) scale(1.1); opacity: 0.6; }
-}
-```
-
-### Edge Function para Chat (mentor-chat)
+### Hook Principal (resumo)
 
 ```typescript
-// Persona do mentor
-const SYSTEM_PROMPT = `Você é um mentor financeiro calmo e amigável do app Finow.
-Seu papel é ajudar o usuário a entender suas finanças de forma simples.
-- Fale em português brasileiro, de forma casual
-- Seja breve e direto (máximo 3 parágrafos)
-- Use emojis com moderação
-- NUNCA dê conselhos de investimento específicos
-- Se perguntarem sobre investimentos, explique conceitos gerais e recomende um profissional`;
-
-// Usa Lovable AI com streaming
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  body: JSON.stringify({
-    model: "google/gemini-3-flash-preview",
-    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...userMessages],
-    stream: true,
-  }),
-});
+// use-bills.ts
+export function useBills(filters?: BillFilters) { ... }
+export function useCreateBill() { ... }
+export function usePayBill() { ... } // Marca como pago + cria transação
+export function useDeleteBill() { ... }
 ```
 
-### Hook para Localização
+### Estrutura do QuickAddModal
 
 ```typescript
-// Obter cidade via IP (API gratuita)
-// ou permitir usuário definir manualmente nas configurações
-const useLocation = () => {
-  // Fallback: São Paulo, BR
-  return { city: "São Paulo", country: "BR", timezone: "UTC-3" };
-};
+// Estados adicionais
+const [isPaid, setIsPaid] = useState(true); // Padrão: pago
+const [dueDate, setDueDate] = useState<Date | null>(null);
+const [isRecurring, setIsRecurring] = useState(false);
+
+// Se !isPaid && type === "expense", redirecionar para fluxo de bills
 ```
-
-### Variáveis CSS Novas
-
-```css
-:root {
-  /* Sidebar direita */
-  --right-sidebar-bg: hsl(160 25% 11%);
-  --right-sidebar-border: hsl(160 20% 18%);
-  
-  /* Animação de partículas */
-  --particle-color: hsl(161 59% 30% / 0.3);
-}
-```
-
----
-
-## Fluxo de Implementação
-
-1. **Fase 1: Estrutura base**
-   - Criar `ThreeColumnLayout.tsx` com grid responsivo
-   - Modificar `MainLayout.tsx` para usar nova estrutura
-   - Testar responsividade básica
-
-2. **Fase 2: Sidebar Esquerda**
-   - Atualizar `Sidebar.tsx` com novo rodapé (perfil + opções)
-   - Criar `UserProfileFooter.tsx`
-   - Aplicar fundo destacado nos itens de navegação
-   - Remover Settings da navegação
-
-3. **Fase 3: Sidebar Direita - Widgets**
-   - Criar `ClockWidget.tsx` com relógio em tempo real
-   - Criar `AnimatedBackground.tsx` com partículas
-   - Criar `NotificationsPanel.tsx` reutilizando `useReminders`
-
-4. **Fase 4: Chat com IA**
-   - Criar Edge Function `mentor-chat`
-   - Criar `MentorChat.tsx` com streaming
-   - Integrar com Lovable AI
-
-5. **Fase 5: Mobile**
-   - Implementar botão flutuante para sidebar direita
-   - Criar Sheet/Drawer para sidebar direita mobile
-   - Testar em diferentes tamanhos de tela
-
----
-
-## Considerações de UX
-
-### Performance
-- Relógio atualiza a cada segundo (requestAnimationFrame)
-- Partículas via CSS (não JavaScript)
-- Chat lazy-loaded (só carrega quando expande)
-
-### Acessibilidade
-- Foco gerenciado ao abrir/fechar chat
-- Labels ARIA para widgets
-- Contraste adequado (WCAG AA)
-
-### Mobile-First
-- Sidebar direita oculta em mobile
-- Botão flutuante discreto (não conflita com FAB de Quick Add)
-- Posição: canto superior direito (diferente do FAB que fica embaixo)

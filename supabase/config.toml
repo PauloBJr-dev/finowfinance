@@ -38,6 +38,3 @@ verify_jwt = false
 
 [functions.close-invoices]
 verify_jwt = false
-
-[functions.mentor-chat]
-verify_jwt = false
