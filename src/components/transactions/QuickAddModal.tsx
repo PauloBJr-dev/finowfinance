@@ -10,17 +10,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCards } from "@/hooks/use-cards";
 import { useCreateTransaction } from "@/hooks/use-transactions";
+import { useCreateBill } from "@/hooks/use-bills";
 import { useSuggestCategory, useAISettings } from "@/hooks/use-ai";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { formatInstallmentPreview } from "@/lib/installment-utils";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Loader2, Sparkles, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -39,12 +41,17 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
   
-  // Step 1: Type, Amount, Date
+  // Step 1: Type, Amount, Date, isPaid (for expenses)
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState<Date>(new Date());
+  const [isPaid, setIsPaid] = useState(true); // Default: pago
   
-  // Step 2: Category, Payment Method, Description
+  // Bill-specific fields (when !isPaid)
+  const [dueDate, setDueDate] = useState<Date>(new Date());
+  const [isRecurring, setIsRecurring] = useState(false);
+  
+  // Step 2: Category, Payment Method (if paid), Description
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [description, setDescription] = useState("");
@@ -60,14 +67,18 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const { data: cards = [] } = useCards();
   const { data: aiSettings } = useAISettings();
   const createTransaction = useCreateTransaction();
+  const createBill = useCreateBill();
   const suggestCategory = useSuggestCategory();
 
-  // Determina se cartão de crédito é permitido (apenas despesas)
-  const isCreditCardAllowed = type === "expense";
+  // Determina se estamos no fluxo de conta a pagar
+  const isBillFlow = type === "expense" && !isPaid;
+
+  // Determina se cartão de crédito é permitido (apenas despesas pagas)
+  const isCreditCardAllowed = type === "expense" && isPaid;
   const isCreditCardSelected = paymentMethod === "credit_card";
   
-  // Parcelamento: apenas despesa + cartão de crédito
-  const canShowInstallment = type === "expense" && isCreditCardSelected;
+  // Parcelamento: apenas despesa paga + cartão de crédito
+  const canShowInstallment = type === "expense" && isPaid && isCreditCardSelected;
 
   // Número de parcelas parseado
   const parsedInstallments = useMemo(() => {
@@ -82,6 +93,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setType("expense");
       setAmount(0);
       setDate(new Date());
+      setIsPaid(true);
+      setDueDate(new Date());
+      setIsRecurring(false);
       setCategoryId(null);
       setPaymentMethod("transfer");
       setDescription("");
@@ -103,56 +117,85 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setIsInstallment(false);
       setInstallmentCount("");
       setCardId(null);
+      setIsPaid(true); // Receitas são sempre "recebidas"
     }
     // Reset categoria ao mudar tipo (categorias são diferentes)
     setCategoryId(null);
     setAiSuggestion(null);
   }, [type]);
 
-  // Reset parcelamento quando muda método de pagamento
+  // Reset parcelamento quando muda método de pagamento ou isPaid
   useEffect(() => {
-    if (paymentMethod !== "credit_card") {
+    if (paymentMethod !== "credit_card" || !isPaid) {
       setIsInstallment(false);
       setInstallmentCount("");
     }
-  }, [paymentMethod]);
+  }, [paymentMethod, isPaid]);
 
-  // Auto-select first account/card when step 3 loads
+  // Auto-select first account/card when step 3 loads (only for paid transactions)
   useEffect(() => {
-    if (step === 3) {
+    if (step === 3 && isPaid) {
       if (isCreditCardSelected && cards.length > 0 && !cardId) {
         setCardId(cards[0].id);
       } else if (!isCreditCardSelected && accounts.length > 0 && !accountId) {
         setAccountId(accounts[0].id);
       }
     }
-  }, [step, isCreditCardSelected, accounts, cards, accountId, cardId]);
+  }, [step, isPaid, isCreditCardSelected, accounts, cards, accountId, cardId]);
 
-  const canProceedStep1 = amount > 0;
+  // Validations
+  const canProceedStep1 = amount > 0 && (isPaid || dueDate);
   const canProceedStep2 = categoryId !== null;
-  const canProceedStep3 = isCreditCardSelected ? cardId !== null : accountId !== null;
+  const canProceedStep3Bill = categoryId !== null; // Bills don't need account in creation
+  const canProceedStep3Transaction = isCreditCardSelected ? cardId !== null : accountId !== null;
 
   const handleSubmit = async () => {
     try {
-      const finalInstallments = canShowInstallment && isInstallment && parsedInstallments >= 2 
-        ? parsedInstallments 
-        : undefined;
+      if (isBillFlow) {
+        // Criar conta a pagar (não transação)
+        await createBill.mutateAsync({
+          description: description || "Conta a pagar",
+          amount,
+          category_id: categoryId!,
+          due_date: dueDate.toISOString().split('T')[0],
+          is_recurring: isRecurring,
+        });
+      } else {
+        // Fluxo normal de transação
+        const finalInstallments = canShowInstallment && isInstallment && parsedInstallments >= 2 
+          ? parsedInstallments 
+          : undefined;
 
-      await createTransaction.mutateAsync({
-        amount,
-        type,
-        payment_method: paymentMethod,
-        date: date.toISOString().split('T')[0],
-        description: description || null,
-        category_id: categoryId,
-        account_id: isCreditCardSelected ? null : accountId,
-        card_id: isCreditCardSelected ? cardId : null,
-        installments: finalInstallments,
-      });
+        await createTransaction.mutateAsync({
+          amount,
+          type,
+          payment_method: paymentMethod,
+          date: date.toISOString().split('T')[0],
+          description: description || null,
+          category_id: categoryId,
+          account_id: isCreditCardSelected ? null : accountId,
+          card_id: isCreditCardSelected ? cardId : null,
+          installments: finalInstallments,
+        });
+      }
       onOpenChange(false);
     } catch (error) {
       // Error is handled in the hook
     }
+  };
+
+  // Determine total steps based on flow
+  const totalSteps = isBillFlow ? 2 : 3;
+  const isSubmitting = createTransaction.isPending || createBill.isPending;
+
+  const getModalTitle = () => {
+    if (isBillFlow) {
+      if (step === 1) return "Nova Conta a Pagar";
+      return "Categoria e Descrição";
+    }
+    if (step === 1) return "Nova transação";
+    if (step === 2) return type === "expense" ? "Detalhes da despesa" : "Detalhes da receita";
+    return "Confirmar";
   };
 
   const content = (
@@ -160,7 +203,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       <div className="flex flex-col gap-4 p-4 pb-8">
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-2">
-          {[1, 2, 3].map((s) => (
+          {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
             <div
               key={s}
               className={cn(
@@ -171,7 +214,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           ))}
         </div>
 
-        {/* Step 1: Type, Amount, Date */}
+        {/* Step 1: Type, Amount, Date/DueDate, isPaid toggle */}
         {step === 1 && (
           <div className="space-y-4">
             {/* Type Toggle */}
@@ -202,7 +245,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
             {/* Amount */}
             <div className="space-y-2">
-              <Label>{type === "expense" ? "Quanto gastou?" : "Quanto recebeu?"}</Label>
+              <Label>
+                {isBillFlow 
+                  ? "Quanto vai pagar?" 
+                  : type === "expense" 
+                    ? "Quanto gastou?" 
+                    : "Quanto recebeu?"}
+              </Label>
               <CurrencyInput
                 value={amount}
                 onChange={setAmount}
@@ -211,30 +260,117 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               />
             </div>
 
-            {/* Date */}
-            <div className="space-y-2">
-              <Label>Data</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, "PPP", { locale: ptBR })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => d && setDate(d)}
-                    locale={ptBR}
-                    initialFocus
+            {/* "Já paguei?" Toggle - only for expenses */}
+            {type === "expense" && (
+              <div className="rounded-lg border bg-card/50 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="is-paid-switch" className="cursor-pointer font-medium">
+                      Já paguei
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {isPaid 
+                        ? "Despesa já foi paga" 
+                        : "Criar como conta a pagar"}
+                    </p>
+                  </div>
+                  <Switch
+                    id="is-paid-switch"
+                    checked={isPaid}
+                    onCheckedChange={setIsPaid}
                   />
-                </PopoverContent>
-              </Popover>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Date (for paid transactions) or Due Date (for bills) */}
+            {isPaid ? (
+              <div className="space-y-2">
+                <Label>Data</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, "PPP", { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(d) => d && setDate(d)}
+                      locale={ptBR}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <>
+                {/* Due Date for bills */}
+                <div className="space-y-2">
+                  <Label>Data de vencimento</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {format(dueDate, "PPP", { locale: ptBR })}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dueDate}
+                        onSelect={(d) => d && setDueDate(d)}
+                        locale={ptBR}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">
+                    Quando esta conta vence?
+                  </p>
+                </div>
+
+                {/* Recurrence option */}
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <Label className="font-medium">Esta conta se repete todo mês?</Label>
+                  <RadioGroup
+                    value={isRecurring ? "recurring" : "single"}
+                    onValueChange={(v) => setIsRecurring(v === "recurring")}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="single" id="single" className="mt-0.5" />
+                      <div>
+                        <Label htmlFor="single" className="cursor-pointer font-normal">
+                          Apenas este mês
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value="recurring" id="recurring" className="mt-0.5" />
+                      <div>
+                        <Label htmlFor="recurring" className="cursor-pointer font-normal">
+                          Repetir pelos próximos 6 meses
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Usa a mesma data de vencimento para os próximos meses
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
 
             <Button
               onClick={() => setStep(2)}
@@ -246,7 +382,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           </div>
         )}
 
-        {/* Step 2: Category, Payment Method, Description */}
+        {/* Step 2: Category, Payment Method (if paid), Description */}
         {step === 2 && (
           <div className="space-y-4">
             <button
@@ -256,6 +392,14 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               <ArrowLeft className="h-4 w-4" />
               Voltar
             </button>
+
+            {/* Bill flow indicator */}
+            {isBillFlow && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                <FileText className="h-4 w-4" />
+                <span>Criando conta a pagar (despesa será registrada ao marcar como paga)</span>
+              </div>
+            )}
 
             {/* AI Category Suggestion - apenas para despesas */}
             {aiSettings?.categorization_enabled && type === "expense" && (
@@ -322,38 +466,91 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               />
             </div>
 
-            {/* Payment Method - adapta ao tipo */}
-            <div className="space-y-2">
-              <Label>{type === "expense" ? "Forma de pagamento" : "Forma de recebimento"}</Label>
-              <PaymentMethodSelect
-                value={paymentMethod}
-                onChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                transactionType={type}
-              />
-            </div>
+            {/* Payment Method - only for paid transactions */}
+            {!isBillFlow && (
+              <div className="space-y-2">
+                <Label>{type === "expense" ? "Forma de pagamento" : "Forma de recebimento"}</Label>
+                <PaymentMethodSelect
+                  value={paymentMethod}
+                  onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                  transactionType={type}
+                />
+              </div>
+            )}
 
             {/* Description */}
             <div className="space-y-2">
-              <Label>Descrição (opcional)</Label>
+              <Label>{isBillFlow ? "Nome da conta" : "Descrição (opcional)"}</Label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={type === "expense" ? "Ex: Mercado, Almoço..." : "Ex: Salário de Janeiro..."}
+                placeholder={
+                  isBillFlow 
+                    ? "Ex: Conta de luz, Aluguel..." 
+                    : type === "expense" 
+                      ? "Ex: Mercado, Almoço..." 
+                      : "Ex: Salário de Janeiro..."
+                }
               />
+              {isBillFlow && (
+                <p className="text-xs text-muted-foreground">
+                  Este nome aparecerá na sua lista de contas a pagar
+                </p>
+              )}
             </div>
 
-            <Button
-              onClick={() => setStep(3)}
-              disabled={!canProceedStep2}
-              className="w-full"
-            >
-              Continuar
-            </Button>
+            {/* For bill flow, this is the last step */}
+            {isBillFlow ? (
+              <>
+                {/* Summary for bills */}
+                <div className="rounded-lg border bg-card p-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-medium">{formatCurrency(amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Vencimento</span>
+                    <span>{formatDate(dueDate)}</span>
+                  </div>
+                  {isRecurring && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Recorrência</span>
+                      <span className="font-medium text-primary">6 meses</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!canProceedStep2 || isSubmitting}
+                  className="w-full"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : isRecurring ? (
+                    "Criar 6 contas a pagar"
+                  ) : (
+                    "Criar conta a pagar"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => setStep(3)}
+                disabled={!canProceedStep2}
+                className="w-full"
+              >
+                Continuar
+              </Button>
+            )}
           </div>
         )}
 
-        {/* Step 3: Account/Card + Installments */}
-        {step === 3 && (
+        {/* Step 3: Account/Card + Installments (only for paid transactions) */}
+        {step === 3 && !isBillFlow && (
           <div className="space-y-4">
             <button
               onClick={() => setStep(2)}
@@ -484,10 +681,10 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
             <Button
               onClick={handleSubmit}
-              disabled={!canProceedStep3 || createTransaction.isPending}
+              disabled={!canProceedStep3Transaction || isSubmitting}
               className="w-full"
             >
-              {createTransaction.isPending ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Salvando...
@@ -507,11 +704,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh] flex flex-col">
           <DrawerHeader className="flex-shrink-0">
-            <DrawerTitle>
-              {step === 1 && "Nova transação"}
-              {step === 2 && (type === "expense" ? "Detalhes da despesa" : "Detalhes da receita")}
-              {step === 3 && "Confirmar"}
-            </DrawerTitle>
+            <DrawerTitle>{getModalTitle()}</DrawerTitle>
           </DrawerHeader>
           {content}
         </DrawerContent>
@@ -523,11 +716,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>
-            {step === 1 && "Nova transação"}
-            {step === 2 && (type === "expense" ? "Detalhes da despesa" : "Detalhes da receita")}
-            {step === 3 && "Confirmar"}
-          </DialogTitle>
+          <DialogTitle>{getModalTitle()}</DialogTitle>
         </DialogHeader>
         {content}
       </DialogContent>

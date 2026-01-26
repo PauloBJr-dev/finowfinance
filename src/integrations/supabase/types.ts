@@ -187,6 +187,89 @@ export type Database = {
           },
         ]
       }
+      bills: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category_id: string
+          created_at: string
+          deleted_at: string | null
+          description: string
+          due_date: string
+          id: string
+          paid_at: string | null
+          paid_transaction_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          recurrence_group_id: string | null
+          status: Database["public"]["Enums"]["bill_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category_id: string
+          created_at?: string
+          deleted_at?: string | null
+          description: string
+          due_date: string
+          id?: string
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          recurrence_group_id?: string | null
+          status?: Database["public"]["Enums"]["bill_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          due_date?: string
+          id?: string
+          paid_at?: string | null
+          paid_transaction_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          recurrence_group_id?: string | null
+          status?: Database["public"]["Enums"]["bill_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_paid_transaction_id_fkey"
+            columns: ["paid_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cards: {
         Row: {
           billing_day: number
@@ -748,6 +831,7 @@ export type Database = {
         | "benefit_card"
         | "investment"
       audit_action: "create" | "update" | "delete" | "restore"
+      bill_status: "pending" | "paid" | "overdue"
       goal_status: "active" | "completed" | "cancelled"
       installment_status: "pending" | "paid" | "reconciled"
       invoice_status: "open" | "closed" | "paid" | "overdue"
@@ -895,6 +979,7 @@ export const Constants = {
         "investment",
       ],
       audit_action: ["create", "update", "delete", "restore"],
+      bill_status: ["pending", "paid", "overdue"],
       goal_status: ["active", "completed", "cancelled"],
       installment_status: ["pending", "paid", "reconciled"],
       invoice_status: ["open", "closed", "paid", "overdue"],
