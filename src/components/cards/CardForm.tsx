@@ -77,6 +77,11 @@ function generateMonthOptions() {
   return options;
 }
 
+// Retorna o mês atual como padrão
+function getCurrentMonthValue() {
+  return format(new Date(), "yyyy-MM-01");
+}
+
 export function CardForm({
   open,
   onOpenChange,
@@ -87,6 +92,8 @@ export function CardForm({
   const isEditing = !!initialData;
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
+  const currentMonth = useMemo(() => getCurrentMonthValue(), []);
+  
   const form = useForm<CardFormData>({
     resolver: zodResolver(cardSchema),
     defaultValues: {
@@ -94,8 +101,8 @@ export function CardForm({
       credit_limit: 0,
       billing_day: 1,
       due_day: 10,
-      initial_invoice_month: monthOptions[1]?.value, // Próximo mês por padrão
-      create_previous_closed: true,
+      initial_invoice_month: currentMonth, // Mês atual por padrão
+      create_previous_closed: false, // Não criar anterior por padrão
     },
   });
 
@@ -115,11 +122,11 @@ export function CardForm({
         credit_limit: 0,
         billing_day: 1,
         due_day: 10,
-        initial_invoice_month: monthOptions[1]?.value,
-        create_previous_closed: true,
+        initial_invoice_month: currentMonth,
+        create_previous_closed: false,
       });
     }
-  }, [initialData, form, monthOptions]);
+  }, [initialData, form, currentMonth]);
 
   const handleSubmit = async (data: CardFormData) => {
     await onSubmit(data);
