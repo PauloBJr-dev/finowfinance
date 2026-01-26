@@ -32,7 +32,7 @@ interface QuickAddModalProps {
 }
 
 type TransactionType = "expense" | "income";
-type PaymentMethod = "cash" | "debit" | "credit_card" | "transfer" | "boleto" | "voucher" | "split";
+type PaymentMethod = "cash" | "debit" | "credit_card" | "transfer" | "boleto" | "voucher" | "split" | "benefit_card";
 
 // Métodos válidos para receita
 const INCOME_PAYMENT_METHODS: PaymentMethod[] = ["transfer", "cash", "debit"];
@@ -76,6 +76,11 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   // Determina se cartão de crédito é permitido (apenas despesas pagas)
   const isCreditCardAllowed = type === "expense" && isPaid;
   const isCreditCardSelected = paymentMethod === "credit_card";
+  const isBenefitCardSelected = paymentMethod === "benefit_card";
+  
+  // Filtrar contas por tipo
+  const regularAccounts = accounts.filter(a => a.type !== "benefit_card");
+  const benefitAccounts = accounts.filter(a => a.type === "benefit_card");
   
   // Parcelamento: apenas despesa paga + cartão de crédito
   const canShowInstallment = type === "expense" && isPaid && isCreditCardSelected;
@@ -137,11 +142,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     if (step === 3 && isPaid) {
       if (isCreditCardSelected && cards.length > 0 && !cardId) {
         setCardId(cards[0].id);
-      } else if (!isCreditCardSelected && accounts.length > 0 && !accountId) {
-        setAccountId(accounts[0].id);
+      } else if (isBenefitCardSelected && benefitAccounts.length > 0 && !accountId) {
+        setAccountId(benefitAccounts[0].id);
+      } else if (!isCreditCardSelected && !isBenefitCardSelected && regularAccounts.length > 0 && !accountId) {
+        setAccountId(regularAccounts[0].id);
       }
     }
-  }, [step, isPaid, isCreditCardSelected, accounts, cards, accountId, cardId]);
+  }, [step, isPaid, isCreditCardSelected, isBenefitCardSelected, regularAccounts, benefitAccounts, cards, accountId, cardId]);
 
   // Validations
   const canProceedStep1 = amount > 0 && (isPaid || dueDate);
@@ -166,10 +173,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           ? parsedInstallments 
           : undefined;
 
+        // Para cartão benefício, usar voucher como payment_method
+        const finalPaymentMethod = isBenefitCardSelected ? "voucher" : paymentMethod;
+        
         await createTransaction.mutateAsync({
           amount,
           type,
-          payment_method: paymentMethod,
+          payment_method: finalPaymentMethod as any,
           date: date.toISOString().split('T')[0],
           description: description || null,
           category_id: categoryId,
@@ -632,22 +642,33 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 )}
               </>
             ) : (
-              /* Account Select */
+              /* Account Select - diferentes listas para benefício vs normal */
               <div className="space-y-2">
-                <Label>{type === "expense" ? "Pagar com" : "Receber em"}</Label>
+                <Label>
+                  {isBenefitCardSelected 
+                    ? "Cartão Benefício" 
+                    : type === "expense" 
+                      ? "Pagar com" 
+                      : "Receber em"}
+                </Label>
                 <Select value={accountId || ""} onValueChange={setAccountId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma conta" />
+                    <SelectValue placeholder={isBenefitCardSelected ? "Selecione o cartão benefício" : "Selecione uma conta"} />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
-                    {accounts.map((account) => (
+                    {(isBenefitCardSelected ? benefitAccounts : regularAccounts).map((account) => (
                       <SelectItem key={account.id} value={account.id}>
                         {account.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {accounts.length === 0 && (
+                {isBenefitCardSelected && benefitAccounts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum cartão benefício cadastrado. Cadastre em Configurações → Benefícios.
+                  </p>
+                )}
+                {!isBenefitCardSelected && regularAccounts.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma conta cadastrada. Cadastre uma em Configurações.
                   </p>

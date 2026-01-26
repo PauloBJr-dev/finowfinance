@@ -13,6 +13,7 @@ import {
   Banknote,
   ChevronDown,
   ChevronUp,
+  Gift,
 } from "lucide-react";
 
 type PaymentMethod =
@@ -22,7 +23,8 @@ type PaymentMethod =
   | "transfer"
   | "boleto"
   | "voucher"
-  | "split";
+  | "split"
+  | "benefit_card";
 
 type TransactionType = "expense" | "income";
 
@@ -32,6 +34,7 @@ interface PaymentMethodSelectProps {
   transactionType?: TransactionType;
   className?: string;
   disabled?: boolean;
+  hasBenefitCards?: boolean; // indica se há cartões benefício cadastrados
 }
 
 // Métodos de DESPESA
@@ -44,6 +47,7 @@ const expensePrimaryMethods: {
   { value: "debit", label: "Débito", icon: CreditCard },
   { value: "credit_card", label: "Crédito", icon: CreditCard },
   { value: "cash", label: "Dinheiro", icon: Banknote },
+  { value: "benefit_card", label: "Benefício", icon: Gift },
 ];
 
 const expenseSecondaryMethods: {
@@ -80,6 +84,7 @@ export function PaymentMethodSelect({
   transactionType = "expense",
   className,
   disabled = false,
+  hasBenefitCards = true,
 }: PaymentMethodSelectProps) {
   const isIncome = transactionType === "income";
   
