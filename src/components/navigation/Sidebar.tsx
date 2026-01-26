@@ -1,13 +1,13 @@
-import { useState } from "react";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavItem } from "./NavItem";
 import { navigationItems, settingsItem } from "./navigation-items";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useSidebarContext } from "@/contexts/SidebarContext";
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, toggle } = useSidebarContext();
   const { signOut, user } = useAuth();
 
   return (
@@ -36,7 +36,7 @@ export function Sidebar() {
 
       {/* Toggle button */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={toggle}
         className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm hover:bg-sidebar-accent"
       >
         {collapsed ? (
