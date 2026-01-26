@@ -27,10 +27,21 @@ export default function Faturas() {
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payAccountId, setPayAccountId] = useState<string | null>(null);
 
-  const { data: cards = [] } = useCards();
-  const { data: invoices = [], isLoading } = useInvoices(selectedCardId ? { cardId: selectedCardId } : undefined);
+  // NOTE: Supabase can return `null` for `data` when a request errors; normalize to arrays
+  // to avoid runtime errors like "Cannot read properties of null (reading 'length')".
+  const { data: cardsData } = useCards();
+  const cards = Array.isArray(cardsData) ? cardsData : [];
+
+  const { data: invoicesData, isLoading } = useInvoices(
+    selectedCardId ? { cardId: selectedCardId } : undefined
+  );
+  const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+
   const { data: invoiceDetails } = useInvoice(selectedInvoiceId);
-  const { data: accounts = [] } = useAccounts();
+
+  const { data: accountsData } = useAccounts();
+  const accounts = Array.isArray(accountsData) ? accountsData : [];
+
   const payInvoice = usePayInvoice();
 
   const handlePay = async () => {
