@@ -152,21 +152,22 @@ export function useCreateTransaction() {
       const isCreditCard = transaction.payment_method === "credit_card";
       const hasInstallments = isCreditCard && numInstallments && numInstallments > 1;
 
-      // Buscar fatura antes de criar a transação (para vincular atomicamente)
+      // Usar RPC find_or_create_invoice para garantir fatura correta
       let invoiceId: string | null = null;
       
       if (isCreditCard && transaction.card_id) {
-        const { data: invoice } = await supabase
-          .from("invoices")
-          .select("id, status, total_amount")
-          .eq("card_id", transaction.card_id)
-          .eq("status", "open")
-          .order("reference_month", { ascending: true })
-          .limit(1)
-          .single();
+        const transactionDate = transaction.date || new Date().toISOString().split('T')[0];
+        
+        const { data: foundInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+          p_card_id: transaction.card_id,
+          p_user_id: user.id,
+          p_transaction_date: transactionDate
+        });
 
-        if (invoice) {
-          invoiceId = invoice.id;
+        if (invoiceError) {
+          console.error("Erro ao buscar/criar fatura:", invoiceError);
+        } else if (foundInvoiceId) {
+          invoiceId = foundInvoiceId;
         }
       }
 
