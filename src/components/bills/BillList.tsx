@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bill, useBills, useDeleteBill, useRestoreBill, BillStatus } from "@/hooks/use-bills";
 import { BillCard } from "./BillCard";
 import { BillFilters } from "./BillFilters";
