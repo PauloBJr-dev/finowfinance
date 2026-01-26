@@ -156,7 +156,7 @@ export default function Faturas() {
                 </div>
 
                 {/* Transações da fatura */}
-                {invoiceDetails.transactions && invoiceDetails.transactions.length > 0 && (
+                {invoiceDetails.transactions && Array.isArray(invoiceDetails.transactions) && invoiceDetails.transactions.length > 0 && (
                   <div className="border-t pt-4">
                     <h4 className="text-sm font-medium mb-2">Transações ({invoiceDetails.transactions.length})</h4>
                     <div className="max-h-40 overflow-y-auto space-y-2">
