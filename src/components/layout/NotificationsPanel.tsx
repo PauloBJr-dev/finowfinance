@@ -52,13 +52,13 @@ export function NotificationsPanel({ className }: NotificationsPanelProps) {
 
   return (
     <div className={cn("p-3", className)}>
-      {/* Container with accent background */}
-      <div className="rounded-xl bg-sidebar-accent p-3">
+      {/* Container with accent background - matching left sidebar */}
+      <div className="rounded-lg bg-sidebar-accent/30 p-2">
         {/* Header */}
-        <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center justify-between pb-2 px-1">
           <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Notificações</span>
+            <Bell className="h-4 w-4 text-sidebar-foreground/70" />
+            <span className="text-sm font-medium text-sidebar-foreground">Notificações</span>
             {unreadCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
                 {unreadCount}
