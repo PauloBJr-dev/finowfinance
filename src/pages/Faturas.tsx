@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CreditCard, Calendar, Loader2, Info } from "lucide-react";
+import { CreditCard, Calendar, Loader2, Info, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function Faturas() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -32,7 +32,13 @@ export default function Faturas() {
   const { data: cardsData } = useCards();
   const cards = Array.isArray(cardsData) ? cardsData : [];
 
-  const { data: invoicesData, isLoading } = useInvoices(
+  const { 
+    data: invoicesData, 
+    isLoading, 
+    isError, 
+    error, 
+    refetch 
+  } = useInvoices(
     selectedCardId ? { cardId: selectedCardId } : undefined
   );
   const invoices = Array.isArray(invoicesData) ? invoicesData : [];
@@ -58,6 +64,32 @@ export default function Faturas() {
           <Skeleton className="h-8 w-48" />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32" />)}
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (isError) {
+    return (
+      <MainLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Faturas</h1>
+            <p className="text-muted-foreground">Acompanhe suas faturas de cartão.</p>
+          </div>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="mb-4 h-12 w-12 text-destructive" />
+            <h3 className="text-lg font-medium">Erro ao carregar faturas</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md">
+              {error instanceof Error 
+                ? error.message 
+                : "Não foi possível carregar suas faturas. Verifique sua conexão e tente novamente."}
+            </p>
+            <Button onClick={() => refetch()} className="mt-4">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tentar novamente
+            </Button>
           </div>
         </div>
       </MainLayout>
