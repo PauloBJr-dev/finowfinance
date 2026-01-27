@@ -1,251 +1,292 @@
 
-# Plano: Implementação de Cartões Benefício (Vale Alimentação/Refeição)
+# Relatório de Auditoria da Arquitetura - Finow
 
-## Resumo
-Implementar funcionalidade completa de cartões benefício no Finow, incluindo nova aba nas Configurações, sistema de depósitos/recargas mensais com cálculo de valor diário, integração no Quick Add como método de pagamento e exibição separada no Dashboard.
+## Resumo Executivo
+
+O projeto Finow apresenta uma estrutura razoavelmente organizada para um MVP, mas possui diversas oportunidades de melhoria em termos de modularidade, separação de responsabilidades e manutenibilidade. Este relatório identifica problemas críticos, questões de arquitetura e recomendações priorizadas.
 
 ---
 
-## 1. Estrutura do Banco de Dados
+## 1. Problemas Críticos (Prioridade Alta)
 
-### 1.1 Nova Tabela: `benefit_deposits`
-Armazena o histórico de recargas/depósitos dos cartões benefício:
+### 1.1 Duplicação de Lógica de Negócio: Frontend vs Edge Function
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                   benefit_deposits                       │
-├─────────────────────────────────────────────────────────┤
-│ id              UUID (PK)                               │
-│ user_id         UUID (FK → profiles)                    │
-│ account_id      UUID (FK → accounts)                    │
-│ amount          NUMERIC(15,2) - valor depositado        │
-│ date            DATE - data do depósito                 │
-│ working_days    INTEGER - dias úteis do mês             │
-│ daily_rate      NUMERIC(15,2) - valor/dia calculado     │
-│ description     TEXT (opcional)                         │
-│ created_at      TIMESTAMPTZ                             │
-│ deleted_at      TIMESTAMPTZ (soft delete)               │
-└─────────────────────────────────────────────────────────┘
+**Localização**: `src/hooks/use-transactions.ts` (linhas 160-255) vs `supabase/functions/transactions/index.ts` (linhas 230-360)
+
+**Problema**: A lógica de criação de transações com parcelamento existe **duplicada** em dois lugares:
+- O hook `useCreateTransaction` implementa toda a lógica de parcelas no frontend
+- A Edge Function `transactions/index.ts` também implementa a mesma lógica
+
+**Impacto**: 
+- Manutenção dobrada para qualquer mudança
+- Risco de inconsistência entre as duas implementações
+- Atualmente o frontend usa o hook diretamente (não a Edge Function), tornando a Edge Function potencialmente morta
+
+**Recomendação**: Consolidar em um único local. Opções:
+- A) Mover toda lógica complexa para Edge Function e usar apenas no frontend
+- B) Manter no frontend e remover/simplificar a Edge Function
+
+---
+
+### 1.2 Acoplamento Excessivo no QuickAddModal
+
+**Localização**: `src/components/transactions/QuickAddModal.tsx` (746 linhas)
+
+**Problema**: Este arquivo é um "God Component" que:
+- Gerencia 15+ estados locais diferentes
+- Contém lógica de negócio (cálculos de parcelas, validações)
+- Mistura fluxos diferentes (transação normal, conta a pagar, benefício)
+- Implementa wizard de 3 etapas com lógica condicional complexa
+
+**Impacto**: 
+- Difícil de testar
+- Difícil de manter
+- Alto risco de regressões
+
+**Recomendação**: Decompor em:
 ```
-
-### 1.2 Trigger para Atualizar Saldo
-O depósito cria automaticamente uma transação de receita e atualiza o saldo da conta.
-
----
-
-## 2. Alterações no Frontend
-
-### 2.1 Nova Aba "Benefícios" nas Configurações
-Adicionar 5ª aba na página `/configuracoes`:
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│  [Contas] [Cartões] [Benefícios] [Perfil] [IA]          │
-└─────────────────────────────────────────────────────────┘
-```
-
-A aba conterá:
-- Listagem de cartões benefício cadastrados
-- Botão "Novo Cartão Benefício"
-- Card por cartão mostrando: nome, saldo atual, último depósito
-- Opções por cartão: Depositar, Editar, Excluir
-
-### 2.2 Formulário de Cadastro de Cartão Benefício
-Campos:
-- Nome do cartão (ex: "VA Sodexo", "VR Alelo")
-- Descrição (opcional)
-- Saldo inicial (opcional, default 0)
-
-### 2.3 Formulário de Depósito/Recarga
-Modal similar ao Quick Add contendo:
-- Valor a ser creditado (com placeholder "R$ 0,00")
-- Data (default: hoje, editável via calendário)
-- Dias úteis trabalhados no mês
-- Cálculo automático do valor/dia (exibido ao usuário)
-- Descrição opcional
-
-Ao salvar:
-1. Cria registro em `benefit_deposits`
-2. Cria transação de receita vinculada à conta
-3. Atualiza saldo do cartão benefício
-4. Exibe resumo: "R$ X creditados no VA Sodexo. Saldo: R$ Y"
-
-### 2.4 Filtro Mensal na Aba de Benefícios
-Navegação "< Jan 2026 >" para ver histórico de depósitos por mês.
-
----
-
-## 3. Integração no Quick Add
-
-### 3.1 Novo Método de Pagamento
-Adicionar "Cartão Benefício" como método principal para despesas:
-
-```text
-[Pix/TED] [Débito] [Crédito] [Dinheiro] [Benefício]
-```
-
-### 3.2 Fluxo ao Selecionar Cartão Benefício
-1. Usuário seleciona "Benefício" como método de pagamento
-2. Sistema exibe lista dos cartões benefício cadastrados (se múltiplos)
-3. Usuário seleciona qual cartão usar
-4. Ao confirmar despesa:
-   - Cria transação de despesa
-   - Debita valor do saldo do cartão benefício selecionado
-   - Transação aparece no histórico de transações
-
-### 3.3 Validação de Saldo
-- Não bloquear gastos acima do saldo (apenas exibir alerta)
-- Permitir saldo negativo (o usuário pode ter complementado com outro meio)
-
----
-
-## 4. Dashboard
-
-### 4.1 Card de Saldo do Cartão Benefício
-Novo card no Dashboard mostrando:
-- "Saldo Vale Alimentação" ou "Saldos Benefícios" (se múltiplos)
-- Valor total de todos os cartões benefício
-- Badge informando "(não inclui no saldo total)"
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│ Saldo Total │ Despesas │ Receitas │ Fatura │ Benefícios│
-│   R$ 5.000  │ R$ 2.000 │ R$ 3.000 │ R$ 500 │  R$ 800   │
-│             │          │          │        │   (VA)    │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 4.2 Comportamento do Patrimônio Líquido
-- Manter lógica: contas com `include_in_net_worth = false` não contam
-- Por padrão, cartões benefício terão `include_in_net_worth = false`
-
----
-
-## 5. Preparação para IA (Fase Futura)
-
-### 5.1 Dados Armazenados para Análise
-A tabela `benefit_deposits` com `working_days` e `daily_rate` permitirá:
-- Calcular média diária de VA/VR por mês
-- Comparar gastos diários vs valor recebido por dia
-- Gerar insights como: "Você gasta em média R$ 35/dia no VA, mas recebe R$ 30/dia"
-
-### 5.2 Agentes de IA (implementação futura)
-- Análise de padrão de gastos em benefícios
-- Recomendações de economia
-- Alertas quando saldo está baixo
-
----
-
-## 6. Arquivos a Criar/Modificar
-
-### Novos Arquivos
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/components/benefits/BenefitCardList.tsx` | Lista de cartões benefício |
-| `src/components/benefits/BenefitCardForm.tsx` | Form de criar/editar cartão |
-| `src/components/benefits/BenefitDepositForm.tsx` | Form de depósito/recarga |
-| `src/components/benefits/BenefitDepositHistory.tsx` | Histórico de depósitos |
-| `src/hooks/use-benefit-deposits.ts` | Hook para CRUD de depósitos |
-
-### Arquivos a Modificar
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/Configuracoes.tsx` | Adicionar 5ª aba "Benefícios" |
-| `src/components/shared/PaymentMethodSelect.tsx` | Adicionar método "Benefício" |
-| `src/components/transactions/QuickAddModal.tsx` | Lógica para selecionar cartão benefício |
-| `src/pages/Dashboard.tsx` | Novo card de saldo de benefícios |
-| `src/hooks/use-accounts.ts` | Filtro para contas tipo benefit_card |
-| `src/hooks/use-transactions.ts` | Lógica de débito em cartão benefício |
-
-### Migração SQL
-- Criar tabela `benefit_deposits`
-- Criar trigger para atualizar saldo ao inserir depósito
-- Adicionar `payment_method = 'benefit_card'` ao enum (se necessário)
-
----
-
-## 7. Regras de Negócio Importantes
-
-1. **Depósitos são sempre manuais** - não há integração automática
-2. **Saldo pode ficar negativo** - não bloquear transações
-3. **Valor/dia é calculado automaticamente** - `amount / working_days`
-4. **Transação de receita é criada** - ao depositar, gera entrada no histórico
-5. **Soft delete** - exclusões são reversíveis por 30 dias
-6. **Não inclui no patrimônio líquido** - comportamento padrão
-
----
-
-## 8. Fluxo Visual
-
-```text
-CADASTRO DO CARTÃO BENEFÍCIO:
-Configurações → Benefícios → [+ Novo Cartão]
-→ Nome: "VA Sodexo"
-→ Descrição: (opcional)
-→ Saldo inicial: R$ 0,00
-→ [Criar]
-
-DEPÓSITO/RECARGA:
-Configurações → Benefícios → [VA Sodexo] → [Depositar]
-→ Valor: R$ 660,00
-→ Data: 05/02/2026
-→ Dias úteis: 22
-→ Valor/dia: R$ 30,00 (calculado)
-→ Descrição: "Crédito fevereiro"
-→ [Confirmar]
-→ Toast: "R$ 660 creditados no VA Sodexo. Saldo: R$ 660"
-
-USO NO QUICK ADD:
-FAB → [Despesa] → R$ 25,00 → [Continuar]
-→ Categoria: Alimentação → [Continuar]
-→ Método: [Benefício] → Selecionar "VA Sodexo"
-→ [Confirmar]
-→ Saldo VA Sodexo: R$ 635,00
+QuickAddModal/
+├── index.tsx (orquestrador)
+├── useQuickAddState.ts (hook de estado)
+├── steps/
+│   ├── Step1TypeAmount.tsx
+│   ├── Step2CategoryMethod.tsx
+│   └── Step3Confirmation.tsx
+├── forms/
+│   ├── TransactionForm.tsx
+│   └── BillForm.tsx
+└── utils/
+    └── validation.ts
 ```
 
 ---
 
-## Seção Técnica
+### 1.3 Inconsistência no Sistema de Toast
 
-### Estrutura da Migração SQL
+**Localização**: `src/hooks/use-bills.ts` vs `src/hooks/use-accounts.ts`
 
-```sql
--- 1. Tabela de depósitos
-CREATE TABLE benefit_deposits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id),
-  account_id UUID NOT NULL REFERENCES accounts(id),
-  amount NUMERIC(15,2) NOT NULL,
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
-  working_days INTEGER NOT NULL DEFAULT 22,
-  daily_rate NUMERIC(15,2) GENERATED ALWAYS AS (amount / NULLIF(working_days, 0)) STORED,
-  description TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  deleted_at TIMESTAMPTZ
-);
+**Problema**: Dois sistemas de toast diferentes são usados:
+- `use-bills.ts` importa de `@/hooks/use-toast` (shadcn toast)
+- `use-accounts.ts` e outros importam de `sonner`
 
--- 2. RLS policies
--- (similar às outras tabelas)
+**Impacto**: Experiência de usuário inconsistente, dois sistemas para manter
 
--- 3. Trigger para criar transação e atualizar saldo
-CREATE FUNCTION handle_benefit_deposit() RETURNS trigger ...
+**Recomendação**: Padronizar em `sonner` (já é o mais usado no projeto)
+
+---
+
+## 2. Problemas de Arquitetura (Prioridade Média)
+
+### 2.1 Lógica de Negócio Misturada em Hooks de Dados
+
+**Localização**: `src/hooks/use-invoices.ts` (linhas 172-260)
+
+**Problema**: O hook `usePayInvoice` contém lógica de negócio complexa:
+- Validação de status da fatura
+- Criação de transação
+- Atualização de múltiplas tabelas
+- Marcação de parcelas como reconciliadas
+
+**Melhor Prática**: Hooks React Query devem ser wrappers finos. Lógica complexa deve estar em:
+- Services/Use Cases separados, ou
+- Edge Functions (server-side)
+
+**Recomendação**: Mover para Edge Function `pay-invoice` (que já existe mas não é usada pelo hook)
+
+---
+
+### 2.2 Utilitários de Formatação Duplicados
+
+**Localização**: 
+- `src/lib/format.ts` → `formatCurrency`
+- `src/lib/installment-utils.ts` → cria seu próprio `Intl.NumberFormat`
+- `src/components/shared/CurrencyInput.tsx` → define `formatCurrency` interno
+
+**Problema**: Três implementações diferentes da mesma funcionalidade
+
+**Recomendação**: Usar exclusivamente `src/lib/format.ts` em todo o projeto
+
+---
+
+### 2.3 Ausência de Camada de Services
+
+**Problema Geral**: O projeto não possui uma camada de serviços. Toda lógica de negócio está espalhada entre:
+- Hooks (`use-*.ts`)
+- Edge Functions (`supabase/functions/*`)
+- Triggers SQL (no banco)
+
+**Estrutura Atual**:
+```
+Component → Hook → Supabase Client (direto)
 ```
 
-### Atualização do Enum payment_method
-Se necessário, adicionar `benefit_card` ao enum:
-
-```sql
-ALTER TYPE payment_method ADD VALUE 'benefit_card';
+**Estrutura Recomendada**:
+```
+Component → Hook → Service → Supabase Client
+                         ↘ Edge Function (para operações complexas)
 ```
 
-### Hook use-benefit-deposits
-Seguirá o padrão dos outros hooks:
-- `useBenefitDeposits(accountId, month)` - listar depósitos filtrados
-- `useCreateBenefitDeposit()` - criar depósito
-- `useDeleteBenefitDeposit()` - soft delete
+---
 
-### Integração no QuickAddModal
-Ao selecionar `benefit_card` como método:
-1. Mostrar Select com lista de contas tipo `benefit_card`
-2. Armazenar `account_id` no estado
-3. Ao submeter, criar transação com `payment_method: 'benefit_card'`
+### 2.4 Tipos Inconsistentes para PaymentMethod
+
+**Localização**: 
+- `src/components/shared/PaymentMethodSelect.tsx` → inclui `benefit_card`
+- `src/hooks/use-transactions.ts` → não inclui `benefit_card`
+- `supabase/functions/transactions/index.ts` → não conhece `benefit_card`
+- Banco de dados → enum não tem `benefit_card` (usa `voucher`)
+
+**Problema**: O tipo `benefit_card` existe apenas no frontend e é mapeado para `voucher` antes de salvar. Isso cria confusão e pode causar bugs.
+
+**Recomendação**: Adicionar `benefit_card` ao enum do banco ou criar constantes centralizadas com mapeamento explícito.
+
+---
+
+## 3. Problemas de Organização (Prioridade Baixa)
+
+### 3.1 Componente NavLink Deslocado
+
+**Localização**: `src/components/NavLink.tsx`
+
+**Problema**: Único componente na raiz de `/components`, fora de qualquer pasta
+
+**Recomendação**: Mover para `src/components/navigation/NavLink.tsx`
+
+---
+
+### 3.2 Contextos Não Padronizados
+
+**Localização**: 
+- `src/contexts/SidebarContext.tsx` → usa pasta `/contexts`
+- `src/hooks/use-auth.tsx` → contexto definido dentro do hook
+- `src/hooks/use-theme.tsx` → contexto definido dentro do hook
+
+**Problema**: Contextos estão em locais diferentes
+
+**Recomendação**: Padronizar. Opções:
+- A) Mover todos para `/contexts`
+- B) Manter todos como hooks (atual padrão do Next.js/Remix)
+
+---
+
+### 3.3 Edge Function pay-invoice Não Utilizada
+
+**Localização**: `supabase/functions/pay-invoice/index.ts`
+
+**Problema**: Esta Edge Function existe mas não é chamada pelo frontend. O hook `usePayInvoice` faz as operações diretamente.
+
+**Recomendação**: 
+- Usar a Edge Function existente, ou
+- Remover se não for necessária
+
+---
+
+### 3.4 Arquivos de Tipos Espalhados
+
+**Problema**: Tipos são definidos inline em cada arquivo ou importados de `@/integrations/supabase/types`. Não há arquivo central de tipos de domínio.
+
+**Recomendação**: Criar `src/types/` com:
+```
+types/
+├── index.ts
+├── transactions.ts
+├── invoices.ts
+├── accounts.ts
+└── enums.ts
+```
+
+---
+
+## 4. Oportunidades de Melhoria
+
+### 4.1 Validação de Formulários Inconsistente
+
+**Problema**: O projeto usa `react-hook-form` + `zod`, mas vários formulários (QuickAddModal, TransactionForm) fazem validação manual.
+
+**Recomendação**: Criar schemas Zod centralizados e usar consistentemente com react-hook-form.
+
+---
+
+### 4.2 Ausência de Testes de Integração
+
+**Localização**: `src/test/example.test.ts`
+
+**Problema**: Apenas um teste de exemplo existe. Hooks críticos como `useCreateTransaction` não têm testes.
+
+**Recomendação**: Adicionar testes para:
+- Hooks de transações (lógica de parcelamento)
+- Lógica de faturas
+- Componentes compartilhados
+
+---
+
+### 4.3 Constantes Mágicas Espalhadas
+
+**Exemplos**:
+- `5000` (limite de tokens) aparece em múltiplos arquivos
+- `30` (dias de soft delete) não está centralizado
+- `48` (máximo de parcelas) definido em múltiplos locais
+
+**Recomendação**: Criar `src/lib/constants.ts` para constantes de negócio
+
+---
+
+## 5. Plano de Ação Priorizado
+
+### Fase 1: Correções Críticas (Imediato)
+
+| # | Ação | Arquivos Afetados | Esforço |
+|---|------|-------------------|---------|
+| 1 | Unificar sistema de toast para `sonner` | `use-bills.ts` | Baixo |
+| 2 | Remover/consolidar lógica duplicada de parcelas | `use-transactions.ts`, Edge Function | Alto |
+| 3 | Centralizar formatação de moeda | Vários | Baixo |
+
+### Fase 2: Refatoração de Arquitetura (Curto Prazo)
+
+| # | Ação | Arquivos Afetados | Esforço |
+|---|------|-------------------|---------|
+| 4 | Decompor QuickAddModal em subcomponentes | `QuickAddModal.tsx` | Alto |
+| 5 | Criar hook customizado para estado do wizard | Novo arquivo | Médio |
+| 6 | Decidir: usar Edge Function ou remover `pay-invoice` | `use-invoices.ts`, Edge Function | Médio |
+
+### Fase 3: Organização e Padronização (Médio Prazo)
+
+| # | Ação | Arquivos Afetados | Esforço |
+|---|------|-------------------|---------|
+| 7 | Criar diretório `src/types/` para tipos de domínio | Vários | Médio |
+| 8 | Mover `NavLink.tsx` para pasta correta | `NavLink.tsx` | Trivial |
+| 9 | Criar `src/lib/constants.ts` | Novo arquivo | Baixo |
+| 10 | Padronizar localização de contextos | Contextos existentes | Baixo |
+
+### Fase 4: Qualidade e Manutenibilidade (Longo Prazo)
+
+| # | Ação | Arquivos Afetados | Esforço |
+|---|------|-------------------|---------|
+| 11 | Adicionar testes para hooks críticos | Novos arquivos | Alto |
+| 12 | Implementar schemas Zod para formulários | Novos arquivos | Médio |
+| 13 | Criar camada de services se necessário | Nova estrutura | Alto |
+
+---
+
+## 6. Métricas de Saúde do Código
+
+| Métrica | Status | Comentário |
+|---------|--------|------------|
+| Separação UI/Lógica | ⚠️ Parcial | Hooks misturam dados e lógica de negócio |
+| Reutilização | ✅ Bom | Componentes shared bem utilizados |
+| Consistência de Estilo | ⚠️ Parcial | Toast inconsistente, tipos duplicados |
+| Testabilidade | ❌ Fraco | Apenas 1 teste de exemplo |
+| Modularidade | ⚠️ Parcial | QuickAddModal muito grande |
+| Documentação Inline | ✅ Bom | Comentários explicativos nos hooks |
+
+---
+
+## 7. Conclusão
+
+O projeto Finow possui uma base sólida mas requer atenção em três áreas principais:
+
+1. **Consolidação**: Eliminar duplicação de lógica entre frontend e Edge Functions
+2. **Decomposição**: Quebrar componentes grandes em peças menores e testáveis
+3. **Padronização**: Unificar sistemas de toast, tipos e formatação
+
+Recomendo começar pela Fase 1 (correções críticas) que trazem ganhos rápidos com baixo risco, e depois avançar para a decomposição do QuickAddModal que é o maior débito técnico identificado.
