@@ -136,3 +136,22 @@ export function parseCurrency(value: string): number {
   const normalized = cleaned.replace(',', '.');
   return parseFloat(normalized) || 0;
 }
+
+/**
+ * Formata data curta para exibição (ex: 02/jan)
+ */
+export function formatDateShort(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+  }).format(d);
+}
+
+/**
+ * Formata período do ciclo de fatura
+ * Ex: "02/jan - 01/fev"
+ */
+export function formatCyclePeriod(startDate: Date | string, endDate: Date | string): string {
+  return `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`;
+}

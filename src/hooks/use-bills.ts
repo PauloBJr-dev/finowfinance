@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { addMonths } from "date-fns";
 import type { Database } from "@/integrations/supabase/types";
+import { formatCurrency } from "@/lib/format";
 
 export type BillStatus = "pending" | "paid" | "overdue";
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -201,21 +202,21 @@ export function useCreateBill() {
       queryClient.invalidateQueries({ queryKey: ["bills-summary"] });
       
       const count = variables.is_recurring ? 6 : 1;
-      toast({
-        title: variables.is_recurring 
+      toast.success(
+        variables.is_recurring 
           ? `${count} contas a pagar criadas!` 
           : "Conta a pagar criada!",
-        description: variables.is_recurring
-          ? `"${variables.description}" será cobrada pelos próximos 6 meses.`
-          : `"${variables.description}" adicionada às suas contas.`,
-      });
+        {
+          description: variables.is_recurring
+            ? `"${variables.description}" será cobrada pelos próximos 6 meses.`
+            : `"${variables.description}" adicionada às suas contas.`,
+        }
+      );
     },
     onError: (error) => {
       console.error("Erro ao criar conta a pagar:", error);
-      toast({
-        title: "Erro ao criar conta",
+      toast.error("Erro ao criar conta", {
         description: "Não foi possível criar a conta a pagar. Tente novamente.",
-        variant: "destructive",
       });
     },
   });
@@ -278,17 +279,14 @@ export function usePayBill() {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       
-      toast({
-        title: "Conta paga!",
-        description: `Despesa de R$ ${Number(data.bill.amount).toFixed(2).replace(".", ",")} registrada.`,
+      toast.success("Conta paga!", {
+        description: `Despesa de ${formatCurrency(Number(data.bill.amount))} registrada.`,
       });
     },
     onError: (error) => {
       console.error("Erro ao pagar conta:", error);
-      toast({
-        title: "Erro ao pagar conta",
+      toast.error("Erro ao pagar conta", {
         description: "Não foi possível registrar o pagamento. Tente novamente.",
-        variant: "destructive",
       });
     },
   });
@@ -312,10 +310,8 @@ export function useDeleteBill() {
     },
     onError: (error) => {
       console.error("Erro ao remover conta:", error);
-      toast({
-        title: "Erro ao remover",
+      toast.error("Erro ao remover", {
         description: "Não foi possível remover a conta. Tente novamente.",
-        variant: "destructive",
       });
     },
   });
@@ -337,8 +333,7 @@ export function useRestoreBill() {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["bills-summary"] });
       
-      toast({
-        title: "Conta restaurada",
+      toast.success("Conta restaurada", {
         description: "A conta a pagar foi restaurada.",
       });
     },

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { calculateInstallments } from "@/lib/installment-utils";
+import { formatCurrency } from "@/lib/format";
 
 type Transaction = Tables<"transactions">;
 type TransactionInsert = TablesInsert<"transactions">;
@@ -263,10 +264,7 @@ export function useCreateTransaction() {
       queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
       
       const isExpense = data.type === "expense";
-      const formattedAmount = new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      }).format(Number(data.amount));
+      const formattedAmount = formatCurrency(Number(data.amount));
       
       toast.success(
         isExpense 

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { formatMonth } from "@/lib/format";
 
 type Invoice = Tables<"invoices">;
 type InvoiceStatus = "open" | "closed" | "paid";
@@ -248,8 +249,7 @@ export function usePayInvoice() {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       
       // Formatar mês a partir do closing_date
-      const closingDate = new Date(invoice.closing_date);
-      const month = closingDate.toLocaleDateString('pt-BR', { month: 'long' });
+      const month = formatMonth(invoice.closing_date);
       toast.success(`Fatura de ${month} paga com sucesso!`);
     },
     onError: (error) => {

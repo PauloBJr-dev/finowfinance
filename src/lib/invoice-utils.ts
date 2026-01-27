@@ -3,6 +3,8 @@
  * Atualizado para usar ciclo bancário real (closing_date ao invés de reference_month)
  */
 
+import { formatCyclePeriod as formatCyclePeriodBase, formatMonth } from "@/lib/format";
+
 export interface InvoicePeriod {
   cycleStartDate: Date;
   cycleEndDate: Date;
@@ -75,23 +77,19 @@ export function calculateInvoiceCycle(
 /**
  * Formata período do ciclo para exibição
  * Ex: "02/jan - 01/fev"
+ * Re-exporta da função centralizada em format.ts
  */
 export function formatCyclePeriod(cycleStartDate: Date | string, cycleEndDate: Date | string): string {
-  const start = new Date(cycleStartDate);
-  const end = new Date(cycleEndDate);
-  
-  const formatOptions: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
-  
-  return `${start.toLocaleDateString('pt-BR', formatOptions)} - ${end.toLocaleDateString('pt-BR', formatOptions)}`;
+  return formatCyclePeriodBase(cycleStartDate, cycleEndDate);
 }
 
 /**
  * Formata mês da fatura para exibição baseado no closing_date
  * Ex: "Fevereiro 2026"
+ * Usa função centralizada em format.ts
  */
 export function formatInvoiceMonth(closingDate: Date | string): string {
-  const date = new Date(closingDate);
-  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return formatMonth(closingDate);
 }
 
 /**
