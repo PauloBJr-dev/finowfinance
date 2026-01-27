@@ -870,14 +870,24 @@ export type Database = {
           previous_invoice_id: string
         }[]
       }
-      find_or_create_invoice: {
-        Args: {
-          p_card_id: string
-          p_transaction_date: string
-          p_user_id: string
-        }
-        Returns: string
-      }
+      find_or_create_invoice:
+        | {
+            Args: {
+              p_card_id: string
+              p_transaction_date: string
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_card_id: string
+              p_is_future_installment?: boolean
+              p_transaction_date: string
+              p_user_id: string
+            }
+            Returns: string
+          }
       get_current_user_id: { Args: never; Returns: string }
     }
     Enums: {
