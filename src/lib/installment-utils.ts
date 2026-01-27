@@ -3,6 +3,8 @@
  * Regra: resto aplicado à ÚLTIMA parcela
  */
 
+import { formatCurrency } from "@/lib/format";
+
 export interface InstallmentPreview {
   number: number;
   amount: number;
@@ -82,14 +84,9 @@ export function formatInstallmentPreview(
   const baseAmount = amounts[0];
   const lastAmount = amounts[amounts.length - 1];
   
-  const formatter = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-  
   if (baseAmount === lastAmount) {
-    return `${installments}x de ${formatter.format(baseAmount)}`;
+    return `${installments}x de ${formatCurrency(baseAmount)}`;
   }
   
-  return `${installments}x de ${formatter.format(baseAmount)} (última: ${formatter.format(lastAmount)})`;
+  return `${installments}x de ${formatCurrency(baseAmount)} (última: ${formatCurrency(lastAmount)})`;
 }

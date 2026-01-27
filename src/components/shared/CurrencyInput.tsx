@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 
 interface CurrencyInputProps {
   value: number;
@@ -41,13 +42,6 @@ export function CurrencyInput({
       inputRef.current.focus();
     }
   }, [autoFocus]);
-
-  const formatCurrency = (num: number): string => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(num);
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;

@@ -3,7 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { useInvoices, useInvoice, usePayInvoice } from "@/hooks/use-invoices";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCards } from "@/hooks/use-cards";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { 
   formatInvoiceStatus, 
   getInvoiceStatusColor, 
@@ -196,7 +196,7 @@ export default function Faturas() {
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                       <Calendar className="h-3 w-3" />
-                      Vence em {new Date(invoice.due_date).toLocaleDateString('pt-BR')}
+                      Vence em {formatDate(invoice.due_date)}
                     </p>
                   </CardContent>
                 </Card>
@@ -228,11 +228,11 @@ export default function Faturas() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Fechamento</span>
-                  <span>{new Date(invoiceDetails.closing_date).toLocaleDateString('pt-BR')}</span>
+                  <span>{formatDate(invoiceDetails.closing_date)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Vencimento</span>
-                  <span>{new Date(invoiceDetails.due_date).toLocaleDateString('pt-BR')}</span>
+                  <span>{formatDate(invoiceDetails.due_date)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Status</span>
