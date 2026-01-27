@@ -218,11 +218,12 @@ export function useCreateTransaction() {
           parcelaDate.setMonth(parcelaDate.getMonth() + index);
           const parcelaDateStr = parcelaDate.toISOString().split('T')[0];
 
-          // Buscar/criar fatura para esta parcela
+          // Buscar/criar fatura para esta parcela (p_is_future_installment = true para parcelas)
           const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
             p_card_id: transaction.card_id,
             p_user_id: user.id,
-            p_transaction_date: parcelaDateStr
+            p_transaction_date: parcelaDateStr,
+            p_is_future_installment: true // IMPORTANTE: parcelas futuras usam cálculo de ciclo
           });
 
           if (invoiceError) {
