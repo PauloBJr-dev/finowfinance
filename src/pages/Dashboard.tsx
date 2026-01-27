@@ -27,7 +27,10 @@ export default function Dashboard() {
   
   const expenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
   const income = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
-  const currentInvoice = invoices[0];
+  
+  // Pegar a fatura aberta mais próxima (menor closing_date)
+  // O hook retorna ordenado DESC, então a última é a mais próxima
+  const currentInvoice = invoices.length > 0 ? invoices[invoices.length - 1] : null;
 
   const firstName = profile?.name ? getFirstName(profile.name) : "";
   const greeting = getGreeting();
