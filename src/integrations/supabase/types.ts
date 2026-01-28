@@ -888,7 +888,26 @@ export type Database = {
             }
             Returns: string
           }
+      get_available_invoices: {
+        Args: { p_card_id: string; p_months_ahead?: number; p_user_id: string }
+        Returns: {
+          closing_date: string
+          due_date: string
+          invoice_id: string
+          month_label: string
+          status: string
+          total_amount: number
+        }[]
+      }
       get_current_user_id: { Args: never; Returns: string }
+      get_or_create_monthly_invoice: {
+        Args: { p_card_id: string; p_target_month: string; p_user_id: string }
+        Returns: string
+      }
+      update_invoice_status: {
+        Args: { p_invoice_id: string; p_new_status: string }
+        Returns: undefined
+      }
     }
     Enums: {
       account_type:
