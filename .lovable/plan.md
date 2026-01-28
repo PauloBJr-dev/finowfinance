@@ -1,292 +1,107 @@
 
-# Relatório de Auditoria da Arquitetura - Finow
+# Plano: Simplificação Radical do Sistema de Cartão de Crédito
 
-## Resumo Executivo
+## Diagnóstico Completo dos Problemas
 
-O projeto Finow apresenta uma estrutura razoavelmente organizada para um MVP, mas possui diversas oportunidades de melhoria em termos de modularidade, separação de responsabilidades e manutenibilidade. Este relatório identifica problemas críticos, questões de arquitetura e recomendações priorizadas.
+Após análise profunda do código e banco de dados, identifiquei múltiplos problemas interconectados:
 
----
+### 1. Complexidade Excessiva na Lógica de Ciclos
+A função `calculate_invoice_cycle` calcula ciclos bancários reais, mas isso cria confusão:
+- Usuário seleciona "Janeiro 2026" → sistema cria fatura com `closing_date: 2026-02-01`
+- Quando filtra por "Janeiro 2026", a fatura não aparece (pois o fechamento é em fevereiro)
 
-## 1. Problemas Críticos (Prioridade Alta)
+### 2. Edge Function Desatualizada
+A Edge Function `cards/index.ts` usa colunas antigas (`reference_month`, `start_date`, `end_date`) que não existem mais no banco. Isso causa falhas silenciosas.
 
-### 1.1 Duplicação de Lógica de Negócio: Frontend vs Edge Function
-
-**Localização**: `src/hooks/use-transactions.ts` (linhas 160-255) vs `supabase/functions/transactions/index.ts` (linhas 230-360)
-
-**Problema**: A lógica de criação de transações com parcelamento existe **duplicada** em dois lugares:
-- O hook `useCreateTransaction` implementa toda a lógica de parcelas no frontend
-- A Edge Function `transactions/index.ts` também implementa a mesma lógica
-
-**Impacto**: 
-- Manutenção dobrada para qualquer mudança
-- Risco de inconsistência entre as duas implementações
-- Atualmente o frontend usa o hook diretamente (não a Edge Function), tornando a Edge Function potencialmente morta
-
-**Recomendação**: Consolidar em um único local. Opções:
-- A) Mover toda lógica complexa para Edge Function e usar apenas no frontend
-- B) Manter no frontend e remover/simplificar a Edge Function
+### 3. Frontend vs Backend Desincronizados
+- Hook `use-cards.ts` usa RPC `create_initial_invoice` (correto)
+- Edge Function `cards` tenta criar faturas com schema antigo (quebrado)
+- O sistema tem duas formas de criar faturas e ambas têm problemas
 
 ---
 
-### 1.2 Acoplamento Excessivo no QuickAddModal
+## Solução Proposta: Modelo Simplificado
 
-**Localização**: `src/components/transactions/QuickAddModal.tsx` (746 linhas)
+Conforme solicitado, vou **remover a complexidade de ciclos automáticos** e deixar o **usuário no controle total**.
 
-**Problema**: Este arquivo é um "God Component" que:
-- Gerencia 15+ estados locais diferentes
-- Contém lógica de negócio (cálculos de parcelas, validações)
-- Mistura fluxos diferentes (transação normal, conta a pagar, benefício)
-- Implementa wizard de 3 etapas com lógica condicional complexa
+### Novas Regras de Negócio
 
-**Impacto**: 
-- Difícil de testar
-- Difícil de manter
-- Alto risco de regressões
+1. **Faturas são mensais e identificadas por mês/ano simples**
+   - Exemplo: "Fatura de Fevereiro 2026"
+   - Sem cálculos complexos de ciclo
 
-**Recomendação**: Decompor em:
-```
-QuickAddModal/
-├── index.tsx (orquestrador)
-├── useQuickAddState.ts (hook de estado)
-├── steps/
-│   ├── Step1TypeAmount.tsx
-│   ├── Step2CategoryMethod.tsx
-│   └── Step3Confirmation.tsx
-├── forms/
-│   ├── TransactionForm.tsx
-│   └── BillForm.tsx
-└── utils/
-    └── validation.ts
-```
+2. **Usuário escolhe para qual fatura a despesa vai**
+   - Ao criar despesa no cartão, sistema sugere fatura do **mês seguinte** como default
+   - Exemplo: Compra em 20 de janeiro → sugestão: "Fatura de Fevereiro"
+   - Usuário pode alterar se desejar
+
+3. **Status da fatura é manual**
+   - Usuário marca quando quer: `open` → `closed` → `paid`
+   - Sistema não fecha automaticamente
+
+4. **Parcelamento simplificado**
+   - Cada parcela vai para a fatura do seu mês correspondente
+   - Parcela 1/6 → Fevereiro, Parcela 2/6 → Março, etc.
 
 ---
 
-### 1.3 Inconsistência no Sistema de Toast
+## Mudanças Técnicas Necessárias
 
-**Localização**: `src/hooks/use-bills.ts` vs `src/hooks/use-accounts.ts`
+### Banco de Dados
 
-**Problema**: Dois sistemas de toast diferentes são usados:
-- `use-bills.ts` importa de `@/hooks/use-toast` (shadcn toast)
-- `use-accounts.ts` e outros importam de `sonner`
+1. **Simplificar a RPC `find_or_create_invoice`**
+   - Remover lógica de ciclos
+   - Buscar/criar fatura pelo campo `closing_date` como identificador de mês
+   - Default: mês seguinte à data da transação
 
-**Impacto**: Experiência de usuário inconsistente, dois sistemas para manter
+2. **Manter campos existentes, mas simplificar uso**
+   - `closing_date` = primeiro dia do mês da fatura (ex: 2026-02-01)
+   - `due_date` = dia de vencimento do cartão naquele mês
+   - `cycle_start_date` e `cycle_end_date` mantidos para compatibilidade
 
-**Recomendação**: Padronizar em `sonner` (já é o mais usado no projeto)
+### Frontend (QuickAddModal)
 
----
+3. **Adicionar seletor de fatura no Step 3**
+   - Mostrar dropdown com faturas abertas do cartão selecionado
+   - Default: fatura do mês seguinte
+   - Se não existir, criar automaticamente
 
-## 2. Problemas de Arquitetura (Prioridade Média)
+4. **Atualizar hook `use-transactions.ts`**
+   - Usar invoice_id selecionado pelo usuário (não calcular)
+   - Remover chamada à RPC complexa para compras à vista
 
-### 2.1 Lógica de Negócio Misturada em Hooks de Dados
+5. **Atualizar página Faturas**
+   - Ajustar filtro mensal para usar `closing_date` corretamente
+   - Adicionar botões para alterar status manualmente
 
-**Localização**: `src/hooks/use-invoices.ts` (linhas 172-260)
+### Edge Function
 
-**Problema**: O hook `usePayInvoice` contém lógica de negócio complexa:
-- Validação de status da fatura
-- Criação de transação
-- Atualização de múltiplas tabelas
-- Marcação de parcelas como reconciliadas
-
-**Melhor Prática**: Hooks React Query devem ser wrappers finos. Lógica complexa deve estar em:
-- Services/Use Cases separados, ou
-- Edge Functions (server-side)
-
-**Recomendação**: Mover para Edge Function `pay-invoice` (que já existe mas não é usada pelo hook)
-
----
-
-### 2.2 Utilitários de Formatação Duplicados
-
-**Localização**: 
-- `src/lib/format.ts` → `formatCurrency`
-- `src/lib/installment-utils.ts` → cria seu próprio `Intl.NumberFormat`
-- `src/components/shared/CurrencyInput.tsx` → define `formatCurrency` interno
-
-**Problema**: Três implementações diferentes da mesma funcionalidade
-
-**Recomendação**: Usar exclusivamente `src/lib/format.ts` em todo o projeto
+6. **Corrigir Edge Function `cards/index.ts`**
+   - Atualizar para usar schema correto (`cycle_start_date`, `cycle_end_date`, `closing_date`)
+   - Ou remover geração automática de faturas (já que o hook usa RPC)
 
 ---
 
-### 2.3 Ausência de Camada de Services
+## Cronograma de Implementação
 
-**Problema Geral**: O projeto não possui uma camada de serviços. Toda lógica de negócio está espalhada entre:
-- Hooks (`use-*.ts`)
-- Edge Functions (`supabase/functions/*`)
-- Triggers SQL (no banco)
-
-**Estrutura Atual**:
-```
-Component → Hook → Supabase Client (direto)
-```
-
-**Estrutura Recomendada**:
-```
-Component → Hook → Service → Supabase Client
-                         ↘ Edge Function (para operações complexas)
-```
+| Ordem | Tarefa | Arquivos |
+|-------|--------|----------|
+| 1 | Criar nova RPC simplificada `get_or_create_monthly_invoice` | Migration SQL |
+| 2 | Adicionar seletor de fatura no QuickAddModal | `QuickAddModal.tsx` |
+| 3 | Simplificar hook de criação de transação | `use-transactions.ts` |
+| 4 | Corrigir filtro da página Faturas | `Faturas.tsx` |
+| 5 | Adicionar botões de status manual | `Faturas.tsx` |
+| 6 | Corrigir ou remover Edge Function cards | `cards/index.ts` |
 
 ---
 
-### 2.4 Tipos Inconsistentes para PaymentMethod
+## Benefícios da Simplificação
 
-**Localização**: 
-- `src/components/shared/PaymentMethodSelect.tsx` → inclui `benefit_card`
-- `src/hooks/use-transactions.ts` → não inclui `benefit_card`
-- `supabase/functions/transactions/index.ts` → não conhece `benefit_card`
-- Banco de dados → enum não tem `benefit_card` (usa `voucher`)
+- **Previsibilidade**: usuário sabe exatamente para onde cada despesa vai
+- **Menos bugs**: sem cálculos complexos de ciclo
+- **Manutenção fácil**: código mais simples e direto
+- **Controle total**: usuário decide status e associações
 
-**Problema**: O tipo `benefit_card` existe apenas no frontend e é mapeado para `voucher` antes de salvar. Isso cria confusão e pode causar bugs.
+## Próximos Passos
 
-**Recomendação**: Adicionar `benefit_card` ao enum do banco ou criar constantes centralizadas com mapeamento explícito.
-
----
-
-## 3. Problemas de Organização (Prioridade Baixa)
-
-### 3.1 Componente NavLink Deslocado
-
-**Localização**: `src/components/NavLink.tsx`
-
-**Problema**: Único componente na raiz de `/components`, fora de qualquer pasta
-
-**Recomendação**: Mover para `src/components/navigation/NavLink.tsx`
-
----
-
-### 3.2 Contextos Não Padronizados
-
-**Localização**: 
-- `src/contexts/SidebarContext.tsx` → usa pasta `/contexts`
-- `src/hooks/use-auth.tsx` → contexto definido dentro do hook
-- `src/hooks/use-theme.tsx` → contexto definido dentro do hook
-
-**Problema**: Contextos estão em locais diferentes
-
-**Recomendação**: Padronizar. Opções:
-- A) Mover todos para `/contexts`
-- B) Manter todos como hooks (atual padrão do Next.js/Remix)
-
----
-
-### 3.3 Edge Function pay-invoice Não Utilizada
-
-**Localização**: `supabase/functions/pay-invoice/index.ts`
-
-**Problema**: Esta Edge Function existe mas não é chamada pelo frontend. O hook `usePayInvoice` faz as operações diretamente.
-
-**Recomendação**: 
-- Usar a Edge Function existente, ou
-- Remover se não for necessária
-
----
-
-### 3.4 Arquivos de Tipos Espalhados
-
-**Problema**: Tipos são definidos inline em cada arquivo ou importados de `@/integrations/supabase/types`. Não há arquivo central de tipos de domínio.
-
-**Recomendação**: Criar `src/types/` com:
-```
-types/
-├── index.ts
-├── transactions.ts
-├── invoices.ts
-├── accounts.ts
-└── enums.ts
-```
-
----
-
-## 4. Oportunidades de Melhoria
-
-### 4.1 Validação de Formulários Inconsistente
-
-**Problema**: O projeto usa `react-hook-form` + `zod`, mas vários formulários (QuickAddModal, TransactionForm) fazem validação manual.
-
-**Recomendação**: Criar schemas Zod centralizados e usar consistentemente com react-hook-form.
-
----
-
-### 4.2 Ausência de Testes de Integração
-
-**Localização**: `src/test/example.test.ts`
-
-**Problema**: Apenas um teste de exemplo existe. Hooks críticos como `useCreateTransaction` não têm testes.
-
-**Recomendação**: Adicionar testes para:
-- Hooks de transações (lógica de parcelamento)
-- Lógica de faturas
-- Componentes compartilhados
-
----
-
-### 4.3 Constantes Mágicas Espalhadas
-
-**Exemplos**:
-- `5000` (limite de tokens) aparece em múltiplos arquivos
-- `30` (dias de soft delete) não está centralizado
-- `48` (máximo de parcelas) definido em múltiplos locais
-
-**Recomendação**: Criar `src/lib/constants.ts` para constantes de negócio
-
----
-
-## 5. Plano de Ação Priorizado
-
-### Fase 1: Correções Críticas (Imediato)
-
-| # | Ação | Arquivos Afetados | Esforço |
-|---|------|-------------------|---------|
-| 1 | Unificar sistema de toast para `sonner` | `use-bills.ts` | Baixo |
-| 2 | Remover/consolidar lógica duplicada de parcelas | `use-transactions.ts`, Edge Function | Alto |
-| 3 | Centralizar formatação de moeda | Vários | Baixo |
-
-### Fase 2: Refatoração de Arquitetura (Curto Prazo)
-
-| # | Ação | Arquivos Afetados | Esforço |
-|---|------|-------------------|---------|
-| 4 | Decompor QuickAddModal em subcomponentes | `QuickAddModal.tsx` | Alto |
-| 5 | Criar hook customizado para estado do wizard | Novo arquivo | Médio |
-| 6 | Decidir: usar Edge Function ou remover `pay-invoice` | `use-invoices.ts`, Edge Function | Médio |
-
-### Fase 3: Organização e Padronização (Médio Prazo)
-
-| # | Ação | Arquivos Afetados | Esforço |
-|---|------|-------------------|---------|
-| 7 | Criar diretório `src/types/` para tipos de domínio | Vários | Médio |
-| 8 | Mover `NavLink.tsx` para pasta correta | `NavLink.tsx` | Trivial |
-| 9 | Criar `src/lib/constants.ts` | Novo arquivo | Baixo |
-| 10 | Padronizar localização de contextos | Contextos existentes | Baixo |
-
-### Fase 4: Qualidade e Manutenibilidade (Longo Prazo)
-
-| # | Ação | Arquivos Afetados | Esforço |
-|---|------|-------------------|---------|
-| 11 | Adicionar testes para hooks críticos | Novos arquivos | Alto |
-| 12 | Implementar schemas Zod para formulários | Novos arquivos | Médio |
-| 13 | Criar camada de services se necessário | Nova estrutura | Alto |
-
----
-
-## 6. Métricas de Saúde do Código
-
-| Métrica | Status | Comentário |
-|---------|--------|------------|
-| Separação UI/Lógica | ⚠️ Parcial | Hooks misturam dados e lógica de negócio |
-| Reutilização | ✅ Bom | Componentes shared bem utilizados |
-| Consistência de Estilo | ⚠️ Parcial | Toast inconsistente, tipos duplicados |
-| Testabilidade | ❌ Fraco | Apenas 1 teste de exemplo |
-| Modularidade | ⚠️ Parcial | QuickAddModal muito grande |
-| Documentação Inline | ✅ Bom | Comentários explicativos nos hooks |
-
----
-
-## 7. Conclusão
-
-O projeto Finow possui uma base sólida mas requer atenção em três áreas principais:
-
-1. **Consolidação**: Eliminar duplicação de lógica entre frontend e Edge Functions
-2. **Decomposição**: Quebrar componentes grandes em peças menores e testáveis
-3. **Padronização**: Unificar sistemas de toast, tipos e formatação
-
-Recomendo começar pela Fase 1 (correções críticas) que trazem ganhos rápidos com baixo risco, e depois avançar para a decomposição do QuickAddModal que é o maior débito técnico identificado.
+Ao aprovar, implementarei as mudanças na ordem indicada, testando cada etapa antes de prosseguir.
