@@ -28,6 +28,7 @@ interface TransactionFilters {
 
 interface CreateTransactionParams extends Omit<TransactionInsert, "user_id"> {
   installments?: number;
+  selected_invoice_id?: string; // ID da fatura selecionada pelo usuário
 }
 
 /**
@@ -139,14 +140,21 @@ export function useTransaction(id: string | null) {
 
 /**
  * Hook para criar transação (com suporte a parcelamento)
- * IMPORTANTE: O saldo das contas é atualizado via trigger no banco de dados.
- * NÃO atualizar manualmente aqui para evitar duplicidade.
+ * 
+ * MODELO SIMPLIFICADO:
+ * - O usuário escolhe para qual fatura a despesa vai (via selected_invoice_id)
+ * - Para parcelamento, cada parcela vai para o mês correspondente
+ * - Não há mais cálculo automático de ciclos
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ installments: numInstallments, ...transaction }: CreateTransactionParams) => {
+    mutationFn: async ({ 
+      installments: numInstallments, 
+      selected_invoice_id,
+      ...transaction 
+    }: CreateTransactionParams) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
@@ -160,36 +168,21 @@ export function useCreateTransaction() {
         cardId: transaction.card_id,
         transactionDate,
         amount: transaction.amount,
+        selected_invoice_id,
       });
 
-      // Para cartão de crédito, SEMPRE precisamos de uma fatura
+      // Para cartão de crédito, precisamos de uma fatura
       let invoiceId: string | null = null;
       
       if (isCreditCard && transaction.card_id) {
-        // Compras à vista: vincular transação à fatura
+        // Compras à vista: usar fatura selecionada pelo usuário
         // Compras parceladas: NÃO vincular transação principal (parcelas vinculam)
         if (!hasInstallments) {
-          console.log("[useCreateTransaction] Buscando fatura para compra à vista...");
-          
-          const { data: foundInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
-            p_card_id: transaction.card_id,
-            p_user_id: user.id,
-            p_transaction_date: transactionDate,
-            p_is_future_installment: false
-          });
-
-          if (invoiceError) {
-            console.error("[useCreateTransaction] ERRO ao buscar/criar fatura:", invoiceError);
-            throw new Error(`Não foi possível encontrar ou criar a fatura: ${invoiceError.message}`);
+          if (!selected_invoice_id) {
+            throw new Error("Selecione uma fatura para esta despesa do cartão de crédito");
           }
-          
-          if (!foundInvoiceId) {
-            console.error("[useCreateTransaction] RPC retornou nulo para fatura");
-            throw new Error("Não foi possível criar a fatura para este cartão. Verifique as configurações do cartão.");
-          }
-
-          invoiceId = foundInvoiceId;
-          console.log("[useCreateTransaction] Fatura encontrada/criada:", invoiceId);
+          invoiceId = selected_invoice_id;
+          console.log("[useCreateTransaction] Usando fatura selecionada:", invoiceId);
         }
       }
 
@@ -238,26 +231,46 @@ export function useCreateTransaction() {
 
         console.log("[useCreateTransaction] Grupo criado:", group.id);
 
-        // Buscar/criar faturas para cada parcela
-        const transactionDateObj = new Date(transactionDate);
+        // Calcular mês base a partir da fatura selecionada ou data da transação
+        let baseMonth: Date;
+        if (selected_invoice_id) {
+          // Buscar mês da fatura selecionada
+          const { data: selectedInvoice } = await supabase
+            .from("invoices")
+            .select("closing_date")
+            .eq("id", selected_invoice_id)
+            .single();
+          
+          if (selectedInvoice) {
+            baseMonth = new Date(selectedInvoice.closing_date);
+          } else {
+            // Fallback: mês seguinte à data da transação
+            const txDate = new Date(transactionDate);
+            baseMonth = new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
+          }
+        } else {
+          // Default: mês seguinte à data da transação
+          const txDate = new Date(transactionDate);
+          baseMonth = new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
+        }
+
+        // Criar fatura para cada parcela usando a nova RPC
         const installmentsData = [];
 
         for (let index = 0; index < numInstallments; index++) {
           const parcela = amounts[index];
           
-          // Calcular data da parcela (incrementando mês a mês)
-          const parcelaDate = new Date(transactionDateObj);
-          parcelaDate.setMonth(parcelaDate.getMonth() + index);
-          const parcelaDateStr = parcelaDate.toISOString().split('T')[0];
+          // Calcular mês da parcela (incrementando mês a mês a partir do base)
+          const parcelaMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + index, 1);
+          const parcelaDateStr = parcelaMonth.toISOString().split('T')[0];
 
           console.log(`[useCreateTransaction] Parcela ${index + 1}: buscando fatura para ${parcelaDateStr}`);
 
-          // Buscar/criar fatura para esta parcela (p_is_future_installment = true)
-          const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+          // Buscar/criar fatura para esta parcela usando nova RPC simplificada
+          const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('get_or_create_monthly_invoice', {
             p_card_id: transaction.card_id,
             p_user_id: user.id,
-            p_transaction_date: parcelaDateStr,
-            p_is_future_installment: true
+            p_target_month: parcelaDateStr
           });
 
           if (invoiceError) {

@@ -16,6 +16,15 @@ interface InvoiceFilters {
   status?: InvoiceStatus;
 }
 
+interface AvailableInvoice {
+  invoice_id: string;
+  month_label: string;
+  closing_date: string;
+  due_date: string;
+  status: string;
+  total_amount: number;
+}
+
 /**
  * Hook para listar faturas
  * Usa closing_date para ordenação (novo schema com ciclo bancário)
@@ -166,6 +175,121 @@ export function useCurrentInvoice(cardId: string | null) {
 }
 
 /**
+ * Hook para buscar faturas disponíveis para seleção (não pagas)
+ * Usa a nova RPC get_available_invoices que cria faturas automaticamente
+ */
+export function useAvailableInvoices(cardId: string | null) {
+  return useQuery({
+    queryKey: [...INVOICES_KEY, "available", cardId],
+    queryFn: async () => {
+      if (!cardId) return [];
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data, error } = await supabase.rpc('get_available_invoices', {
+        p_card_id: cardId,
+        p_user_id: user.id,
+        p_months_ahead: 6
+      });
+
+      if (error) {
+        console.error("[useAvailableInvoices] Erro:", error);
+        throw error;
+      }
+
+      return (data || []) as AvailableInvoice[];
+    },
+    enabled: !!cardId,
+    staleTime: 30 * 1000, // 30 segundos
+  });
+}
+
+/**
+ * Hook para buscar/criar fatura de um mês específico
+ * Usa a nova RPC get_or_create_monthly_invoice
+ */
+export function useGetOrCreateMonthlyInvoice() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      cardId, 
+      targetMonth 
+    }: { 
+      cardId: string; 
+      targetMonth: Date;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Normalizar para primeiro dia do mês
+      const firstDayOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+      
+      const { data: invoiceId, error } = await supabase.rpc('get_or_create_monthly_invoice', {
+        p_card_id: cardId,
+        p_user_id: user.id,
+        p_target_month: firstDayOfMonth.toISOString().split('T')[0]
+      });
+
+      if (error) {
+        console.error("[useGetOrCreateMonthlyInvoice] Erro:", error);
+        throw error;
+      }
+
+      return invoiceId as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
+    },
+  });
+}
+
+/**
+ * Hook para alterar status da fatura manualmente
+ */
+export function useUpdateInvoiceStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      invoiceId, 
+      newStatus 
+    }: { 
+      invoiceId: string; 
+      newStatus: InvoiceStatus;
+    }) => {
+      const { error } = await supabase.rpc('update_invoice_status', {
+        p_invoice_id: invoiceId,
+        p_new_status: newStatus
+      });
+
+      if (error) {
+        console.error("[useUpdateInvoiceStatus] Erro:", error);
+        throw error;
+      }
+
+      return { invoiceId, newStatus };
+    },
+    onSuccess: ({ newStatus }) => {
+      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
+      
+      const statusLabels = {
+        open: 'aberta',
+        closed: 'fechada',
+        paid: 'paga'
+      };
+      
+      toast.success(`Fatura marcada como ${statusLabels[newStatus]}!`);
+    },
+    onError: (error) => {
+      console.error("Erro ao alterar status:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao alterar status da fatura");
+    },
+  });
+}
+
+/**
  * Hook para pagar fatura integralmente
  * REGRA: Só pode pagar fatura com status = 'closed'
  * IMPORTANTE: O saldo da conta é atualizado via trigger quando a transação é criada.
@@ -196,7 +320,7 @@ export function usePayInvoice() {
       }
       
       if (invoice.status === "open") {
-        throw new Error("Esta fatura ainda está aberta. Aguarde o fechamento para efetuar o pagamento.");
+        throw new Error("Esta fatura ainda está aberta. Feche a fatura antes de pagar.");
       }
 
       const { data: { user } } = await supabase.auth.getUser();

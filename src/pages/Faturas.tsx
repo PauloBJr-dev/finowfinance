@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { useInvoices, useInvoice, usePayInvoice } from "@/hooks/use-invoices";
+import { useInvoices, useInvoice, usePayInvoice, useUpdateInvoiceStatus } from "@/hooks/use-invoices";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCards } from "@/hooks/use-cards";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -19,9 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CreditCard, Calendar, Loader2, Info, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CreditCard, Calendar, Loader2, Info, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, MoreVertical, LockOpen, Lock, CheckCircle } from "lucide-react";
 import { format, addMonths, subMonths, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+type InvoiceStatus = "open" | "closed" | "paid";
 
 export default function Faturas() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -56,14 +59,26 @@ export default function Faturas() {
 
   const { data: accountsData } = useAccounts();
   const accounts = Array.isArray(accountsData) ? accountsData : [];
+  // Filtrar contas benefit_card para pagamento
+  const payableAccounts = accounts.filter(a => a.type !== "benefit_card");
 
   const payInvoice = usePayInvoice();
+  const updateStatus = useUpdateInvoiceStatus();
 
   const handlePay = async () => {
     if (!selectedInvoiceId || !payAccountId) return;
     await payInvoice.mutateAsync({ invoiceId: selectedInvoiceId, accountId: payAccountId });
     setPayDialogOpen(false);
     setSelectedInvoiceId(null);
+  };
+
+  const handleStatusChange = async (invoiceId: string, newStatus: InvoiceStatus) => {
+    await updateStatus.mutateAsync({ invoiceId, newStatus });
+    // Refresh invoice details if open
+    if (selectedInvoiceId === invoiceId) {
+      setSelectedInvoiceId(null);
+      setTimeout(() => setSelectedInvoiceId(invoiceId), 100);
+    }
   };
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -118,7 +133,7 @@ export default function Faturas() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Faturas</h1>
-            <p className="text-muted-foreground">Acompanhe suas faturas de cartão.</p>
+            <p className="text-muted-foreground">Acompanhe e gerencie suas faturas de cartão.</p>
           </div>
           <div className="flex items-center gap-2">
             {cards.length > 0 && (
@@ -169,14 +184,54 @@ export default function Faturas() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {invoices.map((invoice) => {
-              const status = invoice.status as "open" | "closed" | "paid";
+              const status = invoice.status as InvoiceStatus;
               return (
                 <Card 
                   key={invoice.id} 
-                  className="cursor-pointer hover:border-primary/50 transition-colors" 
+                  className="cursor-pointer hover:border-primary/50 transition-colors relative" 
                   onClick={() => setSelectedInvoiceId(invoice.id)}
                 >
-                  <CardHeader className="pb-2">
+                  {/* Menu de ações rápidas */}
+                  <div className="absolute top-2 right-2" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {status === "open" && (
+                          <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "closed")}>
+                            <Lock className="h-4 w-4 mr-2" />
+                            Fechar fatura
+                          </DropdownMenuItem>
+                        )}
+                        {status === "closed" && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, "open")}>
+                              <LockOpen className="h-4 w-4 mr-2" />
+                              Reabrir fatura
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedInvoiceId(invoice.id);
+                              setPayDialogOpen(true);
+                            }}>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Pagar fatura
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {status === "paid" && (
+                          <DropdownMenuItem disabled>
+                            <CheckCircle className="h-4 w-4 mr-2 text-success" />
+                            Fatura paga
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <CardHeader className="pb-2 pr-12">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base capitalize">
                         {formatInvoiceMonth(invoice.closing_date)}
@@ -206,7 +261,7 @@ export default function Faturas() {
         )}
 
         {/* Invoice Details Dialog */}
-        <Dialog open={!!selectedInvoiceId} onOpenChange={(o) => !o && setSelectedInvoiceId(null)}>
+        <Dialog open={!!selectedInvoiceId && !payDialogOpen} onOpenChange={(o) => !o && setSelectedInvoiceId(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="capitalize">
@@ -234,10 +289,10 @@ export default function Faturas() {
                   <span className="text-muted-foreground">Vencimento</span>
                   <span>{formatDate(invoiceDetails.due_date)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm items-center">
                   <span className="text-muted-foreground">Status</span>
-                  <Badge className={getInvoiceStatusColor(invoiceDetails.status as "open" | "closed" | "paid")}>
-                    {formatInvoiceStatus(invoiceDetails.status as "open" | "closed" | "paid")}
+                  <Badge className={getInvoiceStatusColor(invoiceDetails.status as InvoiceStatus)}>
+                    {formatInvoiceStatus(invoiceDetails.status as InvoiceStatus)}
                   </Badge>
                 </div>
 
@@ -258,22 +313,78 @@ export default function Faturas() {
                   </div>
                 )}
 
+                {/* Parcelas da fatura */}
+                {invoiceDetails.installments && Array.isArray(invoiceDetails.installments) && invoiceDetails.installments.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-medium mb-2">Parcelas ({invoiceDetails.installments.length})</h4>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
+                      {invoiceDetails.installments.map((inst: any) => (
+                        <div key={inst.id} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground truncate max-w-[60%]">
+                            {inst.installment_groups?.transactions?.description || 
+                             inst.installment_groups?.transactions?.categories?.name || 
+                             "Compra parcelada"} 
+                            ({inst.installment_number}/{inst.installment_groups?.total_installments})
+                          </span>
+                          <span>{formatCurrency(Number(inst.amount))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Mensagem sobre status de pagamento */}
-                {getPaymentStatusMessage(invoiceDetails.status as "open" | "closed" | "paid") && (
+                {getPaymentStatusMessage(invoiceDetails.status as InvoiceStatus) && (
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                      {getPaymentStatusMessage(invoiceDetails.status as "open" | "closed" | "paid")}
+                      {getPaymentStatusMessage(invoiceDetails.status as InvoiceStatus)}
                     </AlertDescription>
                   </Alert>
                 )}
 
-                {/* Botão de pagamento - só aparece se fatura fechada */}
-                {canPayInvoice(invoiceDetails.status as "open" | "closed" | "paid") && (
-                  <Button onClick={() => setPayDialogOpen(true)} className="w-full">
-                    Pagar Fatura
-                  </Button>
-                )}
+                {/* Botões de ação */}
+                <div className="flex gap-2">
+                  {invoiceDetails.status === "open" && (
+                    <Button 
+                      onClick={() => handleStatusChange(invoiceDetails.id, "closed")} 
+                      variant="outline"
+                      className="flex-1"
+                      disabled={updateStatus.isPending}
+                    >
+                      {updateStatus.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Lock className="mr-2 h-4 w-4" />
+                      )}
+                      Fechar fatura
+                    </Button>
+                  )}
+                  
+                  {invoiceDetails.status === "closed" && (
+                    <>
+                      <Button 
+                        onClick={() => handleStatusChange(invoiceDetails.id, "open")} 
+                        variant="outline"
+                        className="flex-1"
+                        disabled={updateStatus.isPending}
+                      >
+                        {updateStatus.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <LockOpen className="mr-2 h-4 w-4" />
+                        )}
+                        Reabrir
+                      </Button>
+                      <Button 
+                        onClick={() => setPayDialogOpen(true)} 
+                        className="flex-1"
+                      >
+                        Pagar Fatura
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </DialogContent>
@@ -299,7 +410,7 @@ export default function Faturas() {
                   <SelectValue placeholder="Selecione uma conta" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((a) => (
+                  {payableAccounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.name} ({formatCurrency(Number(a.current_balance))})
                     </SelectItem>

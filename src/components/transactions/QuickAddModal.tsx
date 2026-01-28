@@ -16,6 +16,7 @@ import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCards } from "@/hooks/use-cards";
+import { useAvailableInvoices } from "@/hooks/use-invoices";
 import { useCreateTransaction } from "@/hooks/use-transactions";
 import { useCreateBill } from "@/hooks/use-bills";
 import { useSuggestCategory, useAISettings } from "@/hooks/use-ai";
@@ -23,7 +24,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { formatInstallmentPreview } from "@/lib/installment-utils";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ArrowLeft, Loader2, Sparkles, FileText } from "lucide-react";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface QuickAddModalProps {
@@ -57,15 +58,17 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const [description, setDescription] = useState("");
   const [aiSuggestion, setAiSuggestion] = useState<{ category_id: string; category_name: string; confidence: number } | null>(null);
   
-  // Step 3: Account/Card + Installments
+  // Step 3: Account/Card + Installments + Invoice Selection
   const [accountId, setAccountId] = useState<string | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
   const [isInstallment, setIsInstallment] = useState(false);
   const [installmentCount, setInstallmentCount] = useState<string>("");
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: accounts = [] } = useAccounts();
   const { data: cards = [] } = useCards();
   const { data: aiSettings } = useAISettings();
+  const { data: availableInvoices = [], isLoading: isLoadingInvoices } = useAvailableInvoices(cardId);
   const createTransaction = useCreateTransaction();
   const createBill = useCreateBill();
   const suggestCategory = useSuggestCategory();
@@ -91,6 +94,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     return !isNaN(num) && num >= 2 && num <= 48 ? num : 0;
   }, [installmentCount]);
 
+  // Calcular mês sugerido (próximo mês)
+  const suggestedInvoiceMonth = useMemo(() => {
+    const nextMonth = addMonths(date, 1);
+    return format(nextMonth, "MMMM 'de' yyyy", { locale: ptBR });
+  }, [date]);
+
   // Reset form when modal closes
   useEffect(() => {
     if (!open) {
@@ -109,6 +118,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setIsInstallment(false);
       setInstallmentCount("");
       setAiSuggestion(null);
+      setSelectedInvoiceId(null);
     }
   }, [open]);
 
@@ -150,11 +160,35 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     }
   }, [step, isPaid, isCreditCardSelected, isBenefitCardSelected, regularAccounts, benefitAccounts, cards, accountId, cardId]);
 
+  // Auto-select default invoice (next month) when invoices load
+  useEffect(() => {
+    if (availableInvoices.length > 0 && !selectedInvoiceId && isCreditCardSelected) {
+      // Encontrar fatura do mês seguinte ou a primeira disponível
+      const nextMonth = addMonths(date, 1);
+      const nextMonthStart = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
+      
+      const matchingInvoice = availableInvoices.find(inv => {
+        const invMonth = new Date(inv.closing_date);
+        return invMonth.getMonth() === nextMonthStart.getMonth() && 
+               invMonth.getFullYear() === nextMonthStart.getFullYear();
+      });
+      
+      setSelectedInvoiceId(matchingInvoice?.invoice_id || availableInvoices[0]?.invoice_id || null);
+    }
+  }, [availableInvoices, selectedInvoiceId, isCreditCardSelected, date]);
+
+  // Reset invoice selection when card changes
+  useEffect(() => {
+    setSelectedInvoiceId(null);
+  }, [cardId]);
+
   // Validations
   const canProceedStep1 = amount > 0 && (isPaid || dueDate);
   const canProceedStep2 = categoryId !== null;
   const canProceedStep3Bill = categoryId !== null; // Bills don't need account in creation
-  const canProceedStep3Transaction = isCreditCardSelected ? cardId !== null : accountId !== null;
+  const canProceedStep3Transaction = isCreditCardSelected 
+    ? cardId !== null && (isInstallment || selectedInvoiceId !== null)
+    : accountId !== null;
 
   const handleSubmit = async () => {
     try {
@@ -186,6 +220,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           account_id: isCreditCardSelected ? null : accountId,
           card_id: isCreditCardSelected ? cardId : null,
           installments: finalInstallments,
+          selected_invoice_id: isCreditCardSelected && !finalInstallments ? selectedInvoiceId || undefined : undefined,
         });
       }
       onOpenChange(false);
@@ -559,7 +594,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           </div>
         )}
 
-        {/* Step 3: Account/Card + Installments (only for paid transactions) */}
+        {/* Step 3: Account/Card + Installments + Invoice Selection (only for paid transactions) */}
         {step === 3 && !isBillFlow && (
           <div className="space-y-4">
             <button
@@ -593,6 +628,46 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                     </p>
                   )}
                 </div>
+
+                {/* Invoice Selection - Nova funcionalidade! */}
+                {cardId && !isInstallment && (
+                  <div className="space-y-2">
+                    <Label>Para qual fatura?</Label>
+                    {isLoadingInvoices ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-lg">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando faturas...
+                      </div>
+                    ) : availableInvoices.length > 0 ? (
+                      <>
+                        <Select value={selectedInvoiceId || ""} onValueChange={setSelectedInvoiceId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a fatura" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover">
+                            {availableInvoices.map((invoice) => (
+                              <SelectItem key={invoice.invoice_id} value={invoice.invoice_id}>
+                                <span className="capitalize">{invoice.month_label}</span>
+                                {invoice.status !== "open" && (
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    {invoice.status === "closed" ? "Fechada" : invoice.status}
+                                  </Badge>
+                                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Sugestão: {suggestedInvoiceMonth} (mês seguinte)
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground p-3 border rounded-lg">
+                        Nenhuma fatura disponível. Uma será criada automaticamente.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Installments - Apenas para cartão de crédito */}
                 {canShowInstallment && (
@@ -630,10 +705,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
                         {/* Preview compacto */}
                         {parsedInstallments >= 2 && (
-                          <div className="rounded-lg bg-muted/50 p-3 text-sm text-center">
+                          <div className="rounded-lg bg-muted/50 p-3 text-sm text-center space-y-1">
                             <span className="font-medium text-foreground">
                               {formatInstallmentPreview(amount, parsedInstallments)}
                             </span>
+                            <p className="text-xs text-muted-foreground">
+                              Primeira parcela em {suggestedInvoiceMonth}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -692,6 +770,14 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 <span className="text-muted-foreground">Data</span>
                 <span>{formatDate(date)}</span>
               </div>
+              {isCreditCardSelected && !isInstallment && selectedInvoiceId && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Fatura</span>
+                  <span className="font-medium capitalize">
+                    {availableInvoices.find(i => i.invoice_id === selectedInvoiceId)?.month_label || "—"}
+                  </span>
+                </div>
+              )}
               {isInstallment && parsedInstallments >= 2 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Parcelas</span>

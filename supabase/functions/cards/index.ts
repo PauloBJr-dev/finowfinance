@@ -21,35 +21,6 @@ interface CardUpdate {
   due_day?: number;
 }
 
-// Utilitários para gerar faturas
-function generateInvoicePeriods(billingDay: number, dueDay: number, count: number) {
-  const periods = [];
-  const today = new Date();
-  
-  for (let i = 0; i < count; i++) {
-    const referenceDate = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    
-    // Data de fechamento do mês anterior
-    const prevMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1);
-    const startDate = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), billingDay + 1);
-    
-    // Data de fechamento deste mês
-    const endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), billingDay);
-    
-    // Data de vencimento
-    const dueDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), dueDay);
-    
-    periods.push({
-      referenceMonth: new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1),
-      startDate,
-      endDate,
-      dueDate
-    });
-  }
-  
-  return periods;
-}
-
 // Validação
 function validateCardCreate(data: unknown): { valid: boolean; error?: string; data?: CardCreate } {
   if (!data || typeof data !== 'object') {
@@ -178,7 +149,7 @@ serve(async (req) => {
       )
     }
 
-    // POST - Criar cartão com faturas automáticas
+    // POST - Criar cartão (sem criação automática de faturas - isso é feito sob demanda)
     if (req.method === 'POST') {
       const body = await req.json()
       const validation = validateCardCreate(body)
@@ -192,7 +163,7 @@ serve(async (req) => {
 
       const cardData = validation.data!
       
-      // 1. Criar cartão
+      // Criar apenas o cartão - faturas serão criadas sob demanda via RPC
       const { data: newCard, error: cardError } = await supabase
         .from('cards')
         .insert({
@@ -213,30 +184,10 @@ serve(async (req) => {
         )
       }
 
-      // 2. Gerar faturas automáticas (mês atual + próximo)
-      const periods = generateInvoicePeriods(cardData.billing_day, cardData.due_day, 2)
+      console.log(`[cards] Card created: ${newCard.id}`)
       
-      const invoices = periods.map((period) => ({
-        card_id: newCard.id,
-        user_id: userId,
-        reference_month: period.referenceMonth.toISOString().split('T')[0],
-        start_date: period.startDate.toISOString().split('T')[0],
-        end_date: period.endDate.toISOString().split('T')[0],
-        due_date: period.dueDate.toISOString().split('T')[0],
-        status: 'open' as const,
-        total_amount: 0,
-      }))
-
-      const { error: invoiceError } = await supabase
-        .from('invoices')
-        .insert(invoices)
-
-      if (invoiceError) {
-        console.error('[cards] Error creating invoices:', invoiceError.message)
-        // Não bloqueia a criação do cartão
-      } else {
-        console.log(`[cards] Created ${invoices.length} invoices for card ${newCard.id}`)
-      }
+      // Nota: Faturas são criadas sob demanda quando o usuário adiciona uma transação
+      // ou quando acessa a página de faturas (via RPC get_or_create_monthly_invoice)
 
       return new Response(
         JSON.stringify(newCard),
