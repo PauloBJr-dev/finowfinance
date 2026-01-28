@@ -152,31 +152,50 @@ export function useCreateTransaction() {
 
       const isCreditCard = transaction.payment_method === "credit_card";
       const hasInstallments = isCreditCard && numInstallments && numInstallments > 1;
+      const transactionDate = transaction.date || new Date().toISOString().split('T')[0];
 
-      // REGRA CORRIGIDA:
-      // - Compra PARCELADA: transação principal NÃO tem invoice_id (parcelas têm)
-      // - Compra À VISTA: transação tem invoice_id
+      console.log("[useCreateTransaction] Iniciando criação:", {
+        isCreditCard,
+        hasInstallments,
+        cardId: transaction.card_id,
+        transactionDate,
+        amount: transaction.amount,
+      });
+
+      // Para cartão de crédito, SEMPRE precisamos de uma fatura
       let invoiceId: string | null = null;
       
-      if (isCreditCard && transaction.card_id && !hasInstallments) {
-        // Apenas compras à vista no cartão vinculam a transação à fatura
-        const transactionDate = transaction.date || new Date().toISOString().split('T')[0];
-        
-        const { data: foundInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
-          p_card_id: transaction.card_id,
-          p_user_id: user.id,
-          p_transaction_date: transactionDate
-        });
+      if (isCreditCard && transaction.card_id) {
+        // Compras à vista: vincular transação à fatura
+        // Compras parceladas: NÃO vincular transação principal (parcelas vinculam)
+        if (!hasInstallments) {
+          console.log("[useCreateTransaction] Buscando fatura para compra à vista...");
+          
+          const { data: foundInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+            p_card_id: transaction.card_id,
+            p_user_id: user.id,
+            p_transaction_date: transactionDate,
+            p_is_future_installment: false
+          });
 
-        if (invoiceError) {
-          console.error("Erro ao buscar/criar fatura:", invoiceError);
-        } else if (foundInvoiceId) {
+          if (invoiceError) {
+            console.error("[useCreateTransaction] ERRO ao buscar/criar fatura:", invoiceError);
+            throw new Error(`Não foi possível encontrar ou criar a fatura: ${invoiceError.message}`);
+          }
+          
+          if (!foundInvoiceId) {
+            console.error("[useCreateTransaction] RPC retornou nulo para fatura");
+            throw new Error("Não foi possível criar a fatura para este cartão. Verifique as configurações do cartão.");
+          }
+
           invoiceId = foundInvoiceId;
+          console.log("[useCreateTransaction] Fatura encontrada/criada:", invoiceId);
         }
       }
 
       // 1. Criar transação principal
-      // IMPORTANTE: Para parceladas, invoice_id = null (apenas parcelas vinculam às faturas)
+      console.log("[useCreateTransaction] Criando transação principal com invoice_id:", invoiceId);
+      
       const { data: newTransaction, error: txError } = await supabase
         .from("transactions")
         .insert({
@@ -187,10 +206,17 @@ export function useCreateTransaction() {
         .select()
         .single();
 
-      if (txError) throw txError;
+      if (txError) {
+        console.error("[useCreateTransaction] Erro ao criar transação:", txError);
+        throw txError;
+      }
+
+      console.log("[useCreateTransaction] Transação criada:", newTransaction.id);
 
       // 2. Se parcelado, criar grupo e parcelas
       if (hasInstallments && transaction.card_id) {
+        console.log(`[useCreateTransaction] Criando ${numInstallments} parcelas...`);
+        
         const amounts = calculateInstallments(Number(transaction.amount), numInstallments);
 
         // Criar grupo de parcelamento
@@ -205,38 +231,53 @@ export function useCreateTransaction() {
           .select()
           .single();
 
-        if (groupError) throw groupError;
+        if (groupError) {
+          console.error("[useCreateTransaction] Erro ao criar grupo:", groupError);
+          throw groupError;
+        }
+
+        console.log("[useCreateTransaction] Grupo criado:", group.id);
 
         // Buscar/criar faturas para cada parcela
-        const transactionDate = new Date(transaction.date || new Date());
+        const transactionDateObj = new Date(transactionDate);
         const installmentsData = [];
 
         for (let index = 0; index < numInstallments; index++) {
           const parcela = amounts[index];
           
           // Calcular data da parcela (incrementando mês a mês)
-          const parcelaDate = new Date(transactionDate);
+          const parcelaDate = new Date(transactionDateObj);
           parcelaDate.setMonth(parcelaDate.getMonth() + index);
           const parcelaDateStr = parcelaDate.toISOString().split('T')[0];
 
-          // Buscar/criar fatura para esta parcela (p_is_future_installment = true para parcelas)
+          console.log(`[useCreateTransaction] Parcela ${index + 1}: buscando fatura para ${parcelaDateStr}`);
+
+          // Buscar/criar fatura para esta parcela (p_is_future_installment = true)
           const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
             p_card_id: transaction.card_id,
             p_user_id: user.id,
             p_transaction_date: parcelaDateStr,
-            p_is_future_installment: true // IMPORTANTE: parcelas futuras usam cálculo de ciclo
+            p_is_future_installment: true
           });
 
           if (invoiceError) {
-            console.error(`Erro ao buscar fatura para parcela ${index + 1}:`, invoiceError);
+            console.error(`[useCreateTransaction] ERRO ao buscar fatura para parcela ${index + 1}:`, invoiceError);
+            throw new Error(`Não foi possível criar fatura para parcela ${index + 1}: ${invoiceError.message}`);
           }
+
+          if (!parcelaInvoiceId) {
+            console.error(`[useCreateTransaction] RPC retornou nulo para parcela ${index + 1}`);
+            throw new Error(`Não foi possível criar fatura para parcela ${index + 1}`);
+          }
+
+          console.log(`[useCreateTransaction] Parcela ${index + 1}: fatura ${parcelaInvoiceId}`);
 
           installmentsData.push({
             group_id: group.id,
             installment_number: index + 1,
             amount: parcela,
             due_date: parcelaDateStr,
-            invoice_id: parcelaInvoiceId || null,
+            invoice_id: parcelaInvoiceId,
             status: "pending" as const,
           });
         }
@@ -245,16 +286,13 @@ export function useCreateTransaction() {
           .from("installments")
           .insert(installmentsData);
 
-        if (installmentsError) throw installmentsError;
+        if (installmentsError) {
+          console.error("[useCreateTransaction] Erro ao criar parcelas:", installmentsError);
+          throw installmentsError;
+        }
 
-        // NOTA: O trigger update_invoice_total_from_installments atualiza os totais das faturas
-        // automaticamente ao inserir parcelas. Não precisamos fazer manualmente.
+        console.log(`[useCreateTransaction] ${numInstallments} parcelas criadas com sucesso`);
       }
-
-      // NOTA: O trigger update_account_balance atualiza o saldo da conta
-      // automaticamente ao inserir a transação. Não precisamos fazer manualmente.
-      // NOTA: O trigger update_invoice_total atualiza o total da fatura
-      // automaticamente ao inserir a transação (apenas para compras à vista).
 
       return newTransaction;
     },
@@ -273,8 +311,8 @@ export function useCreateTransaction() {
       );
     },
     onError: (error) => {
-      console.error("Erro ao criar transação:", error);
-      toast.error("Erro ao criar transação. Tente novamente.");
+      console.error("[useCreateTransaction] Erro final:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao criar transação. Tente novamente.");
     },
   });
 }
