@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   FileText,
-  CreditCard,
   Target,
   PiggyBank,
   Settings,
@@ -23,11 +22,6 @@ export const navigationItems = [
     to: "/contas-pagar",
     icon: FileText,
     label: "Contas a pagar",
-  },
-  {
-    to: "/faturas",
-    icon: CreditCard,
-    label: "Faturas",
   },
   {
     to: "/metas",

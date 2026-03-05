@@ -12,7 +12,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
-import { useCards } from "@/hooks/use-cards";
+
 import { useUpdateTransaction } from "@/hooks/use-transactions";
 import { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
@@ -41,10 +41,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [description, setDescription] = useState("");
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [cardId, setCardId] = useState<string | null>(null);
-
   const { data: accounts = [] } = useAccounts();
-  const { data: cards = [] } = useCards();
   const updateTransaction = useUpdateTransaction();
 
   // Load transaction data
@@ -57,7 +54,6 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       setPaymentMethod(transaction.payment_method as PaymentMethod);
       setDescription(transaction.description || "");
       setAccountId(transaction.account_id);
-      setCardId(transaction.card_id);
     }
   }, [transaction]);
 
@@ -73,8 +69,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         category_id: categoryId,
         payment_method: paymentMethod,
         description: description || null,
-        account_id: paymentMethod === "credit_card" ? null : accountId,
-        card_id: paymentMethod === "credit_card" ? cardId : null,
+        account_id: accountId,
       });
       onOpenChange(false);
     } catch (error) {
@@ -166,40 +161,22 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         />
       </div>
 
-      {/* Account or Card */}
-      {paymentMethod === "credit_card" ? (
-        <div className="space-y-2">
-          <Label>Cartão</Label>
-          <Select value={cardId || ""} onValueChange={setCardId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione um cartão" />
-            </SelectTrigger>
-            <SelectContent>
-              {cards.map((card) => (
-                <SelectItem key={card.id} value={card.id}>
-                  {card.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <Label>Conta</Label>
-          <Select value={accountId || ""} onValueChange={setAccountId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione uma conta" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {/* Account */}
+      <div className="space-y-2">
+        <Label>Conta</Label>
+        <Select value={accountId || ""} onValueChange={setAccountId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione uma conta" />
+          </SelectTrigger>
+          <SelectContent>
+            {accounts.map((account) => (
+              <SelectItem key={account.id} value={account.id}>
+                {account.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Description */}
       <div className="space-y-2">

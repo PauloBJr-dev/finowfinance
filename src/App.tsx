@@ -9,7 +9,6 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import Dashboard from "./pages/Dashboard";
 import Transacoes from "./pages/Transacoes";
 import ContasPagar from "./pages/ContasPagar";
-import Faturas from "./pages/Faturas";
 import Metas from "./pages/Metas";
 import Cofrinho from "./pages/Cofrinho";
 import Configuracoes from "./pages/Configuracoes";
@@ -35,7 +34,6 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/transacoes" element={<ProtectedRoute><Transacoes /></ProtectedRoute>} />
       <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagar /></ProtectedRoute>} />
-      <Route path="/faturas" element={<ProtectedRoute><Faturas /></ProtectedRoute>} />
       <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
       <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />

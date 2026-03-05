@@ -2,18 +2,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { toast } from "sonner";
-import { calculateInstallments } from "@/lib/installment-utils";
 import { formatCurrency } from "@/lib/format";
 
 type Transaction = Tables<"transactions">;
 type TransactionInsert = TablesInsert<"transactions">;
 type TransactionUpdate = TablesUpdate<"transactions">;
 type TransactionType = "expense" | "income";
-type PaymentMethod = "cash" | "debit" | "credit_card" | "pix" | "transfer" | "boleto" | "voucher";
 
 const TRANSACTIONS_KEY = ["transactions"];
 const ACCOUNTS_KEY = ["accounts"];
-const INVOICES_KEY = ["invoices"];
 
 interface TransactionFilters {
   startDate?: string;
@@ -21,15 +18,11 @@ interface TransactionFilters {
   type?: TransactionType;
   categoryId?: string;
   accountId?: string;
-  cardId?: string;
   limit?: number;
   offset?: number;
 }
 
-interface CreateTransactionParams extends Omit<TransactionInsert, "user_id"> {
-  installments?: number;
-  selected_invoice_id?: string; // ID da fatura selecionada pelo usuário
-}
+interface CreateTransactionParams extends Omit<TransactionInsert, "user_id"> {}
 
 /**
  * Hook para listar transações com filtros
@@ -52,10 +45,6 @@ export function useTransactions(filters?: TransactionFilters) {
             id,
             name,
             type
-          ),
-          cards (
-            id,
-            name
           )
         `)
         .is("deleted_at", null)
@@ -77,9 +66,6 @@ export function useTransactions(filters?: TransactionFilters) {
       if (filters?.accountId) {
         query = query.eq("account_id", filters.accountId);
       }
-      if (filters?.cardId) {
-        query = query.eq("card_id", filters.cardId);
-      }
       if (filters?.limit) {
         query = query.limit(filters.limit);
       }
@@ -92,7 +78,7 @@ export function useTransactions(filters?: TransactionFilters) {
       if (error) throw error;
       return data;
     },
-    staleTime: 1 * 60 * 1000, // 1 minuto
+    staleTime: 1 * 60 * 1000,
   });
 }
 
@@ -125,8 +111,7 @@ export function useTransaction(id: string | null) {
         .select(`
           *,
           categories (id, name, icon, color),
-          accounts (id, name, type),
-          cards (id, name)
+          accounts (id, name, type)
         `)
         .eq("id", id)
         .single();
@@ -139,180 +124,31 @@ export function useTransaction(id: string | null) {
 }
 
 /**
- * Hook para criar transação (com suporte a parcelamento)
- * 
- * MODELO SIMPLIFICADO:
- * - O usuário escolhe para qual fatura a despesa vai (via selected_invoice_id)
- * - Para parcelamento, cada parcela vai para o mês correspondente
- * - Não há mais cálculo automático de ciclos
+ * Hook para criar transação simples
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      installments: numInstallments, 
-      selected_invoice_id,
-      ...transaction 
-    }: CreateTransactionParams) => {
+    mutationFn: async (transaction: CreateTransactionParams) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const isCreditCard = transaction.payment_method === "credit_card";
-      const hasInstallments = isCreditCard && numInstallments && numInstallments > 1;
-      const transactionDate = transaction.date || new Date().toISOString().split('T')[0];
-
-      console.log("[useCreateTransaction] Iniciando criação:", {
-        isCreditCard,
-        hasInstallments,
-        cardId: transaction.card_id,
-        transactionDate,
-        amount: transaction.amount,
-        selected_invoice_id,
-      });
-
-      // Para cartão de crédito, precisamos de uma fatura
-      let invoiceId: string | null = null;
-      
-      if (isCreditCard && transaction.card_id) {
-        // Compras à vista: usar fatura selecionada pelo usuário
-        // Compras parceladas: NÃO vincular transação principal (parcelas vinculam)
-        if (!hasInstallments) {
-          if (!selected_invoice_id) {
-            throw new Error("Selecione uma fatura para esta despesa do cartão de crédito");
-          }
-          invoiceId = selected_invoice_id;
-          console.log("[useCreateTransaction] Usando fatura selecionada:", invoiceId);
-        }
-      }
-
-      // 1. Criar transação principal
-      console.log("[useCreateTransaction] Criando transação principal com invoice_id:", invoiceId);
-      
-      const { data: newTransaction, error: txError } = await supabase
+      const { data, error } = await supabase
         .from("transactions")
         .insert({
           ...transaction,
           user_id: user.id,
-          invoice_id: invoiceId, // null para parceladas, preenchido para à vista
         })
         .select()
         .single();
 
-      if (txError) {
-        console.error("[useCreateTransaction] Erro ao criar transação:", txError);
-        throw txError;
-      }
-
-      console.log("[useCreateTransaction] Transação criada:", newTransaction.id);
-
-      // 2. Se parcelado, criar grupo e parcelas
-      if (hasInstallments && transaction.card_id) {
-        console.log(`[useCreateTransaction] Criando ${numInstallments} parcelas...`);
-        
-        const amounts = calculateInstallments(Number(transaction.amount), numInstallments);
-
-        // Criar grupo de parcelamento
-        const { data: group, error: groupError } = await supabase
-          .from("installment_groups")
-          .insert({
-            user_id: user.id,
-            transaction_id: newTransaction.id,
-            total_amount: transaction.amount,
-            total_installments: numInstallments,
-          })
-          .select()
-          .single();
-
-        if (groupError) {
-          console.error("[useCreateTransaction] Erro ao criar grupo:", groupError);
-          throw groupError;
-        }
-
-        console.log("[useCreateTransaction] Grupo criado:", group.id);
-
-        // Calcular mês base a partir da fatura selecionada ou data da transação
-        let baseMonth: Date;
-        if (selected_invoice_id) {
-          // Buscar mês da fatura selecionada
-          const { data: selectedInvoice } = await supabase
-            .from("invoices")
-            .select("closing_date")
-            .eq("id", selected_invoice_id)
-            .single();
-          
-          if (selectedInvoice) {
-            baseMonth = new Date(selectedInvoice.closing_date);
-          } else {
-            // Fallback: mês seguinte à data da transação
-            const txDate = new Date(transactionDate);
-            baseMonth = new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
-          }
-        } else {
-          // Default: mês seguinte à data da transação
-          const txDate = new Date(transactionDate);
-          baseMonth = new Date(txDate.getFullYear(), txDate.getMonth() + 1, 1);
-        }
-
-        // Criar fatura para cada parcela usando a nova RPC
-        const installmentsData = [];
-
-        for (let index = 0; index < numInstallments; index++) {
-          const parcela = amounts[index];
-          
-          // Calcular mês da parcela (incrementando mês a mês a partir do base)
-          const parcelaMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + index, 1);
-          const parcelaDateStr = parcelaMonth.toISOString().split('T')[0];
-
-          console.log(`[useCreateTransaction] Parcela ${index + 1}: buscando fatura para ${parcelaDateStr}`);
-
-          // Buscar/criar fatura para esta parcela usando nova RPC simplificada
-          const { data: parcelaInvoiceId, error: invoiceError } = await supabase.rpc('get_or_create_monthly_invoice', {
-            p_card_id: transaction.card_id,
-            p_user_id: user.id,
-            p_target_month: parcelaDateStr
-          });
-
-          if (invoiceError) {
-            console.error(`[useCreateTransaction] ERRO ao buscar fatura para parcela ${index + 1}:`, invoiceError);
-            throw new Error(`Não foi possível criar fatura para parcela ${index + 1}: ${invoiceError.message}`);
-          }
-
-          if (!parcelaInvoiceId) {
-            console.error(`[useCreateTransaction] RPC retornou nulo para parcela ${index + 1}`);
-            throw new Error(`Não foi possível criar fatura para parcela ${index + 1}`);
-          }
-
-          console.log(`[useCreateTransaction] Parcela ${index + 1}: fatura ${parcelaInvoiceId}`);
-
-          installmentsData.push({
-            group_id: group.id,
-            installment_number: index + 1,
-            amount: parcela,
-            due_date: parcelaDateStr,
-            invoice_id: parcelaInvoiceId,
-            status: "pending" as const,
-          });
-        }
-
-        const { error: installmentsError } = await supabase
-          .from("installments")
-          .insert(installmentsData);
-
-        if (installmentsError) {
-          console.error("[useCreateTransaction] Erro ao criar parcelas:", installmentsError);
-          throw installmentsError;
-        }
-
-        console.log(`[useCreateTransaction] ${numInstallments} parcelas criadas com sucesso`);
-      }
-
-      return newTransaction;
+      if (error) throw error;
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
       
       const isExpense = data.type === "expense";
       const formattedAmount = formatCurrency(Number(data.amount));
@@ -324,7 +160,7 @@ export function useCreateTransaction() {
       );
     },
     onError: (error) => {
-      console.error("[useCreateTransaction] Erro final:", error);
+      console.error("[useCreateTransaction] Erro:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao criar transação. Tente novamente.");
     },
   });
@@ -332,7 +168,6 @@ export function useCreateTransaction() {
 
 /**
  * Hook para atualizar transação
- * IMPORTANTE: O saldo é recalculado via trigger. Não fazer manualmente.
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
@@ -352,7 +187,6 @@ export function useUpdateTransaction() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
       toast.success("Transação atualizada!");
     },
     onError: (error) => {
@@ -364,15 +198,12 @@ export function useUpdateTransaction() {
 
 /**
  * Hook para soft delete de transação
- * IMPORTANTE: O saldo é revertido via trigger. Não fazer manualmente.
- * IMPORTANTE: O total da fatura é revertido via trigger. Não fazer manualmente.
  */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Soft delete - o trigger cuida de reverter saldo e total da fatura
       const { error } = await supabase
         .from("transactions")
         .update({ deleted_at: new Date().toISOString() })
@@ -384,7 +215,6 @@ export function useDeleteTransaction() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
     },
     onError: (error) => {
       console.error("Erro ao excluir transação:", error);
@@ -395,7 +225,6 @@ export function useDeleteTransaction() {
 
 /**
  * Hook para restaurar transação
- * IMPORTANTE: O saldo é restaurado via trigger. Não fazer manualmente.
  */
 export function useRestoreTransaction() {
   const queryClient = useQueryClient();
@@ -413,7 +242,6 @@ export function useRestoreTransaction() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
       toast.success("Transação restaurada!");
     },
   });

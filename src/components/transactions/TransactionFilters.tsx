@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
-import { useCards } from "@/hooks/use-cards";
+
 import { CalendarIcon, Filter, X } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,7 +19,7 @@ interface TransactionFiltersProps {
     type?: "expense" | "income";
     categoryId?: string;
     accountId?: string;
-    cardId?: string;
+    
   };
   onFiltersChange: (filters: TransactionFiltersProps["filters"]) => void;
 }
@@ -40,9 +40,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
 
   const { data: categories = [] } = useCategories(filters.type);
   const { data: accounts = [] } = useAccounts();
-  const { data: cards = [] } = useCards();
-
-  const hasActiveFilters = filters.type || filters.categoryId || filters.accountId || filters.cardId;
+  const hasActiveFilters = filters.type || filters.categoryId || filters.accountId;
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -143,60 +141,26 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
           </SelectContent>
         </Select>
 
-        {/* Account/Card Filter */}
+        {/* Account Filter */}
         <Select
-          value={filters.accountId || filters.cardId || "all"}
-          onValueChange={(value) => {
-            if (value === "all") {
-              onFiltersChange({
-                ...filters,
-                accountId: undefined,
-                cardId: undefined,
-              });
-            } else if (value.startsWith("account:")) {
-              onFiltersChange({
-                ...filters,
-                accountId: value.replace("account:", ""),
-                cardId: undefined,
-              });
-            } else if (value.startsWith("card:")) {
-              onFiltersChange({
-                ...filters,
-                accountId: undefined,
-                cardId: value.replace("card:", ""),
-              });
-            }
-          }}
+          value={filters.accountId || "all"}
+          onValueChange={(value) =>
+            onFiltersChange({
+              ...filters,
+              accountId: value === "all" ? undefined : value,
+            })
+          }
         >
           <SelectTrigger className="h-9 w-[150px]">
-            <SelectValue placeholder="Conta/Cartão" />
+            <SelectValue placeholder="Conta" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            {accounts.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Contas
-                </div>
-                {accounts.map((acc) => (
-                  <SelectItem key={acc.id} value={`account:${acc.id}`}>
-                    {acc.name}
-                  </SelectItem>
-                ))}
-              </>
-            )}
-            {cards.length > 0 && (
-              <>
-                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  Cartões
-                </div>
-                {cards.map((card) => (
-                  <SelectItem key={card.id} value={`card:${card.id}`}>
-                    {card.name}
-                  </SelectItem>
-                ))}
-              </>
-            )}
+            {accounts.map((acc) => (
+              <SelectItem key={acc.id} value={acc.id}>
+                {acc.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

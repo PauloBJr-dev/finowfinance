@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -15,16 +15,13 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
-import { useCards } from "@/hooks/use-cards";
-import { useAvailableInvoices } from "@/hooks/use-invoices";
 import { useCreateTransaction } from "@/hooks/use-transactions";
 import { useCreateBill } from "@/hooks/use-bills";
 import { useSuggestCategory, useAISettings } from "@/hooks/use-ai";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { formatInstallmentPreview } from "@/lib/installment-utils";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ArrowLeft, Loader2, Sparkles, FileText } from "lucide-react";
-import { format, addMonths } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface QuickAddModalProps {
@@ -33,74 +30,38 @@ interface QuickAddModalProps {
 }
 
 type TransactionType = "expense" | "income";
-type PaymentMethod = "cash" | "debit" | "credit_card" | "transfer" | "boleto" | "voucher" | "split" | "benefit_card";
+type PaymentMethod = "cash" | "debit" | "credit_card" | "transfer" | "boleto" | "voucher" | "split";
 
-// Métodos válidos para receita
 const INCOME_PAYMENT_METHODS: PaymentMethod[] = ["transfer", "cash", "debit"];
 
 export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const isMobile = useIsMobile();
   const [step, setStep] = useState(1);
   
-  // Step 1: Type, Amount, Date, isPaid (for expenses)
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState<Date>(new Date());
-  const [isPaid, setIsPaid] = useState(true); // Default: pago
+  const [isPaid, setIsPaid] = useState(true);
   
-  // Bill-specific fields (when !isPaid)
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [isRecurring, setIsRecurring] = useState(false);
   
-  // Step 2: Category, Payment Method (if paid), Description
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [description, setDescription] = useState("");
   const [aiSuggestion, setAiSuggestion] = useState<{ category_id: string; category_name: string; confidence: number } | null>(null);
   
-  // Step 3: Account/Card + Installments + Invoice Selection
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [cardId, setCardId] = useState<string | null>(null);
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [installmentCount, setInstallmentCount] = useState<string>("");
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: accounts = [] } = useAccounts();
-  const { data: cards = [] } = useCards();
   const { data: aiSettings } = useAISettings();
-  const { data: availableInvoices = [], isLoading: isLoadingInvoices } = useAvailableInvoices(cardId);
   const createTransaction = useCreateTransaction();
   const createBill = useCreateBill();
   const suggestCategory = useSuggestCategory();
 
-  // Determina se estamos no fluxo de conta a pagar
   const isBillFlow = type === "expense" && !isPaid;
-
-  // Determina se cartão de crédito é permitido (apenas despesas pagas)
-  const isCreditCardAllowed = type === "expense" && isPaid;
-  const isCreditCardSelected = paymentMethod === "credit_card";
-  const isBenefitCardSelected = paymentMethod === "benefit_card";
-  
-  // Filtrar contas por tipo
   const regularAccounts = accounts.filter(a => a.type !== "benefit_card");
-  const benefitAccounts = accounts.filter(a => a.type === "benefit_card");
-  
-  // Parcelamento: apenas despesa paga + cartão de crédito
-  const canShowInstallment = type === "expense" && isPaid && isCreditCardSelected;
 
-  // Número de parcelas parseado
-  const parsedInstallments = useMemo(() => {
-    const num = parseInt(installmentCount);
-    return !isNaN(num) && num >= 2 && num <= 48 ? num : 0;
-  }, [installmentCount]);
-
-  // Calcular mês sugerido (próximo mês)
-  const suggestedInvoiceMonth = useMemo(() => {
-    const nextMonth = addMonths(date, 1);
-    return format(nextMonth, "MMMM 'de' yyyy", { locale: ptBR });
-  }, [date]);
-
-  // Reset form when modal closes
   useEffect(() => {
     if (!open) {
       setStep(1);
@@ -114,86 +75,34 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setPaymentMethod("transfer");
       setDescription("");
       setAccountId(null);
-      setCardId(null);
-      setIsInstallment(false);
-      setInstallmentCount("");
       setAiSuggestion(null);
-      setSelectedInvoiceId(null);
     }
   }, [open]);
 
-  // Quando tipo muda, ajusta método de pagamento se inválido
   useEffect(() => {
     if (type === "income" && !INCOME_PAYMENT_METHODS.includes(paymentMethod)) {
       setPaymentMethod("transfer");
     }
-    // Reset parcelamento ao mudar para receita
     if (type === "income") {
-      setIsInstallment(false);
-      setInstallmentCount("");
-      setCardId(null);
-      setIsPaid(true); // Receitas são sempre "recebidas"
+      setIsPaid(true);
     }
-    // Reset categoria ao mudar tipo (categorias são diferentes)
     setCategoryId(null);
     setAiSuggestion(null);
   }, [type]);
 
-  // Reset parcelamento quando muda método de pagamento ou isPaid
   useEffect(() => {
-    if (paymentMethod !== "credit_card" || !isPaid) {
-      setIsInstallment(false);
-      setInstallmentCount("");
+    if (step === 3 && regularAccounts.length > 0 && !accountId) {
+      setAccountId(regularAccounts[0].id);
     }
-  }, [paymentMethod, isPaid]);
+  }, [step, regularAccounts, accountId]);
 
-  // Auto-select first account/card when step 3 loads (only for paid transactions)
-  useEffect(() => {
-    if (step === 3 && isPaid) {
-      if (isCreditCardSelected && cards.length > 0 && !cardId) {
-        setCardId(cards[0].id);
-      } else if (isBenefitCardSelected && benefitAccounts.length > 0 && !accountId) {
-        setAccountId(benefitAccounts[0].id);
-      } else if (!isCreditCardSelected && !isBenefitCardSelected && regularAccounts.length > 0 && !accountId) {
-        setAccountId(regularAccounts[0].id);
-      }
-    }
-  }, [step, isPaid, isCreditCardSelected, isBenefitCardSelected, regularAccounts, benefitAccounts, cards, accountId, cardId]);
-
-  // Auto-select default invoice (next month) when invoices load
-  useEffect(() => {
-    if (availableInvoices.length > 0 && !selectedInvoiceId && isCreditCardSelected) {
-      // Encontrar fatura do mês seguinte ou a primeira disponível
-      const nextMonth = addMonths(date, 1);
-      const nextMonthStart = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
-      
-      const matchingInvoice = availableInvoices.find(inv => {
-        const invMonth = new Date(inv.closing_date);
-        return invMonth.getMonth() === nextMonthStart.getMonth() && 
-               invMonth.getFullYear() === nextMonthStart.getFullYear();
-      });
-      
-      setSelectedInvoiceId(matchingInvoice?.invoice_id || availableInvoices[0]?.invoice_id || null);
-    }
-  }, [availableInvoices, selectedInvoiceId, isCreditCardSelected, date]);
-
-  // Reset invoice selection when card changes
-  useEffect(() => {
-    setSelectedInvoiceId(null);
-  }, [cardId]);
-
-  // Validations
   const canProceedStep1 = amount > 0 && (isPaid || dueDate);
   const canProceedStep2 = categoryId !== null;
-  const canProceedStep3Bill = categoryId !== null; // Bills don't need account in creation
-  const canProceedStep3Transaction = isCreditCardSelected 
-    ? cardId !== null && (isInstallment || selectedInvoiceId !== null)
-    : accountId !== null;
+  const canProceedStep3 = accountId !== null;
 
   const handleSubmit = async () => {
     try {
       if (isBillFlow) {
-        // Criar conta a pagar (não transação)
         await createBill.mutateAsync({
           description: description || "Conta a pagar",
           amount,
@@ -202,34 +111,22 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           is_recurring: isRecurring,
         });
       } else {
-        // Fluxo normal de transação
-        const finalInstallments = canShowInstallment && isInstallment && parsedInstallments >= 2 
-          ? parsedInstallments 
-          : undefined;
-
-        // Para cartão benefício, usar voucher como payment_method
-        const finalPaymentMethod = isBenefitCardSelected ? "voucher" : paymentMethod;
-        
         await createTransaction.mutateAsync({
           amount,
           type,
-          payment_method: finalPaymentMethod as any,
+          payment_method: paymentMethod as any,
           date: date.toISOString().split('T')[0],
           description: description || null,
           category_id: categoryId,
-          account_id: isCreditCardSelected ? null : accountId,
-          card_id: isCreditCardSelected ? cardId : null,
-          installments: finalInstallments,
-          selected_invoice_id: isCreditCardSelected && !finalInstallments ? selectedInvoiceId || undefined : undefined,
+          account_id: accountId,
         });
       }
       onOpenChange(false);
     } catch (error) {
-      // Error is handled in the hook
+      // Error handled in hook
     }
   };
 
-  // Determine total steps based on flow
   const totalSteps = isBillFlow ? 2 : 3;
   const isSubmitting = createTransaction.isPending || createBill.isPending;
 
@@ -246,7 +143,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const content = (
     <div className="flex-1 overflow-y-auto">
       <div className="flex flex-col gap-4 p-4 pb-8">
-        {/* Progress indicator */}
+        {/* Progress */}
         <div className="flex items-center justify-center gap-2">
           {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
             <div
@@ -259,10 +156,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           ))}
         </div>
 
-        {/* Step 1: Type, Amount, Date/DueDate, isPaid toggle */}
+        {/* Step 1 */}
         {step === 1 && (
           <div className="space-y-4">
-            {/* Type Toggle */}
             <div className="flex items-center justify-center gap-1 rounded-lg bg-muted p-1">
               <button
                 onClick={() => setType("expense")}
@@ -288,14 +184,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               </button>
             </div>
 
-            {/* Amount */}
             <div className="space-y-2">
               <Label>
-                {isBillFlow 
-                  ? "Quanto vai pagar?" 
-                  : type === "expense" 
-                    ? "Quanto gastou?" 
-                    : "Quanto recebeu?"}
+                {isBillFlow ? "Quanto vai pagar?" : type === "expense" ? "Quanto gastou?" : "Quanto recebeu?"}
               </Label>
               <CurrencyInput
                 value={amount}
@@ -305,87 +196,53 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               />
             </div>
 
-            {/* "Já paguei?" Toggle - only for expenses */}
             {type === "expense" && (
               <div className="rounded-lg border bg-card/50 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label htmlFor="is-paid-switch" className="cursor-pointer font-medium">
-                      Já paguei
-                    </Label>
+                    <Label htmlFor="is-paid-switch" className="cursor-pointer font-medium">Já paguei</Label>
                     <p className="text-xs text-muted-foreground">
-                      {isPaid 
-                        ? "Despesa já foi paga" 
-                        : "Criar como conta a pagar"}
+                      {isPaid ? "Despesa já foi paga" : "Criar como conta a pagar"}
                     </p>
                   </div>
-                  <Switch
-                    id="is-paid-switch"
-                    checked={isPaid}
-                    onCheckedChange={setIsPaid}
-                  />
+                  <Switch id="is-paid-switch" checked={isPaid} onCheckedChange={setIsPaid} />
                 </div>
               </div>
             )}
 
-            {/* Date (for paid transactions) or Due Date (for bills) */}
             {isPaid ? (
               <div className="space-y-2">
                 <Label>Data</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {format(date, "PPP", { locale: ptBR })}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={(d) => d && setDate(d)}
-                      locale={ptBR}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
+                    <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} initialFocus className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
             ) : (
               <>
-                {/* Due Date for bills */}
                 <div className="space-y-2">
                   <Label>Data de vencimento</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {format(dueDate, "PPP", { locale: ptBR })}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dueDate}
-                        onSelect={(d) => d && setDueDate(d)}
-                        locale={ptBR}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
+                      <Calendar mode="single" selected={dueDate} onSelect={(d) => d && setDueDate(d)} locale={ptBR} initialFocus className="pointer-events-auto" />
                     </PopoverContent>
                   </Popover>
-                  <p className="text-xs text-muted-foreground">
-                    Quando esta conta vence?
-                  </p>
+                  <p className="text-xs text-muted-foreground">Quando esta conta vence?</p>
                 </div>
 
-                {/* Recurrence option */}
                 <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
                   <Label className="font-medium">Esta conta se repete todo mês?</Label>
                   <RadioGroup
@@ -395,21 +252,13 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                   >
                     <div className="flex items-start space-x-3">
                       <RadioGroupItem value="single" id="single" className="mt-0.5" />
-                      <div>
-                        <Label htmlFor="single" className="cursor-pointer font-normal">
-                          Apenas este mês
-                        </Label>
-                      </div>
+                      <Label htmlFor="single" className="cursor-pointer font-normal">Apenas este mês</Label>
                     </div>
                     <div className="flex items-start space-x-3">
                       <RadioGroupItem value="recurring" id="recurring" className="mt-0.5" />
                       <div>
-                        <Label htmlFor="recurring" className="cursor-pointer font-normal">
-                          Repetir pelos próximos 6 meses
-                        </Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Usa a mesma data de vencimento para os próximos meses
-                        </p>
+                        <Label htmlFor="recurring" className="cursor-pointer font-normal">Repetir pelos próximos 6 meses</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">Usa a mesma data de vencimento para os próximos meses</p>
                       </div>
                     </div>
                   </RadioGroup>
@@ -417,28 +266,17 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               </>
             )}
 
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!canProceedStep1}
-              className="w-full"
-            >
-              Continuar
-            </Button>
+            <Button onClick={() => setStep(2)} disabled={!canProceedStep1} className="w-full">Continuar</Button>
           </div>
         )}
 
-        {/* Step 2: Category, Payment Method (if paid), Description */}
+        {/* Step 2 */}
         {step === 2 && (
           <div className="space-y-4">
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
+            <button onClick={() => setStep(1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />Voltar
             </button>
 
-            {/* Bill flow indicator */}
             {isBillFlow && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
                 <FileText className="h-4 w-4" />
@@ -446,7 +284,6 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               </div>
             )}
 
-            {/* AI Category Suggestion - apenas para despesas */}
             {aiSettings?.categorization_enabled && type === "expense" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -461,93 +298,49 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                         payment_method: paymentMethod,
                       });
                       if (result && !result.fallback) {
-                        setAiSuggestion({
-                          category_id: result.category_id,
-                          category_name: result.category_name,
-                          confidence: result.confidence_score,
-                        });
+                        setAiSuggestion({ category_id: result.category_id, category_name: result.category_name, confidence: result.confidence_score });
                       }
                     }}
                     disabled={suggestCategory.isPending || (!description && amount <= 0)}
                     className="gap-2"
                   >
-                    {suggestCategory.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3" />
-                    )}
+                    {suggestCategory.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                     Sugerir categoria
                   </Button>
-
                   {aiSuggestion && (
-                    <Badge
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-primary/20"
-                      onClick={() => {
-                        setCategoryId(aiSuggestion.category_id);
-                        setAiSuggestion(null);
-                      }}
-                    >
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Sugestão: {aiSuggestion.category_name}
+                    <Badge variant="secondary" className="cursor-pointer hover:bg-primary/20" onClick={() => { setCategoryId(aiSuggestion.category_id); setAiSuggestion(null); }}>
+                      <Sparkles className="h-3 w-3 mr-1" />Sugestão: {aiSuggestion.category_name}
                     </Badge>
                   )}
                 </div>
-                {aiSuggestion && (
-                  <p className="text-xs text-muted-foreground">
-                    Clique na sugestão para aplicar
-                  </p>
-                )}
+                {aiSuggestion && <p className="text-xs text-muted-foreground">Clique na sugestão para aplicar</p>}
               </div>
             )}
 
-            {/* Category */}
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <CategorySelect
-                value={categoryId}
-                onChange={setCategoryId}
-                type={type}
-              />
+              <CategorySelect value={categoryId} onChange={setCategoryId} type={type} />
             </div>
 
-            {/* Payment Method - only for paid transactions */}
             {!isBillFlow && (
               <div className="space-y-2">
                 <Label>{type === "expense" ? "Forma de pagamento" : "Forma de recebimento"}</Label>
-                <PaymentMethodSelect
-                  value={paymentMethod}
-                  onChange={(v) => setPaymentMethod(v as PaymentMethod)}
-                  transactionType={type}
-                />
+                <PaymentMethodSelect value={paymentMethod} onChange={(v) => setPaymentMethod(v as PaymentMethod)} transactionType={type} />
               </div>
             )}
 
-            {/* Description */}
             <div className="space-y-2">
               <Label>{isBillFlow ? "Nome da conta" : "Descrição (opcional)"}</Label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={
-                  isBillFlow 
-                    ? "Ex: Conta de luz, Aluguel..." 
-                    : type === "expense" 
-                      ? "Ex: Mercado, Almoço..." 
-                      : "Ex: Salário de Janeiro..."
-                }
+                placeholder={isBillFlow ? "Ex: Conta de luz, Aluguel..." : type === "expense" ? "Ex: Mercado, Almoço..." : "Ex: Salário de Janeiro..."}
               />
-              {isBillFlow && (
-                <p className="text-xs text-muted-foreground">
-                  Este nome aparecerá na sua lista de contas a pagar
-                </p>
-              )}
+              {isBillFlow && <p className="text-xs text-muted-foreground">Este nome aparecerá na sua lista de contas a pagar</p>}
             </div>
 
-            {/* For bill flow, this is the last step */}
             {isBillFlow ? (
               <>
-                {/* Summary for bills */}
                 <div className="rounded-lg border bg-card p-3 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Valor</span>
@@ -564,197 +357,40 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                     </div>
                   )}
                 </div>
-
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!canProceedStep2 || isSubmitting}
-                  className="w-full"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : isRecurring ? (
-                    "Criar 6 contas a pagar"
-                  ) : (
-                    "Criar conta a pagar"
-                  )}
+                <Button onClick={handleSubmit} disabled={!canProceedStep2 || isSubmitting} className="w-full">
+                  {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>) : isRecurring ? "Criar 6 contas a pagar" : "Criar conta a pagar"}
                 </Button>
               </>
             ) : (
-              <Button
-                onClick={() => setStep(3)}
-                disabled={!canProceedStep2}
-                className="w-full"
-              >
-                Continuar
-              </Button>
+              <Button onClick={() => setStep(3)} disabled={!canProceedStep2} className="w-full">Continuar</Button>
             )}
           </div>
         )}
 
-        {/* Step 3: Account/Card + Installments + Invoice Selection (only for paid transactions) */}
+        {/* Step 3: Account */}
         {step === 3 && !isBillFlow && (
           <div className="space-y-4">
-            <button
-              onClick={() => setStep(2)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
+            <button onClick={() => setStep(2)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="h-4 w-4" />Voltar
             </button>
 
-            {isCreditCardSelected && type === "expense" ? (
-              <>
-                {/* Card Select */}
-                <div className="space-y-2">
-                  <Label>Cartão</Label>
-                  <Select value={cardId || ""} onValueChange={setCardId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cartão" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover">
-                      {cards.map((card) => (
-                        <SelectItem key={card.id} value={card.id}>
-                          {card.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {cards.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Nenhum cartão cadastrado. Cadastre um em Configurações.
-                    </p>
-                  )}
-                </div>
+            <div className="space-y-2">
+              <Label>{type === "expense" ? "Pagar com" : "Receber em"}</Label>
+              <Select value={accountId || ""} onValueChange={setAccountId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma conta" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  {regularAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {regularAccounts.length === 0 && (
+                <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. Cadastre uma em Configurações.</p>
+              )}
+            </div>
 
-                {/* Invoice Selection - Nova funcionalidade! */}
-                {cardId && !isInstallment && (
-                  <div className="space-y-2">
-                    <Label>Para qual fatura?</Label>
-                    {isLoadingInvoices ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 border rounded-lg">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Carregando faturas...
-                      </div>
-                    ) : availableInvoices.length > 0 ? (
-                      <>
-                        <Select value={selectedInvoiceId || ""} onValueChange={setSelectedInvoiceId}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a fatura" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover">
-                            {availableInvoices.map((invoice) => (
-                              <SelectItem key={invoice.invoice_id} value={invoice.invoice_id}>
-                                <span className="capitalize">{invoice.month_label}</span>
-                                {invoice.status !== "open" && (
-                                  <Badge variant="outline" className="ml-2 text-xs">
-                                    {invoice.status === "closed" ? "Fechada" : invoice.status}
-                                  </Badge>
-                                )}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Sugestão: {suggestedInvoiceMonth} (mês seguinte)
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground p-3 border rounded-lg">
-                        Nenhuma fatura disponível. Uma será criada automaticamente.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Installments - Apenas para cartão de crédito */}
-                {canShowInstallment && (
-                  <div className="space-y-3 rounded-lg border bg-card/50 p-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="installment-switch" className="cursor-pointer">
-                        Compra parcelada?
-                      </Label>
-                      <Switch
-                        id="installment-switch"
-                        checked={isInstallment}
-                        onCheckedChange={setIsInstallment}
-                      />
-                    </div>
-
-                    {isInstallment && (
-                      <div className="space-y-3 pt-2 border-t">
-                        <div className="space-y-2">
-                          <Label htmlFor="installment-count">Número de parcelas</Label>
-                          <Input
-                            id="installment-count"
-                            type="number"
-                            inputMode="numeric"
-                            min={2}
-                            max={48}
-                            value={installmentCount}
-                            onChange={(e) => setInstallmentCount(e.target.value)}
-                            placeholder="Ex: 3"
-                            className="text-center text-lg font-medium"
-                          />
-                          <p className="text-xs text-muted-foreground text-center">
-                            De 2 a 48 parcelas
-                          </p>
-                        </div>
-
-                        {/* Preview compacto */}
-                        {parsedInstallments >= 2 && (
-                          <div className="rounded-lg bg-muted/50 p-3 text-sm text-center space-y-1">
-                            <span className="font-medium text-foreground">
-                              {formatInstallmentPreview(amount, parsedInstallments)}
-                            </span>
-                            <p className="text-xs text-muted-foreground">
-                              Primeira parcela em {suggestedInvoiceMonth}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              /* Account Select - diferentes listas para benefício vs normal */
-              <div className="space-y-2">
-                <Label>
-                  {isBenefitCardSelected 
-                    ? "Cartão Benefício" 
-                    : type === "expense" 
-                      ? "Pagar com" 
-                      : "Receber em"}
-                </Label>
-                <Select value={accountId || ""} onValueChange={setAccountId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isBenefitCardSelected ? "Selecione o cartão benefício" : "Selecione uma conta"} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {(isBenefitCardSelected ? benefitAccounts : regularAccounts).map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isBenefitCardSelected && benefitAccounts.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum cartão benefício cadastrado. Cadastre em Configurações → Benefícios.
-                  </p>
-                )}
-                {!isBenefitCardSelected && regularAccounts.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Nenhuma conta cadastrada. Cadastre uma em Configurações.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Summary */}
             <div className="rounded-lg border bg-card p-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Tipo</span>
@@ -770,35 +406,10 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
                 <span className="text-muted-foreground">Data</span>
                 <span>{formatDate(date)}</span>
               </div>
-              {isCreditCardSelected && !isInstallment && selectedInvoiceId && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Fatura</span>
-                  <span className="font-medium capitalize">
-                    {availableInvoices.find(i => i.invoice_id === selectedInvoiceId)?.month_label || "—"}
-                  </span>
-                </div>
-              )}
-              {isInstallment && parsedInstallments >= 2 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Parcelas</span>
-                  <span className="font-medium">{parsedInstallments}x</span>
-                </div>
-              )}
             </div>
 
-            <Button
-              onClick={handleSubmit}
-              disabled={!canProceedStep3Transaction || isSubmitting}
-              className="w-full"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                "Confirmar"
-              )}
+            <Button onClick={handleSubmit} disabled={!canProceedStep3 || isSubmitting} className="w-full">
+              {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</>) : "Confirmar"}
             </Button>
           </div>
         )}
