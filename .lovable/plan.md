@@ -1,65 +1,87 @@
 
-# Plano: Simplificação Radical do Sistema de Cartão de Crédito
 
-## ✅ IMPLEMENTADO
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Mudanças Realizadas
+## Resumo
 
-#### 1. Nova RPC Simplificada `get_or_create_monthly_invoice`
-- ✅ Busca/cria fatura por mês simples (sem lógica complexa de ciclos)
-- ✅ Usa primeiro dia do mês como identificador
-- ✅ Função auxiliar `get_available_invoices` para listar faturas disponíveis
-- ✅ RPC `update_invoice_status` para controle manual de status
-
-#### 2. QuickAddModal Atualizado
-- ✅ Seletor de fatura no Step 3 para despesas de cartão
-- ✅ Default: fatura do mês seguinte à data da transação
-- ✅ Usuário pode escolher qualquer fatura aberta/fechada
-- ✅ Auto-select da fatura sugerida
-
-#### 3. Hook use-transactions.ts Simplificado
-- ✅ Aceita `selected_invoice_id` do usuário
-- ✅ Não calcula ciclos automaticamente para compras à vista
-- ✅ Para parcelamento: usa `get_or_create_monthly_invoice` para cada mês
-
-#### 4. Página Faturas com Controle Manual
-- ✅ Botões para alterar status: Aberta → Fechada → Paga
-- ✅ Menu de ações rápidas em cada card de fatura
-- ✅ Filtro mensal mantido (baseado em closing_date)
-
-#### 5. Edge Function cards Corrigida
-- ✅ Removida geração automática de faturas (era com schema antigo)
-- ✅ Faturas são criadas sob demanda via RPCs
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
 ---
 
-## Novas Regras de Negócio Implementadas
+## O que será removido
 
-1. **Faturas são mensais e identificadas por mês/ano simples**
-   - Exemplo: "Fatura de Fevereiro 2026"
-   - Sem cálculos complexos de ciclo
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-2. **Usuário escolhe para qual fatura a despesa vai**
-   - Default: mês seguinte à data da transação
-   - Usuário pode alterar se desejar
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-3. **Status da fatura é manual**
-   - Usuário marca quando quer: `open` → `closed` → `paid`
-   - Sistema não fecha automaticamente
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-4. **Parcelamento simplificado**
-   - Cada parcela vai para a fatura do seu mês correspondente
-   - Parcela 1/6 → Fevereiro, Parcela 2/6 → Março, etc.
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
+
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
 
 ---
 
-## Arquivos Modificados
+## O que será modificado
 
-| Arquivo | Mudança |
-|---------|---------|
-| Migration SQL | Novas RPCs: `get_or_create_monthly_invoice`, `get_available_invoices`, `update_invoice_status` |
-| `src/hooks/use-invoices.ts` | Novos hooks: `useAvailableInvoices`, `useGetOrCreateMonthlyInvoice`, `useUpdateInvoiceStatus` |
-| `src/hooks/use-transactions.ts` | Aceita `selected_invoice_id`, usa nova RPC para parcelamento |
-| `src/components/transactions/QuickAddModal.tsx` | Seletor de fatura no Step 3 |
-| `src/pages/Faturas.tsx` | Botões de status manual, menu de ações |
-| `supabase/functions/cards/index.ts` | Removida geração automática de faturas |
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
+
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
+
