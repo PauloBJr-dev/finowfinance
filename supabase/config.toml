@@ -3,19 +3,7 @@ project_id = "fbsuhhmuwkqzpslonlxt"
 [functions.accounts]
 verify_jwt = false
 
-[functions.cards]
-verify_jwt = false
-
 [functions.transactions]
-verify_jwt = false
-
-[functions.installments]
-verify_jwt = false
-
-[functions.invoices]
-verify_jwt = false
-
-[functions.pay-invoice]
 verify_jwt = false
 
 [functions.reports]
@@ -34,7 +22,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ai-reminders]
-verify_jwt = false
-
-[functions.close-invoices]
 verify_jwt = false

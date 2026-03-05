@@ -18,6 +18,17 @@ serve(async (req) => {
 
   console.log(`[ai-reminders] ${req.method} request received`)
 
+  // Validate cron secret - this endpoint is only for scheduled jobs
+  const cronSecret = req.headers.get('x-cron-secret')
+  const expectedSecret = Deno.env.get('CRON_SECRET')
+  if (!cronSecret || !expectedSecret || cronSecret !== expectedSecret) {
+    console.log('[ai-reminders] Unauthorized: invalid or missing cron secret')
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
   try {
     if (req.method !== 'POST') {
       return new Response(
@@ -238,11 +249,11 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('[ai-reminders] Error:', error)
+    console.error('[ai-reminders] Internal error:', error)
     return new Response(
       JSON.stringify({ 
         success: false,
-        error: error instanceof Error ? error.message : 'Erro desconhecido' 
+        error: 'Erro interno do servidor' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
