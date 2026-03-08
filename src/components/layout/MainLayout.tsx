@@ -23,15 +23,16 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       <main
         className={cn(
-          "min-h-screen transition-all duration-300",
+          "relative min-h-screen transition-all duration-300",
           !isMobile && (collapsed ? "ml-16" : "ml-64"),
           isMobile && "pb-24"
         )}
       >
-        <div className="flex items-center justify-end px-4 sm:px-6 pt-4">
+        {/* Notification bell — absolute top-right, no extra space */}
+        <div className="absolute top-3 right-4 z-10">
           <NotificationCenter />
         </div>
-        <div className="container px-4 sm:px-6 py-4">
+        <div className="container px-4 sm:px-6 py-6">
           {children}
         </div>
       </main>
