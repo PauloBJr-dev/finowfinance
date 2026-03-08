@@ -1,87 +1,60 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+# Dashboard Enhancement Plan
 
-## Resumo
+## Overview
+Add financial visualizations and cash flow projections to the Dashboard: category donut chart, income vs expenses bar chart (6 months), month flow card, and upcoming bills section.
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+## New Files
 
----
+### 1. `src/hooks/use-dashboard-data.ts`
+Custom hook to fetch 6-month transaction history with category grouping. Uses `useTransactions` with date filters for each of the last 6 months. Also a hook for upcoming bills (next 3 pending/overdue, ordered by due_date).
 
-## O que será removido
+### 2. `src/components/dashboard/ExpensesByCategoryChart.tsx`
+- Recharts `PieChart` (donut via `innerRadius`)
+- Groups current month expenses by `categories.name`
+- Color palette derived from primary green: `#1F7A63`, `#2A9D7E`, `#35C099`, `#4DD9B4`, `#7AE5CA`, `#A8F0DE`
+- Skeleton: circular placeholder; Empty: friendly message "Sem despesas este mes"
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+### 3. `src/components/dashboard/IncomeVsExpensesChart.tsx`
+- Recharts `BarChart` with `ResponsiveContainer`
+- 6 bars grouped by month (income green, expenses destructive red)
+- Uses `formatMonthShort` for labels, `formatCurrency` for tooltips
+- Skeleton: rectangular bars placeholder; Empty state
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+### 4. `src/components/dashboard/MonthFlowCard.tsx`
+- Three indicators in a single Card:
+  - **Saldo do mes**: income - expenses (from existing monthly data)
+  - **Despesas previstas**: sum of pending/overdue bills for current month (from `useBillsSummary`)
+  - **Saldo projetado**: monthly balance - pending bills
+- Color-coded values (green positive, red negative)
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+### 5. `src/components/dashboard/UpcomingBillsCard.tsx`
+- Lists next 3 upcoming bills (pending, not deleted, ordered by due_date ASC)
+- Each item: description, `formatCurrency(amount)`, due date, countdown ("vence em X dias" / "vencida ha X dias")
+- Overdue items: red badge/indicator
+- Empty: "Nenhuma conta a pagar pendente"
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
-
----
-
-## O que será modificado
-
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+## Modified Files
 
 ### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+Restructure layout:
+- Row 1: existing 3 summary cards (Saldo, Despesas, Receitas)
+- Row 2: MonthFlowCard (full width or split)
+- Row 3: `grid md:grid-cols-2` with donut chart + bar chart
+- Row 4: UpcomingBillsCard
+- Remove the bottom buttons row, keep RemindersCard
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+## Data Fetching Strategy
+- Monthly transactions: reuse existing `useMonthlyTransactions()`
+- 6-month history: new query in `use-dashboard-data.ts` fetching transactions from 6 months ago to now, then grouping client-side by month
+- Bills: reuse `useBills` with current month filter + `useBillsSummary`
+- Upcoming bills: new query fetching 3 nearest pending bills with `due_date >= today`
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+## Design Tokens
+- Chart green palette: `#1F7A63`, `#2A9D7E`, `#35C099`, `#4DD9B4`, `#7AE5CA`, `#A8F0DE`
+- Income bar: `hsl(var(--primary))`
+- Expense bar: `hsl(var(--destructive))`
+- All cards use existing `Card` component with dark mode compatibility
+- Recharts text fills use `hsl(var(--muted-foreground))`
 
