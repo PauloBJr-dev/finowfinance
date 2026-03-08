@@ -30,29 +30,25 @@ export function useProfile() {
       return data as Profile;
     },
     enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000, // 10 minutos
+    staleTime: 10 * 60 * 1000,
   });
 }
 
 /**
- * Hook para atualizar perfil
+ * Hook para atualizar perfil via Edge Function (server-side validation)
  */
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (updates: Omit<ProfileUpdate, "id">) => {
-      if (!user?.id) throw new Error("Usuário não autenticado");
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", user.id)
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('profile', {
+        method: 'PUT',
+        body: updates,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data as Profile;
     },
     onSuccess: () => {
@@ -61,7 +57,7 @@ export function useUpdateProfile() {
     },
     onError: (error) => {
       console.error("Erro ao atualizar perfil:", error);
-      toast.error("Erro ao atualizar perfil. Tente novamente.");
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar perfil. Tente novamente.");
     },
   });
 }

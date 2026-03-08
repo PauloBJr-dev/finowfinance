@@ -22,10 +22,19 @@ interface TransactionFilters {
   offset?: number;
 }
 
-interface CreateTransactionParams extends Omit<TransactionInsert, "user_id"> {}
+interface CreateTransactionParams {
+  amount: number;
+  type: TransactionType;
+  payment_method: string;
+  date?: string;
+  description?: string;
+  category_id?: string;
+  account_id?: string;
+  tags?: string[];
+}
 
 /**
- * Hook para listar transações com filtros
+ * Hook para listar transações com filtros (read-only, direct query is fine)
  */
 export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
@@ -124,36 +133,26 @@ export function useTransaction(id: string | null) {
 }
 
 /**
- * Hook para criar transação simples
+ * Hook para criar transação via Edge Function (server-side validation)
  */
 export function useCreateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (transaction: CreateTransactionParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert({
-          ...transaction,
-          user_id: user.id,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('transactions', {
+        method: 'POST',
+        body: transaction,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     onMutate: async (newTransaction) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ACCOUNTS_KEY });
-
-      // Snapshot previous accounts
       const previousAccounts = queryClient.getQueryData(ACCOUNTS_KEY);
 
-      // Optimistic update for account balance
       if (newTransaction.account_id) {
         queryClient.setQueryData(ACCOUNTS_KEY, (old: any[] | undefined) => {
           if (!old) return old;
@@ -187,7 +186,6 @@ export function useCreateTransaction() {
       );
     },
     onError: (error, _variables, context) => {
-      // Rollback optimistic update
       if (context?.previousAccounts) {
         queryClient.setQueryData(ACCOUNTS_KEY, context.previousAccounts);
       }
@@ -195,28 +193,26 @@ export function useCreateTransaction() {
       toast.error(error instanceof Error ? error.message : "Erro ao criar transação. Tente novamente.");
     },
     onSettled: () => {
-      // Always reconcile with server
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
     },
   });
 }
 
 /**
- * Hook para atualizar transação
+ * Hook para atualizar transação via Edge Function
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: TransactionUpdate & { id: string }) => {
-      const { data, error } = await supabase
-        .from("transactions")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke(`transactions/${id}`, {
+        method: 'PUT',
+        body: updates,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: () => {
@@ -226,25 +222,25 @@ export function useUpdateTransaction() {
     },
     onError: (error) => {
       console.error("Erro ao atualizar transação:", error);
-      toast.error("Erro ao atualizar transação. Tente novamente.");
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar transação. Tente novamente.");
     },
   });
 }
 
 /**
- * Hook para soft delete de transação
+ * Hook para soft delete de transação via Edge Function
  */
 export function useDeleteTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("transactions")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id);
+      const { data, error } = await supabase.functions.invoke(`transactions/${id}`, {
+        method: 'DELETE',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return id;
     },
     onSuccess: () => {
@@ -259,19 +255,19 @@ export function useDeleteTransaction() {
 }
 
 /**
- * Hook para restaurar transação
+ * Hook para restaurar transação via Edge Function
  */
 export function useRestoreTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("transactions")
-        .update({ deleted_at: null })
-        .eq("id", id);
+      const { data, error } = await supabase.functions.invoke(`transactions/${id}`, {
+        method: 'PATCH',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return id;
     },
     onSuccess: () => {
