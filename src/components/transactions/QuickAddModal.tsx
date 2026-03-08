@@ -48,15 +48,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [description, setDescription] = useState("");
-  const [aiSuggestion, setAiSuggestion] = useState<{ category_id: string; category_name: string; confidence: number } | null>(null);
   
   const [accountId, setAccountId] = useState<string | null>(null);
 
   const { data: accounts = [] } = useAccounts();
-  const { data: aiSettings } = useAISettings();
   const createTransaction = useCreateTransaction();
   const createBill = useCreateBill();
-  const suggestCategory = useSuggestCategory();
 
   const isBillFlow = type === "expense" && !isPaid;
   const regularAccounts = accounts.filter(a => a.type !== "benefit_card");
