@@ -441,7 +441,6 @@ function PricingSection() {
         "Transações ilimitadas",
         "2 contas bancárias",
         "Categorias personalizadas",
-        "Dark mode",
         "Sem prazo de validade",
       ],
       cta: "Começar grátis",
@@ -460,6 +459,8 @@ function PricingSection() {
         "Relatórios em PDF",
         "Metas financeiras",
         "Contas ilimitadas",
+        "Dashboard personalizável",
+        "Temas e aparência customizável",
         "Suporte prioritário",
       ],
       cta: "Assinar Premium",
@@ -617,7 +618,7 @@ const faqs = [
   },
   {
     q: "É realmente grátis?",
-    a: "Sim. O plano gratuito é completo: transações ilimitadas, 2 contas, categorias e dark mode. Sem prazo de validade, sem truques.",
+    a: "Sim. O plano gratuito é completo: transações ilimitadas, 2 contas e categorias personalizadas. Sem prazo de validade, sem truques.",
   },
   {
     q: "Posso cancelar minha assinatura?",
@@ -726,6 +727,7 @@ export default function LandingPage() {
       <HeroSection />
       <FeaturesSection />
       <HowItWorksSection />
+      <AppPreviewSection />
       <TestimonialsSection />
       <PricingSection />
       <FAQSection />
