@@ -1,87 +1,55 @@
+## Plano: Hook use-cards + CardForm + CardList + Aba Cartões em Configurações
 
-
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
-
-## Resumo
-
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+Criação de 3 novos arquivos e edição de 1 existente. Nenhum outro arquivo será tocado.
 
 ---
 
-## O que será removido
+### 1. `src/hooks/use-cards.ts` (novo)
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
-
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
-
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
-
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+Conteúdo exato fornecido pelo usuário. Hook com `useCards`, `useCreateCard`, `useUpdateCard`, `useDeleteCard`. Usa React Query + Supabase client. Soft delete via `deleted_at`.
 
 ---
 
-## O que será modificado
+### 2. `src/components/cards/CardForm.tsx` (novo)
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+Seguir o padrão existente de `AccountForm.tsx`:
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
-
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
-
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
+- Componente renderizado dentro de um `Sheet` (side panel)
+- Props: `open`, `onOpenChange`, `onSubmit`, `initialData?` (Card), `isLoading`
+- Campos com `react-hook-form` + `zod`:
+  - **Nome do cartão** (text, obrigatório, min 2, max 100)
+  - **Limite de crédito** (CurrencyInput, obrigatório)
+  - **Dia de fechamento** (number input, 1-31, obrigatório) com tooltip
+  - **Dia de vencimento** (number input, 1-31, obrigatório) com tooltip
+- Modo edição: preenche valores do card existente
+- Botões: "Cancelar" (outline) + "Salvar/Criar" (primary)
 
 ---
 
-## O que NÃO será alterado no banco de dados
+### 3. `src/components/cards/CardList.tsx` (novo)
 
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+Seguir o padrão de `AccountList.tsx`:
+
+- Usa `useCards()` para listar
+- Cada card mostra: ícone CreditCard, nome, limite formatado, "Fecha dia X | Vence dia Y"
+- Menu dropdown (MoreVertical) com Editar e Excluir
+- Editar: abre CardForm em Sheet
+- Excluir: usa `DeleteConfirmation` existente (checkbox "Eu entendo" + botão vermelho)
+- Undo toast via `showDeleteToast` (não há restore implementado no hook fornecido, mas soft delete permite)
+- Empty state: "Nenhum cartão cadastrado" com botão "Adicionar cartão"
+- Botão "+ Adicionar cartão" no topo quando há cartões
 
 ---
 
-## Ordem de implementação
+### 4. `src/pages/Configuracoes.tsx` (editar)
 
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+- Importar `CardList` e ícone `CreditCard`
+- Alterar grid de 3 para 4 colunas: `grid-cols-4`
+- Inserir aba "Cartões" entre "Contas" e "Perfil"
+- Adicionar `TabsContent value="cards"` com `<CardList />`
 
+---
+
+### Arquivos NÃO modificados
+
+Todos os demais arquivos permanecem intocados. Nenhuma Edge Function criada. Nenhuma migração necessária (tabela `cards` já existe).
