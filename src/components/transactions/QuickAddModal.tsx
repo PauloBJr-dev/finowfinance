@@ -56,7 +56,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   const createBill = useCreateBill();
 
   const isBillFlow = type === "expense" && !isPaid;
-  const regularAccounts = accounts.filter(a => a.type !== "benefit_card");
+  const regularAccounts = accounts;
 
   useEffect(() => {
     if (!open) {
