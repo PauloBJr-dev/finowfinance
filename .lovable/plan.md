@@ -1,87 +1,54 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plan: Add credit card support to QuickAddModal
 
-## Resumo
+### Critical column name corrections from user spec
+The user spec contains two wrong column names that must be corrected:
+- `installment_count` → `total_installments` (in `installment_groups` table)
+- `installment_group_id` → `group_id` (in `installments` table)
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+### Changes — single file: `src/components/transactions/QuickAddModal.tsx`
 
----
+**1. New imports** (lines 1-24)
+- Add: `useCards`, `getOrCreateInvoice`, `getTargetInvoiceMonth`, `getInstallmentMonths`, `distributeInstallments`, `formatInvoiceMonth`
+- Add: `useAuth` for `user.id`, `useQueryClient` for cache invalidation, `supabase` for direct inserts, `toast` from sonner
+- Add: `AlertTriangle` icon from lucide for no-cards alert
 
-## O que será removido
+**2. New state** (after line 52)
+- `selectedCardId: string` (default `''`)
+- `installmentCount: number` (default `1`)
+- `isSubmittingCard: boolean` (default `false`) — separate loading state for credit card flow
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+**3. Reset logic** (lines 61-74 and 77-85)
+- Add `selectedCardId = ''` and `installmentCount = 1` to modal close reset
+- Add reset when `paymentMethod` changes away from `credit_card`
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+**4. Step 2 UI — credit card fields** (after PaymentMethodSelect, ~line 287)
+When `paymentMethod === 'credit_card'`:
+- Card dropdown (Select) — required
+- Installment dropdown (1x..24x) — default 1x
+- Installment preview when count > 1: list with month labels + amounts + total footer
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+**5. Step 3 — conditional**
+- When `paymentMethod === 'credit_card'`: skip account selection, go straight to confirmation + submit
+- `canProceedStep3` updated: `paymentMethod === 'credit_card' ? !!selectedCardId : !!accountId`
+- Actually, for credit card flow, Step 3 shows card summary + confirm button (no account select)
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
+**6. handleSubmit — credit card branch** (lines 92-117)
+Before the existing `if (isBillFlow)` block, add credit card handling:
 
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+A) **Single payment (1x)**: get target month → get/create invoice → insert transaction with `card_id`, `invoice_id`, `account_id: null`
 
----
+B) **Installments (>1x)**: insert main transaction (no invoice_id) → create installment_group → loop creating each installment with correct invoice_id per month
 
-## O que será modificado
+Both paths invalidate `transactions` and `invoices` query keys, then close modal.
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+**7. Validation updates**
+- `canProceedStep2` for credit card: needs `selectedCardId` to be set
+- `totalSteps`: credit card flow = 3 (value → details+card → confirm)
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
-
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
-
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Files NOT modified
+- `src/lib/invoice-cycle.ts` — untouched
+- `src/hooks/use-invoices.ts` — untouched
+- No other files changed
 
