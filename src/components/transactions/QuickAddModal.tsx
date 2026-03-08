@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
