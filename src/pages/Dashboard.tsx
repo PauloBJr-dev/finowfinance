@@ -114,13 +114,6 @@ export default function Dashboard() {
 
         <RemindersCard />
 
-        {/* Row 2: Month flow */}
-        <MonthFlowCard
-          income={income}
-          expenses={expenses}
-          pendingBills={pendingBills}
-          isLoading={loadingTx || loadingBills}
-        />
 
         {/* Row 3: Charts */}
         <div className="grid gap-4 md:grid-cols-2">
