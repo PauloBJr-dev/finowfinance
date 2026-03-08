@@ -34,16 +34,19 @@ export const secondaryItems = [
     to: "/metas",
     icon: Target,
     label: "Metas",
+    premium: true,
   },
   {
     to: "/cofrinho",
     icon: PiggyBank,
     label: "Cofrinho",
+    premium: true,
   },
   {
     to: "/chat",
     icon: MessageCircle,
     label: "Mentor IA",
+    premium: true,
   },
 ] as const;
 

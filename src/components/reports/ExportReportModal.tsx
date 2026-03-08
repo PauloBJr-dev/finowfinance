@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useReports } from "@/hooks/use-reports";
+import { useAuth } from "@/hooks/use-auth";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { Button } from "@/components/ui/button";
-import { FileDown, Loader2 } from "lucide-react";
+import { FileDown, Loader2, Crown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,8 @@ interface ExportReportModalProps {
 export function ExportReportModal({ open, onOpenChange }: ExportReportModalProps) {
   const isMobile = useIsMobile();
   const { generatePDF, isGenerating } = useReports();
+  const { plan } = useAuth();
+  const isPremium = plan === "premium" || plan === "lifetime";
   const [dateRange, setDateRange] = useState({
     startDate: toDateStr(startOfMonth(new Date())),
     endDate: toDateStr(endOfMonth(new Date())),
@@ -46,7 +49,7 @@ export function ExportReportModal({ open, onOpenChange }: ExportReportModalProps
     onOpenChange(false);
   };
 
-  const content = (
+  const content = isPremium ? (
     <div className="space-y-6 p-1">
       <div className="space-y-2">
         <label className="text-sm font-medium text-foreground">Período</label>
@@ -65,6 +68,16 @@ export function ExportReportModal({ open, onOpenChange }: ExportReportModalProps
         )}
         {isGenerating ? "Gerando..." : "Gerar PDF"}
       </Button>
+    </div>
+  ) : (
+    <div className="flex flex-col items-center gap-4 py-8 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+        <Crown className="h-6 w-6 text-primary" />
+      </div>
+      <div className="space-y-1">
+        <p className="font-medium">Relatórios PDF é uma feature Premium</p>
+        <p className="text-sm text-muted-foreground">Faça upgrade para exportar relatórios em PDF.</p>
+      </div>
     </div>
   );
 

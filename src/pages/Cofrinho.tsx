@@ -1,21 +1,24 @@
 import { MainLayout } from "@/components/layout/MainLayout";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { PremiumGate } from "@/components/shared/PremiumGate";
 import { PiggyBank } from "lucide-react";
 
 export default function Cofrinho() {
   return (
-    <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Cofrinho</h1>
-          <p className="text-muted-foreground">Guarde dinheiro para seus sonhos.</p>
+    <PremiumGate featureName="Cofrinho">
+      <MainLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Cofrinho</h1>
+            <p className="text-muted-foreground">Guarde dinheiro para seus sonhos.</p>
+          </div>
+          <EmptyState
+            icon={<PiggyBank className="h-8 w-8 text-muted-foreground" />}
+            title="Em breve"
+            description="Seu cofrinho virtual para juntar dinheiro para objetivos específicos. Essa funcionalidade está sendo construída."
+          />
         </div>
-        <EmptyState
-          icon={<PiggyBank className="h-8 w-8 text-muted-foreground" />}
-          title="Em breve"
-          description="Seu cofrinho virtual para juntar dinheiro para objetivos específicos. Essa funcionalidade está sendo construída."
-        />
-      </div>
-    </MainLayout>
+      </MainLayout>
+    </PremiumGate>
   );
 }

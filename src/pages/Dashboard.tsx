@@ -22,6 +22,9 @@ import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
+import { Crown } from "lucide-react";
 
 function toDateStr(d: Date) {
   return d.toISOString().split("T")[0];
@@ -35,6 +38,7 @@ export default function Dashboard() {
   });
 
   const { visibleWidgets, toggleWidget, resetDefaults } = useDashboardPreferences();
+  const { plan } = useAuth();
   const w = visibleWidgets;
 
   const { data: profile } = useProfile();
@@ -82,12 +86,24 @@ export default function Dashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">
-              {greeting}
-              {firstName ? `, ${firstName}` : ""}!
-            </h1>
-            <p className="text-muted-foreground">Seu resumo financeiro.</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                {greeting}
+                {firstName ? `, ${firstName}` : ""}!
+              </h1>
+              <p className="text-muted-foreground">Seu resumo financeiro.</p>
+            </div>
+            {plan === "premium" && (
+              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Premium
+              </Badge>
+            )}
+            {plan === "lifetime" && (
+              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Lifetime
+              </Badge>
+            )}
           </div>
           <DashboardCustomizer
             visibleWidgets={w}

@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Trash2, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import mentorIcon from "@/assets/finow-icon-96.png";
+import { PremiumGate } from "@/components/shared/PremiumGate";
+import { useAuth } from "@/hooks/use-auth";
 
 function formatMarkdownSimple(text: string) {
   return text
@@ -16,6 +18,8 @@ function formatMarkdownSimple(text: string) {
 }
 
 export default function Chat() {
+  const { plan } = useAuth();
+  const isPremium = plan === "premium" || plan === "lifetime";
   const { messages, isStreaming, sendMessage, clearChat, stopStreaming } = useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -41,6 +45,14 @@ export default function Chat() {
       handleSend();
     }
   };
+
+  if (!isPremium) {
+    return (
+      <PremiumGate featureName="Mentor IA">
+        {null}
+      </PremiumGate>
+    );
+  }
 
   return (
     <MainLayout>
