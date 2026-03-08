@@ -1,47 +1,87 @@
 
 
-## Plano: Dashboard Personalizável
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Conceito
+## Resumo
 
-Adicionar um painel de personalização onde o usuário liga/desliga cada widget do dashboard. Preferências salvas em `localStorage` para persistência imediata sem necessidade de backend.
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
-### Widgets controláveis
+---
 
-| ID | Nome | Default |
-|---|---|---|
-| `micro_insight` | Micro Insight | on |
-| `kpi_balance` | Saldo Total | on |
-| `kpi_expenses` | Despesas | on |
-| `kpi_income` | Receitas | on |
-| `kpi_net` | Balanço do Mês | on |
-| `kpi_benefit` | Vale Refeição | on |
-| `month_flow` | Fluxo do Mês | on |
-| `reminders` | Lembretes | on |
-| `expenses_chart` | Despesas por Categoria | on |
-| `upcoming_bills` | Próximos Vencimentos | on |
-| `recent_transactions` | Atividade Recente | on |
+## O que será removido
 
-### Implementacao
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-**1. Hook `src/hooks/use-dashboard-preferences.ts`** (novo)
-- Lê/grava `localStorage` key `finow_dashboard_prefs`
-- Retorna `{ visibleWidgets, toggleWidget, resetDefaults }`
-- Tipo: `Record<string, boolean>`
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-**2. Componente `src/components/dashboard/DashboardCustomizer.tsx`** (novo)
-- Botão de engrenagem no header do dashboard que abre um Sheet (sidebar)
-- Lista todos os widgets com Switch para ligar/desligar
-- Botão "Restaurar padrões"
-- Preview imediato: ao desligar, widget some do dashboard em tempo real
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-**3. `src/pages/Dashboard.tsx`** (editar)
-- Importar hook e customizer
-- Envolver cada widget/seção com `{prefs.widget_id && <Component />}`
-- Adicionar botão de personalização no header ao lado do título
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
 
-### Arquivos
-1. `src/hooks/use-dashboard-preferences.ts` — novo
-2. `src/components/dashboard/DashboardCustomizer.tsx` — novo
-3. `src/pages/Dashboard.tsx` — editar header + condicionais
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
+
+---
+
+## O que será modificado
+
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
+
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 
