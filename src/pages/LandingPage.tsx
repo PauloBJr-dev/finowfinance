@@ -574,9 +574,44 @@ function TestimonialsSection() {
   );
 }
 
+/* ─── Stripe Price IDs ─── */
+const STRIPE_PRICES = {
+  premium_monthly: "price_1T8cWiFrEMxcLeDlJRUZdjqa",
+  premium_yearly: "price_1T8cYbFrEMxcLeDlTElsmcv9",
+  lifetime: "price_1T8cZOFrEMxcLeDl2RWbzFZl",
+};
+
 /* ─── Pricing ─── */
 function PricingSection() {
   const navigate = useNavigate();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleCheckout = async (priceId: string, planName: string) => {
+    setLoadingPlan(planName);
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // Not logged in — redirect to auth
+        navigate("/auth");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   const plans = [
     {
@@ -593,6 +628,7 @@ function PricingSection() {
       ],
       cta: "Começar grátis",
       highlight: false,
+      action: () => navigate("/auth"),
     },
     {
       name: "Premium",
@@ -613,6 +649,7 @@ function PricingSection() {
       ],
       cta: "Assinar Premium",
       highlight: true,
+      action: () => handleCheckout(STRIPE_PRICES.premium_monthly, "Premium"),
     },
     {
       name: "Vitalício",
@@ -629,6 +666,7 @@ function PricingSection() {
       ],
       cta: "Garantir acesso vitalício",
       highlight: false,
+      action: () => handleCheckout(STRIPE_PRICES.lifetime, "Vitalício"),
     },
   ];
 
