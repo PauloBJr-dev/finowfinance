@@ -16,10 +16,10 @@
     --foreground: 160 5% 12%; /* #1C1F1E */
 
     /* Surface */
-    --card: 0 0% 100%; /* #FFFFFF */
+    --card: 80 10% 98%; /* #FAFBF9 - off-white quente */
     --card-foreground: 160 5% 12%;
 
-    --popover: 0 0% 100%;
+    --popover: 80 10% 98%;
     --popover-foreground: 160 5% 12%;
 
     /* Primary - Verde Finow (controle + crescimento) */
@@ -28,11 +28,11 @@
     --primary-soft: 161 40% 93%; /* #E6F2EE */
 
     /* Secondary */
-    --secondary: 160 8% 95%;
+    --secondary: 100 10% 93%; /* #ECEFEA */
     --secondary-foreground: 160 5% 12%;
 
     /* Muted */
-    --muted: 160 8% 95%;
+    --muted: 100 10% 93%; /* #ECEFEA */
     --muted-foreground: 155 8% 40%; /* #5F6B66 */
 
     /* Accent - Âmbar suave (insights, CTA leve) */
@@ -50,8 +50,8 @@
     --destructive-foreground: 0 0% 100%;
 
     /* UI Elements */
-    --border: 160 10% 90%;
-    --input: 160 10% 90%;
+    --border: 100 12% 88%; /* #E2E6DE - tom esverdeado sutil */
+    --input: 100 12% 88%;
     --ring: 161 59% 30%;
 
     --radius: 0.75rem;
@@ -67,13 +67,13 @@
     --glass-shadow: 0 8px 32px 0 rgba(31, 122, 99, 0.1);
 
     /* Sidebar */
-    --sidebar-background: 80 8% 97%;
+    --sidebar-background: 90 10% 94%; /* #F0F2EE - hierarquia visual */
     --sidebar-foreground: 155 8% 40%;
     --sidebar-primary: 161 59% 30%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 161 40% 93%;
     --sidebar-accent-foreground: 161 59% 30%;
-    --sidebar-border: 160 10% 90%;
+    --sidebar-border: 100 12% 88%;
     --sidebar-ring: 161 59% 30%;
   }
 
