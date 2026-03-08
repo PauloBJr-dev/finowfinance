@@ -1,12 +1,14 @@
 import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
+import { supabase } from "@/integrations/supabase/client";
 import { useBillsSummary } from "@/hooks/use-bills";
 import { useUpcomingBills, usePreviousMonthTotals } from "@/hooks/use-dashboard-data";
 import { useProfile } from "@/hooks/use-profile";
 import { useDashboardPreferences } from "@/hooks/use-dashboard-preferences";
-import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
+import { formatCurrency, getGreeting, getFirstName, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed, Scale } from "lucide-react";
@@ -63,6 +65,23 @@ export default function Dashboard() {
     0
   ), [benefitAccounts]);
   const hasBenefit = benefitAccounts.length > 0;
+
+  const { data: lastDeposit } = useQuery({
+    queryKey: ["last-benefit-deposit"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("benefit_deposits")
+        .select("date")
+        .is("deleted_at", null)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasBenefit,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const expenses = useMemo(() => transactions
     .filter((t) => t.type === "expense")
@@ -242,9 +261,16 @@ export default function Dashboard() {
                 {loadingAccounts ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-orange-500">
-                    {formatCurrency(benefitBalance)}
-                  </p>
+                  <>
+                    <p className="text-2xl font-bold text-orange-500">
+                      {formatCurrency(benefitBalance)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {benefitAccounts.length} conta(s) · {lastDeposit?.date
+                        ? `Último depósito: ${formatDate(lastDeposit.date)}`
+                        : "Nenhum depósito"}
+                    </p>
+                  </>
                 )}
               </CardContent>
             </Card>
