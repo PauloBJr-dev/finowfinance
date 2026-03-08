@@ -5,9 +5,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
-
-import { CalendarIcon, Filter, X } from "lucide-react";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { CalendarIcon, X } from "lucide-react";
+import {
+  format,
+  startOfMonth, endOfMonth,
+  startOfDay, endOfDay,
+  subDays, subMonths,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -19,92 +23,172 @@ interface TransactionFiltersProps {
     type?: "expense" | "income";
     categoryId?: string;
     accountId?: string;
-    
   };
   onFiltersChange: (filters: TransactionFiltersProps["filters"]) => void;
 }
 
-export function TransactionFilters({ filters, onFiltersChange }: TransactionFiltersProps) {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (filters.startDate && filters.endDate) {
-      return {
-        from: new Date(filters.startDate),
-        to: new Date(filters.endDate),
-      };
-    }
-    return {
+type PeriodKey = "today" | "yesterday" | "7d" | "15d" | "last_month" | "this_month" | "custom";
+
+interface PeriodOption {
+  key: PeriodKey;
+  label: string;
+  getRange: () => { from: Date; to: Date };
+}
+
+const PERIOD_OPTIONS: PeriodOption[] = [
+  {
+    key: "today",
+    label: "Hoje",
+    getRange: () => {
+      const now = new Date();
+      return { from: startOfDay(now), to: endOfDay(now) };
+    },
+  },
+  {
+    key: "yesterday",
+    label: "Ontem",
+    getRange: () => {
+      const y = subDays(new Date(), 1);
+      return { from: startOfDay(y), to: endOfDay(y) };
+    },
+  },
+  {
+    key: "7d",
+    label: "7 dias",
+    getRange: () => ({
+      from: startOfDay(subDays(new Date(), 6)),
+      to: endOfDay(new Date()),
+    }),
+  },
+  {
+    key: "15d",
+    label: "15 dias",
+    getRange: () => ({
+      from: startOfDay(subDays(new Date(), 14)),
+      to: endOfDay(new Date()),
+    }),
+  },
+  {
+    key: "last_month",
+    label: "Mês passado",
+    getRange: () => {
+      const prev = subMonths(new Date(), 1);
+      return { from: startOfMonth(prev), to: endOfMonth(prev) };
+    },
+  },
+  {
+    key: "this_month",
+    label: "Mês atual",
+    getRange: () => ({
       from: startOfMonth(new Date()),
       to: endOfMonth(new Date()),
-    };
-  });
+    }),
+  },
+];
+
+function toDateStr(d: Date) {
+  return d.toISOString().split("T")[0];
+}
+
+export function TransactionFilters({ filters, onFiltersChange }: TransactionFiltersProps) {
+  const [activePeriod, setActivePeriod] = useState<PeriodKey>("this_month");
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
 
   const { data: categories = [] } = useCategories(filters.type);
   const { data: accounts = [] } = useAccounts();
   const hasActiveFilters = filters.type || filters.categoryId || filters.accountId;
 
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range);
+  const handlePeriodClick = (option: PeriodOption) => {
+    setActivePeriod(option.key);
+    const range = option.getRange();
     onFiltersChange({
       ...filters,
-      startDate: range?.from?.toISOString().split('T')[0],
-      endDate: range?.to?.toISOString().split('T')[0],
+      startDate: toDateStr(range.from),
+      endDate: toDateStr(range.to),
     });
   };
 
+  const handleCustomRangeChange = (range: DateRange | undefined) => {
+    setCustomRange(range);
+    if (range?.from && range?.to) {
+      onFiltersChange({
+        ...filters,
+        startDate: toDateStr(range.from),
+        endDate: toDateStr(range.to),
+      });
+    }
+  };
+
   const clearFilters = () => {
-    const defaultRange = {
-      from: startOfMonth(new Date()),
-      to: endOfMonth(new Date()),
-    };
-    setDateRange(defaultRange);
+    setActivePeriod("this_month");
+    setCustomRange(undefined);
+    const range = PERIOD_OPTIONS.find((o) => o.key === "this_month")!.getRange();
     onFiltersChange({
-      startDate: defaultRange.from.toISOString().split('T')[0],
-      endDate: defaultRange.to.toISOString().split('T')[0],
+      startDate: toDateStr(range.from),
+      endDate: toDateStr(range.to),
     });
   };
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Date Range */}
+      {/* Period chips */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {PERIOD_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            onClick={() => handlePeriodClick(option)}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              activePeriod === option.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+
+        {/* Custom period */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.from ? (
-                dateRange.to ? (
-                  <>
-                    {format(dateRange.from, "dd MMM", { locale: ptBR })} -{" "}
-                    {format(dateRange.to, "dd MMM", { locale: ptBR })}
-                  </>
-                ) : (
-                  format(dateRange.from, "dd MMM yyyy", { locale: ptBR })
-                )
-              ) : (
-                "Selecionar período"
+            <button
+              onClick={() => setActivePeriod("custom")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                activePeriod === "custom"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               )}
-            </Button>
+            >
+              <CalendarIcon className="h-3 w-3" />
+              {activePeriod === "custom" && customRange?.from && customRange?.to
+                ? `${format(customRange.from, "dd MMM", { locale: ptBR })} - ${format(customRange.to, "dd MMM", { locale: ptBR })}`
+                : "Personalizado"}
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="range"
-              selected={dateRange}
-              onSelect={handleDateRangeChange}
+              selected={customRange}
+              onSelect={handleCustomRangeChange}
               locale={ptBR}
               numberOfMonths={2}
               initialFocus
+              className="pointer-events-auto"
             />
           </PopoverContent>
         </Popover>
+      </div>
 
-        {/* Type Filter */}
+      {/* Other filters */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select
           value={filters.type || "all"}
           onValueChange={(value) =>
             onFiltersChange({
               ...filters,
               type: value === "all" ? undefined : (value as "expense" | "income"),
-              categoryId: undefined, // Reset category when type changes
+              categoryId: undefined,
             })
           }
         >
@@ -118,7 +202,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
           </SelectContent>
         </Select>
 
-        {/* Category Filter */}
         <Select
           value={filters.categoryId || "all"}
           onValueChange={(value) =>
@@ -141,7 +224,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
           </SelectContent>
         </Select>
 
-        {/* Account Filter */}
         <Select
           value={filters.accountId || "all"}
           onValueChange={(value) =>
@@ -164,7 +246,6 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
           </SelectContent>
         </Select>
 
-        {/* Clear Filters */}
         {hasActiveFilters && (
           <Button
             variant="ghost"
