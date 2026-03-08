@@ -37,6 +37,20 @@ serve(async (req) => {
 
     const userId = user.id
 
+    // Rate limiting: 30 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'profile',
+      p_max_requests: 30,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // GET — Fetch profile
     if (req.method === 'GET') {
       const { data, error } = await supabase

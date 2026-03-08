@@ -68,6 +68,20 @@ serve(async (req) => {
 
     const userId = user.id
 
+    // Rate limiting: 30 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'ai-categorize',
+      p_max_requests: 30,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.', fallback: true }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Verificar se categorização está habilitada
     const { data: settings } = await supabase
       .from('ai_settings')

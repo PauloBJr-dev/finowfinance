@@ -53,6 +53,20 @@ serve(async (req) => {
     const userId = user.id
     console.log(`[personal-coach] Authenticated user: ${userId}`)
 
+    // Rate limiting: 20 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'personal-coach',
+      p_max_requests: 20,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // TODO: Implement personal coach functionality
     // - Actions: get_settings, update_settings, trigger_checkin
     // - Settings: weekly/monthly check-ins, permissions, persona memory

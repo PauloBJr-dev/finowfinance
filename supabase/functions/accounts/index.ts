@@ -94,6 +94,20 @@ serve(async (req) => {
     const userId = user.id
     console.log(`[accounts] Authenticated user: ${userId}`)
 
+    // Rate limiting: 60 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'accounts',
+      p_max_requests: 60,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
     const accountId = pathParts.length > 1 ? pathParts[pathParts.length - 1] : null

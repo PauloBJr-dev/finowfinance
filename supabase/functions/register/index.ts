@@ -44,6 +44,30 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting by IP: 10 req/min
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown'
+
+    const supabaseForRateLimit = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const { data: allowed } = await supabaseForRateLimit.rpc('check_rate_limit', {
+      p_identifier: `ip:${clientIP}`,
+      p_endpoint: 'register',
+      p_max_requests: 10,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas tentativas. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const body = await req.json()
     const { email, password, name, phone } = body
 
