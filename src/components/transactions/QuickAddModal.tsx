@@ -19,7 +19,7 @@ import { useCreateTransaction } from "@/hooks/use-transactions";
 import { useCreateBill } from "@/hooks/use-bills";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ArrowLeft, Loader2, FileText } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Loader2, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -392,10 +392,17 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
+      <Drawer open={open} onOpenChange={onOpenChange} dismissible={true}>
         <DrawerContent className="max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-          <DrawerHeader className="flex-shrink-0">
+          <DrawerHeader className="flex-shrink-0 relative">
             <DrawerTitle>{getModalTitle()}</DrawerTitle>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </DrawerHeader>
           {content}
         </DrawerContent>
