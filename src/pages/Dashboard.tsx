@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingDown, TrendingUp, ArrowRight } from "lucide-react";
+import { TrendingDown, TrendingUp, ArrowRight, Wallet, UtensilsCrossed } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,15 @@ export default function Dashboard() {
     .filter((a) => a.include_in_net_worth)
     .reduce((sum, a) => sum + Number(a.current_balance), 0);
 
+  const benefitAccounts = accounts.filter(
+    (a) => a.type === "benefit_card" && !a.deleted_at
+  );
+  const benefitBalance = benefitAccounts.reduce(
+    (sum, a) => sum + Number(a.current_balance),
+    0
+  );
+  const hasBenefit = benefitAccounts.length > 0;
+
   const expenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -71,11 +80,13 @@ export default function Dashboard() {
         <PeriodFilter onPeriodChange={handlePeriodChange} />
 
         {/* Summary cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className={`grid gap-4 md:grid-cols-3 ${hasBenefit ? "lg:grid-cols-4" : ""}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-              <span className="text-[10px] text-muted-foreground font-normal">(hoje)</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/15">
+                <Wallet className="h-4 w-4 text-blue-500" />
+              </div>
             </CardHeader>
             <CardContent>
               {loadingAccounts ? (
@@ -89,7 +100,9 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-              <TrendingDown className="h-4 w-4 text-destructive" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/15">
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              </div>
             </CardHeader>
             <CardContent>
               {loadingTx ? (
@@ -105,7 +118,9 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
             </CardHeader>
             <CardContent>
               {loadingTx ? (
@@ -117,6 +132,26 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          {hasBenefit && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Vale Refeição</CardTitle>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15">
+                  <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingAccounts ? (
+                  <Skeleton className="h-8 w-24" />
+                ) : (
+                  <p className="text-2xl font-bold text-orange-500">
+                    {formatCurrency(benefitBalance)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Ver transações */}
