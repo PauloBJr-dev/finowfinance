@@ -46,6 +46,14 @@ export default function Chat() {
     }
   };
 
+  if (!isPremium) {
+    return (
+      <PremiumGate featureName="Mentor IA">
+        {null}
+      </PremiumGate>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="flex h-[calc(100vh-8rem)] flex-col md:h-[calc(100vh-4rem)]">
@@ -145,22 +153,7 @@ export default function Chat() {
               </Button>
             )}
           </div>
-      </div>
-    </MainLayout>
-  );
-
-  if (!isPremium) {
-    return (
-      <PremiumGate featureName="Mentor IA">
-        {null}
-      </PremiumGate>
-    );
-  }
-
-  return (
-    <MainLayout>
-      <div className="flex h-[calc(100vh-8rem)] flex-col md:h-[calc(100vh-4rem)]">
-        {/* re-render full chat content inline */}
+        </div>
       </div>
     </MainLayout>
   );
