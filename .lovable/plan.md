@@ -1,87 +1,87 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Rate Limiting nas Edge Functions
 
-## Resumo
+### Abordagem
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+Usar uma tabela `rate_limits` no banco para rastrear requisições por usuário (autenticado) e por IP (não autenticado), com janela deslizante de 1 minuto. Criar um módulo utilitário reutilizável que cada Edge Function importa.
 
----
+### Limites propostos
 
-## O que será removido
+| Contexto | Limite | Janela |
+|---|---|---|
+| Por usuário (autenticado) | 60 req | 1 minuto |
+| Por IP (não autenticado, ex: /register) | 10 req | 1 minuto |
+| Chat/IA (por usuário) | 20 req | 1 minuto |
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+### Implementação
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+**1. Migração SQL** — Criar tabela `rate_limits` + função RPC `check_rate_limit`
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+```sql
+CREATE TABLE public.rate_limits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  identifier text NOT NULL,        -- user_id ou IP
+  endpoint text NOT NULL,
+  request_count int DEFAULT 1,
+  window_start timestamptz DEFAULT now(),
+  UNIQUE(identifier, endpoint)
+);
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
+-- Função SECURITY DEFINER que verifica/incrementa o contador
+-- Retorna true se permitido, false se bloqueado
+CREATE FUNCTION public.check_rate_limit(
+  p_identifier text, p_endpoint text, p_max_requests int, p_window_seconds int
+) RETURNS boolean ...
+```
 
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+- Função atômica (UPSERT + verificação em uma query)
+- Limpeza automática: reseta o contador quando a janela expira
+- Sem RLS na tabela (acesso apenas via função SECURITY DEFINER)
 
----
+**2. Integração nas Edge Functions**
 
-## O que será modificado
+Cada função chama `check_rate_limit` via `supabase.rpc()` logo após autenticação:
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+```typescript
+// Após obter userId:
+const { data: allowed } = await supabase.rpc('check_rate_limit', {
+  p_identifier: userId,
+  p_endpoint: 'transactions',
+  p_max_requests: 60,
+  p_window_seconds: 60
+})
+if (!allowed) {
+  return new Response(JSON.stringify({ 
+    error: 'Muitas requisições. Tente novamente em alguns segundos.' 
+  }), { status: 429, headers: corsHeaders })
+}
+```
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+**3. Funções afetadas** (12 endpoints):
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+- `transactions` (60/min)
+- `accounts` (60/min)
+- `bills` (60/min)
+- `profile` (30/min)
+- `register` (10/min por IP)
+- `upload-attachment` (20/min)
+- `finow-chat` (20/min)
+- `chat-messages` (20/min)
+- `ai-categorize` (30/min)
+- `ai-insights` (30/min)
+- `personal-coach` (20/min)
+- `reports` (10/min)
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
+`secrets-gemini` e `ai-reminders` (cron) ficam de fora (uso interno/raro).
 
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
+**4. Limpeza periódica**
 
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
+Criar uma função SQL `cleanup_rate_limits()` que deleta registros com `window_start` > 5 minutos atrás. Pode ser chamada pelo mesmo cron do `ai-reminders` ou via pg_cron.
 
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
+### Resultado
 
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+- Proteção contra abuso sem dependência de serviço externo
+- Resposta `429 Too Many Requests` com mensagem amigável em PT-BR
+- Sem impacto perceptível para uso normal (60 req/min é generoso)
 
