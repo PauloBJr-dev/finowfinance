@@ -56,6 +56,7 @@ export function AccountList() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+  const [depositAccount, setDepositAccount] = useState<Account | null>(null);
 
   const handleCreate = async (data: AccountFormData) => {
     await createAccount.mutateAsync(data);
