@@ -18,6 +18,7 @@ import { RecentTransactionsCard } from "@/components/dashboard/RecentTransaction
 import { MicroInsightCard } from "@/components/dashboard/MicroInsightCard";
 import { KpiComparisonBadge } from "@/components/dashboard/KpiComparisonBadge";
 import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer";
+import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -245,6 +246,11 @@ export default function Dashboard() {
         )}
 
         {w.reminders && <RemindersCard />}
+
+        {/* AI Insights */}
+        {w.ai_insights && (
+          <InsightsCard startDate={dateRange.startDate} endDate={dateRange.endDate} />
+        )}
 
         {/* Charts + Upcoming bills */}
         {(w.expenses_chart || w.upcoming_bills) && (

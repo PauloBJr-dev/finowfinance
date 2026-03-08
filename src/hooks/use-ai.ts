@@ -315,3 +315,31 @@ export function useDismissReminder() {
     },
   });
 }
+
+/**
+ * Hook para gerar insights de IA sobre transações
+ */
+export function useInsights() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { startDate: string; endDate: string }) => {
+      const { data, error } = await supabase.functions.invoke("ai-insights", {
+        body: params,
+      });
+
+      if (error) throw new Error(error.message || "Erro ao gerar insights");
+
+      // Invalidar cache de uso
+      queryClient.invalidateQueries({ queryKey: AI_USAGE_KEY });
+
+      return data as {
+        summary: string;
+        highlights: string[];
+        warnings: string[];
+        tips: string[];
+        data_points: string[];
+      };
+    },
+  });
+}

@@ -5,6 +5,7 @@ import {
   Target,
   PiggyBank,
   Settings,
+  MessageCircle,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -32,6 +33,11 @@ export const navigationItems = [
     to: "/cofrinho",
     icon: PiggyBank,
     label: "Cofrinho",
+  },
+  {
+    to: "/chat",
+    icon: MessageCircle,
+    label: "Mentor IA",
   },
 ] as const;
 
