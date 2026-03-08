@@ -72,7 +72,7 @@ export function UpcomingBillsCard({ bills, isLoading }: Props) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-sm font-medium text-muted-foreground">Próximos Vencimentos</CardTitle>
-        <Link to="/contas-a-pagar" className="text-xs text-primary hover:underline flex items-center gap-1">
+        <Link to="/contas-pagar" className="text-xs text-primary hover:underline flex items-center gap-1">
           Ver todas <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
