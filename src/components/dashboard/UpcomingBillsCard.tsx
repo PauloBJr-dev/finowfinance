@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface Bill {
   id: string;
@@ -39,6 +40,7 @@ function formatShortDate(dateStr: string) {
 }
 
 export function UpcomingBillsCard({ bills, isLoading }: Props) {
+  const { mask } = usePrivacy();
   if (isLoading) {
     return (
       <Card>
@@ -120,7 +122,7 @@ export function UpcomingBillsCard({ bills, isLoading }: Props) {
 
               {/* Amount */}
               <span className="text-sm font-bold tabular-nums whitespace-nowrap">
-                {formatCurrency(Number(bill.amount))}
+                {mask(formatCurrency(Number(bill.amount)))}
               </span>
             </div>
           );

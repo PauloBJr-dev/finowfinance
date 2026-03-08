@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { TrendingUp, TrendingDown, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 interface Props {
   income: number;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function MonthFlowCard({ income, expenses, pendingBills, isLoading }: Props) {
+  const { mask } = usePrivacy();
   const balance = income - expenses;
   const projected = balance - pendingBills;
 
@@ -52,7 +54,7 @@ export function MonthFlowCard({ income, expenses, pendingBills, isLoading }: Pro
                 <Skeleton className="h-6 w-20 mx-auto" />
               ) : (
                 <p className={cn("text-lg font-bold", item.color)}>
-                  {formatCurrency(item.value)}
+                  {mask(formatCurrency(item.value))}
                 </p>
               )}
               <p className="text-xs text-muted-foreground">{item.label}</p>

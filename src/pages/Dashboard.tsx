@@ -11,7 +11,7 @@ import { useDashboardPreferences } from "@/hooks/use-dashboard-preferences";
 import { formatCurrency, getGreeting, getFirstName, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed, Scale } from "lucide-react";
+import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed, Scale, Eye, EyeOff } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
@@ -27,6 +27,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { Crown } from "lucide-react";
+import { usePrivacy } from "@/contexts/PrivacyContext";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 function toDateStr(d: Date) {
   return d.toISOString().split("T")[0];
@@ -41,6 +44,7 @@ export default function Dashboard() {
 
   const { visibleWidgets, toggleWidget, resetDefaults } = useDashboardPreferences();
   const { plan } = useAuth();
+  const { hidden, toggle, mask } = usePrivacy();
   const w = visibleWidgets;
 
   const { data: profile } = useProfile();
@@ -124,11 +128,21 @@ export default function Dashboard() {
               </Badge>
             )}
           </div>
-          <DashboardCustomizer
-            visibleWidgets={w}
-            toggleWidget={toggleWidget}
-            resetDefaults={resetDefaults}
-          />
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={toggle} className="h-8 w-8">
+                  {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{hidden ? "Mostrar valores" : "Ocultar valores"}</TooltipContent>
+            </Tooltip>
+            <DashboardCustomizer
+              visibleWidgets={w}
+              toggleWidget={toggleWidget}
+              resetDefaults={resetDefaults}
+            />
+          </div>
         </div>
 
         {/* Period Filter */}
@@ -159,7 +173,7 @@ export default function Dashboard() {
                   <Skeleton className="h-8 w-24" />
                 ) : (
                   <>
-                    <p className="text-2xl font-bold">{formatCurrency(netWorth)}</p>
+                    <p className="text-2xl font-bold">{mask(formatCurrency(netWorth))}</p>
                     {hasBenefit && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Inclui saldo de benefícios
@@ -185,13 +199,15 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-destructive">
-                      {formatCurrency(expenses)}
+                      {mask(formatCurrency(expenses))}
                     </p>
-                    <KpiComparisonBadge
-                      current={expenses}
-                      previous={prevMonth?.expenses ?? null}
-                      invertColor
-                    />
+                    {!hidden && (
+                      <KpiComparisonBadge
+                        current={expenses}
+                        previous={prevMonth?.expenses ?? null}
+                        invertColor
+                      />
+                    )}
                   </>
                 )}
               </CardContent>
@@ -212,12 +228,14 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-primary">
-                      {formatCurrency(income)}
+                      {mask(formatCurrency(income))}
                     </p>
-                    <KpiComparisonBadge
-                      current={income}
-                      previous={prevMonth?.income ?? null}
-                    />
+                    {!hidden && (
+                      <KpiComparisonBadge
+                        current={income}
+                        previous={prevMonth?.income ?? null}
+                      />
+                    )}
                   </>
                 )}
               </CardContent>
@@ -244,12 +262,14 @@ export default function Dashboard() {
                       "text-2xl font-bold",
                       balance >= 0 ? "text-primary" : "text-destructive"
                     )}>
-                      {formatCurrency(balance)}
+                      {mask(formatCurrency(balance))}
                     </p>
-                    <KpiComparisonBadge
-                      current={balance}
-                      previous={prevMonth?.balance ?? null}
-                    />
+                    {!hidden && (
+                      <KpiComparisonBadge
+                        current={balance}
+                        previous={prevMonth?.balance ?? null}
+                      />
+                    )}
                   </>
                 )}
               </CardContent>
@@ -270,7 +290,7 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <p className="text-2xl font-bold text-orange-500">
-                      {formatCurrency(benefitBalance)}
+                      {mask(formatCurrency(benefitBalance))}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {benefitAccounts.length} conta(s) · {lastDeposit?.date

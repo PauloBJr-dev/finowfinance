@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { PieChart as PieIcon } from "lucide-react";
 import { resolveCategoryIcon } from "@/lib/category-icons";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 const FALLBACK_COLORS = [
   "#1F7A63", "#2A9D7E", "#35C099", "#E0B84C", "#7AE5CA", "#A8F0DE",
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
+  const { mask } = usePrivacy();
   const chartData = useMemo(() => {
     if (!transactions) return [];
     const map = new Map<string, { value: number; color: string | null; icon: string | null }>();
@@ -111,7 +113,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
           {/* Center total */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] font-medium">Total</span>
-            <span className="text-xl font-bold text-foreground mt-0.5">{formatCurrency(total)}</span>
+            <span className="text-xl font-bold text-foreground mt-0.5">{mask(formatCurrency(total))}</span>
           </div>
         </div>
 
@@ -131,7 +133,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
                 </div>
                 <span className="text-xs text-foreground flex-1 truncate">{item.name}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
-                <span className="text-xs font-bold tabular-nums w-20 text-right text-foreground">{formatCurrency(item.value)}</span>
+                <span className="text-xs font-bold tabular-nums w-20 text-right text-foreground">{mask(formatCurrency(item.value))}</span>
               </div>
             );
           })}
