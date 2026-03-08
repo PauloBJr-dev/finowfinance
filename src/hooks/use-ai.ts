@@ -26,6 +26,10 @@ interface AISettings {
   categorization_enabled: boolean;
   reminders_enabled: boolean;
   daily_token_limit: number;
+  allow_coach_use_transactions: boolean;
+  allow_coach_use_goals: boolean;
+  store_conversations: boolean;
+  persona_memory: string | null;
 }
 
 interface Reminder {
