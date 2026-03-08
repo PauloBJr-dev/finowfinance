@@ -279,6 +279,33 @@ export function useUnreadRemindersCount() {
     },
     enabled: !!user,
     staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+}
+
+/**
+ * Hook para marcar todas as notificações como lidas
+ */
+export function useMarkAllRemindersRead() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from("reminders")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false)
+        .is("dismissed_at", null);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: REMINDERS_KEY });
+    },
   });
 }
 

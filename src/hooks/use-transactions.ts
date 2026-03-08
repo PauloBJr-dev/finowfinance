@@ -176,6 +176,12 @@ export function useCreateTransaction() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       
+      // Fire-and-forget: trigger anomaly detection (non-blocking)
+      if (data?.id) {
+        supabase.functions.invoke('ai-anomaly', { body: { transaction_id: data.id } })
+          .catch((err) => console.warn('[anomaly] fire-and-forget failed:', err));
+      }
+
       const isExpense = data.type === "expense";
       const formattedAmount = formatCurrency(Number(data.amount));
       
