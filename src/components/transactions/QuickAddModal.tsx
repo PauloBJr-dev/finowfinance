@@ -71,7 +71,6 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setPaymentMethod("transfer");
       setDescription("");
       setAccountId(null);
-      setAiSuggestion(null);
     }
   }, [open]);
 
@@ -83,7 +82,6 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
       setIsPaid(true);
     }
     setCategoryId(null);
-    setAiSuggestion(null);
   }, [type]);
 
   useEffect(() => {
@@ -280,38 +278,6 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               </div>
             )}
 
-            {aiSettings?.categorization_enabled && type === "expense" && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      if (!description && amount <= 0) return;
-                      const result = await suggestCategory.mutateAsync({
-                        description: description || `Transação de ${formatCurrency(amount)}`,
-                        amount,
-                        payment_method: paymentMethod,
-                      });
-                      if (result && !result.fallback) {
-                        setAiSuggestion({ category_id: result.category_id, category_name: result.category_name, confidence: result.confidence_score });
-                      }
-                    }}
-                    disabled={suggestCategory.isPending || (!description && amount <= 0)}
-                    className="gap-2"
-                  >
-                    {suggestCategory.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    Sugerir categoria
-                  </Button>
-                  {aiSuggestion && (
-                    <Badge variant="secondary" className="cursor-pointer hover:bg-primary/20" onClick={() => { setCategoryId(aiSuggestion.category_id); setAiSuggestion(null); }}>
-                      <Sparkles className="h-3 w-3 mr-1" />Sugestão: {aiSuggestion.category_name}
-                    </Badge>
-                  )}
-                </div>
-                {aiSuggestion && <p className="text-xs text-muted-foreground">Clique na sugestão para aplicar</p>}
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label>Categoria</Label>
@@ -426,8 +392,8 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh] flex flex-col">
+      <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
+        <DrawerContent className="max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>{getModalTitle()}</DrawerTitle>
           </DrawerHeader>
@@ -439,7 +405,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{getModalTitle()}</DialogTitle>
         </DialogHeader>
