@@ -351,6 +351,154 @@ function HowItWorksSection() {
   );
 }
 
+/* ─── App Preview / Screenshots ─── */
+function AppPreviewSection() {
+  const previews = [
+    {
+      title: "Dashboard",
+      desc: "Visão completa das suas finanças em tempo real.",
+      content: (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-muted-foreground">Saldo total</p>
+              <p className="text-lg font-bold text-foreground">R$ 4.230,00</p>
+            </div>
+            <Badge className="bg-success/15 text-success border-0 text-[10px]">+12%</Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: "Receitas", value: "R$ 5.800", c: "text-success" },
+              { label: "Despesas", value: "R$ 3.120", c: "text-destructive" },
+              { label: "Economia", value: "R$ 2.680", c: "text-primary" },
+            ].map((k) => (
+              <div key={k.label} className="rounded-lg bg-secondary/50 p-2 text-center">
+                <p className="text-[9px] text-muted-foreground">{k.label}</p>
+                <p className={`text-xs font-semibold ${k.c}`}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+          {/* Mini chart bars */}
+          <div className="flex items-end gap-1.5 h-16 pt-2">
+            {[40, 65, 50, 80, 55, 70, 45, 90, 60, 75, 50, 85].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-sm bg-primary/20"
+                style={{ height: `${h}%` }}
+              >
+                <div
+                  className="w-full rounded-sm bg-primary"
+                  style={{ height: `${Math.min(h + 10, 100) * 0.6}%` }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Transações",
+      desc: "Registre e acompanhe cada movimentação.",
+      content: (
+        <div className="space-y-2">
+          {[
+            { cat: "Mercado", amount: "R$ 245,90", color: "hsl(142, 60%, 40%)", icon: "🛒", type: "expense" },
+            { cat: "Salário", amount: "R$ 5.800,00", color: "hsl(210, 60%, 50%)", icon: "💼", type: "income" },
+            { cat: "Transporte", amount: "R$ 89,00", color: "hsl(35, 80%, 50%)", icon: "🚌", type: "expense" },
+            { cat: "Restaurante", amount: "R$ 62,50", color: "hsl(0, 60%, 50%)", icon: "🍽️", type: "expense" },
+            { cat: "Freelance", amount: "R$ 1.200,00", color: "hsl(260, 50%, 55%)", icon: "💻", type: "income" },
+          ].map((t) => (
+            <div key={t.cat} className="flex items-center gap-2 rounded-lg bg-secondary/40 p-2">
+              <div
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-xs shrink-0"
+                style={{ backgroundColor: `${t.color}20` }}
+              >
+                {t.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-foreground truncate">{t.cat}</p>
+                <p className="text-[9px] text-muted-foreground">Hoje</p>
+              </div>
+              <p className={`text-xs font-semibold tabular-nums ${t.type === "expense" ? "text-destructive" : "text-success"}`}>
+                {t.type === "expense" ? "-" : "+"}{t.amount}
+              </p>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: "Faturas",
+      desc: "Controle faturas de cartão com clareza.",
+      content: (
+        <div className="space-y-3">
+          {[
+            { card: "Nubank", status: "Aberta", amount: "R$ 1.430,00", color: "bg-primary", due: "Vence 15/04" },
+            { card: "Inter", status: "Fechada", amount: "R$ 890,50", color: "bg-accent", due: "Vence 10/04" },
+            { card: "C6 Bank", status: "Paga", amount: "R$ 2.100,00", color: "bg-success", due: "Paga 05/03" },
+          ].map((inv) => (
+            <div key={inv.card} className="rounded-lg border border-border/40 bg-secondary/30 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${inv.color}`} />
+                  <p className="text-xs font-medium text-foreground">{inv.card}</p>
+                </div>
+                <Badge variant="secondary" className="text-[9px] h-5">{inv.status}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-foreground">{inv.amount}</p>
+                <p className="text-[10px] text-muted-foreground">{inv.due}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <section className="py-20 lg:py-28 bg-secondary/30">
+      <div className="container mx-auto px-4 lg:px-8">
+        <AnimatedSection className="text-center mb-14">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+            Veja o Finow em ação
+          </h2>
+          <p className="text-muted-foreground max-w-lg mx-auto">
+            Uma prévia de como você vai visualizar suas finanças.
+          </p>
+        </AnimatedSection>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {previews.map((p, i) => (
+            <AnimatedSection key={p.title} delay={i * 150}>
+              <div
+                className="rounded-2xl p-5 h-full"
+                style={{
+                  background: "hsl(var(--glass-bg))",
+                  border: "1px solid hsl(var(--glass-border))",
+                  boxShadow: "var(--glass-shadow)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                }}
+              >
+                {/* Fake window bar */}
+                <div className="flex items-center gap-1.5 mb-4">
+                  <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-accent/60" />
+                  <div className="h-2.5 w-2.5 rounded-full bg-success/60" />
+                  <span className="ml-2 text-[10px] text-muted-foreground font-medium">{p.title}</span>
+                </div>
+                {p.content}
+                <p className="text-[10px] text-muted-foreground mt-3 text-center">{p.desc}</p>
+              </div>
+            </AnimatedSection>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Testimonials ─── */
 const testimonials = [
   {
