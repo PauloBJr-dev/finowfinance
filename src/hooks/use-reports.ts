@@ -31,7 +31,7 @@ export function useReports() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Relatório financeiro ${formatDateBR(startDate)} - ${formatDateBR(endDate)}.pdf`;
+      a.download = `Relatório financeiro ${formatDate(startDate)} - ${formatDate(endDate)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
