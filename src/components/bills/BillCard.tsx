@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { Bill } from "@/hooks/use-bills";
 import { cn } from "@/lib/utils";
+import { resolveCategoryIcon } from "@/lib/category-icons";
 
 interface BillCardProps {
   bill: Bill;
@@ -61,28 +62,8 @@ export function BillCard({ bill, onPay, onDelete }: BillCardProps) {
     );
   };
 
-  const getCategoryIcon = () => {
-    const icon = bill.category?.icon;
-    if (!icon) return "📋";
-    // Map common icon names to emojis
-    const iconMap: Record<string, string> = {
-      home: "🏠",
-      car: "🚗",
-      health: "🏥",
-      food: "🍔",
-      entertainment: "🎬",
-      education: "📚",
-      shopping: "🛍️",
-      utilities: "💡",
-      phone: "📱",
-      internet: "🌐",
-      subscription: "📺",
-      insurance: "🛡️",
-      tax: "📊",
-      other: "📋",
-    };
-    return iconMap[icon.toLowerCase()] || "📋";
-  };
+  const CategoryIcon = resolveCategoryIcon(bill.category?.icon);
+  const categoryColor = bill.category?.color || "hsl(var(--muted-foreground))";
 
   return (
     <Card
@@ -94,7 +75,19 @@ export function BillCard({ bill, onPay, onDelete }: BillCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <div className="text-2xl flex-shrink-0">{getCategoryIcon()}</div>
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+            style={{
+              backgroundColor: bill.category?.color
+                ? `${bill.category.color}18`
+                : "hsl(var(--muted))",
+            }}
+          >
+            <CategoryIcon
+              className="h-5 w-5"
+              style={{ color: categoryColor }}
+            />
+          </div>
           
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-foreground truncate">{bill.description}</h3>
