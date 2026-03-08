@@ -35,18 +35,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn("check-subscription error:", error.message);
         return;
       }
-      setSubscribed(!!data?.subscribed);
-      setPlan((data?.plan as Plan) ?? "free");
-      setSubscriptionEnd(data?.subscription_end ?? null);
+      const newSubscribed = !!data?.subscribed;
+      const newPlan = (data?.plan as Plan) ?? "free";
+      const newEnd = data?.subscription_end ?? null;
+      // Bail-out: only update state if values actually changed
+      setSubscribed((prev) => (prev === newSubscribed ? prev : newSubscribed));
+      setPlan((prev) => (prev === newPlan ? prev : newPlan));
+      setSubscriptionEnd((prev) => (prev === newEnd ? prev : newEnd));
     } catch (err) {
       console.warn("check-subscription failed:", err);
     }
   }, []);
 
-  // Start / stop polling
+  // Start / stop polling — 5 min interval, only when tab is visible
   const startPolling = useCallback(() => {
     if (intervalRef.current) return;
-    intervalRef.current = setInterval(checkSubscription, 60_000);
+    intervalRef.current = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        checkSubscription();
+      }
+    }, 5 * 60_000);
   }, [checkSubscription]);
 
   const stopPolling = useCallback(() => {
