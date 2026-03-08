@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/navigation/Sidebar";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { FloatingActionButton } from "@/components/navigation/FloatingActionButton";
 import { QuickAddModal } from "@/components/transactions/QuickAddModal";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useSidebarContext } from "@/contexts/SidebarContext";
@@ -28,10 +28,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           isMobile && "pb-24"
         )}
       >
-        {/* Notification bell — absolute top-right, no extra space */}
-        <div className="absolute top-3 right-4 z-10">
-          <NotificationCenter />
-        </div>
+
+
         <div className="container px-4 sm:px-6 py-6">
           {children}
         </div>

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import mentorIcon from "@/assets/finow-icon-96.png";
 import { PremiumGate } from "@/components/shared/PremiumGate";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 function formatMarkdownSimple(text: string) {
   return text
@@ -79,9 +80,12 @@ export default function Chat() {
             <img src={mentorIcon} alt="Mentor" className="h-6 w-6 rounded" />
             <h1 className="text-lg font-semibold">Mentor Financeiro</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={clearChat} title="Limpar conversa">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <NotificationCenter />
+            <Button variant="ghost" size="icon" onClick={clearChat} title="Limpar conversa">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Limited access banner */}

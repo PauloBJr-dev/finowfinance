@@ -5,16 +5,20 @@ import { CardList } from "@/components/cards/CardList";
 import { ProfileTab } from "@/components/settings/ProfileTab";
 import { AISettingsTab } from "@/components/settings/AISettingsTab";
 import { Wallet, CreditCard, User, Brain } from "lucide-react";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 export default function Configuracoes() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Configurações</h1>
-          <p className="text-muted-foreground">
-            Gerencie suas contas e preferências.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Configurações</h1>
+            <p className="text-muted-foreground">
+              Gerencie suas contas e preferências.
+            </p>
+          </div>
+          <NotificationCenter />
         </div>
 
         <Tabs defaultValue="accounts" className="w-full">
