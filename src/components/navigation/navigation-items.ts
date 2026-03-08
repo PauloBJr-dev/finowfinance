@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   FileText,
+  Receipt,
   Target,
   PiggyBank,
   Settings,
@@ -25,6 +26,11 @@ export const primaryItems = [
     to: "/contas-pagar",
     icon: FileText,
     label: "Contas a pagar",
+  },
+  {
+    to: "/faturas",
+    icon: Receipt,
+    label: "Faturas",
   },
 ] as const;
 
