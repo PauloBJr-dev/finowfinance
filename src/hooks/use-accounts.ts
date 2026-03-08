@@ -10,7 +10,7 @@ type AccountUpdate = TablesUpdate<"accounts">;
 const ACCOUNTS_KEY = ["accounts"];
 
 /**
- * Hook para listar contas do usuário
+ * Hook para listar contas do usuário (read-only, direct query is fine)
  */
 export function useAccounts(includeDeleted = false) {
   return useQuery({
@@ -30,7 +30,7 @@ export function useAccounts(includeDeleted = false) {
       if (error) throw error;
       return data as Account[];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -57,27 +57,20 @@ export function useAccount(id: string | null) {
 }
 
 /**
- * Hook para criar conta
+ * Hook para criar conta via Edge Function (server-side validation)
  */
 export function useCreateAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (account: Omit<AccountInsert, "user_id">) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      const { data, error } = await supabase
-        .from("accounts")
-        .insert({
-          ...account,
-          user_id: user.id,
-          current_balance: account.initial_balance ?? 0,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('accounts', {
+        method: 'POST',
+        body: account,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data as Account;
     },
     onSuccess: () => {
@@ -86,27 +79,26 @@ export function useCreateAccount() {
     },
     onError: (error) => {
       console.error("Erro ao criar conta:", error);
-      toast.error("Erro ao criar conta. Tente novamente.");
+      toast.error(error instanceof Error ? error.message : "Erro ao criar conta. Tente novamente.");
     },
   });
 }
 
 /**
- * Hook para atualizar conta
+ * Hook para atualizar conta via Edge Function
  */
 export function useUpdateAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: AccountUpdate & { id: string }) => {
-      const { data, error } = await supabase
-        .from("accounts")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke(`accounts/${id}`, {
+        method: 'PUT',
+        body: updates,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data as Account;
     },
     onSuccess: () => {
@@ -115,25 +107,25 @@ export function useUpdateAccount() {
     },
     onError: (error) => {
       console.error("Erro ao atualizar conta:", error);
-      toast.error("Erro ao atualizar conta. Tente novamente.");
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar conta. Tente novamente.");
     },
   });
 }
 
 /**
- * Hook para soft delete de conta
+ * Hook para soft delete de conta via Edge Function
  */
 export function useDeleteAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("accounts")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id);
+      const { data, error } = await supabase.functions.invoke(`accounts/${id}`, {
+        method: 'DELETE',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return id;
     },
     onSuccess: () => {
@@ -147,19 +139,19 @@ export function useDeleteAccount() {
 }
 
 /**
- * Hook para restaurar conta (desfazer exclusão)
+ * Hook para restaurar conta via Edge Function
  */
 export function useRestoreAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("accounts")
-        .update({ deleted_at: null })
-        .eq("id", id);
+      const { data, error } = await supabase.functions.invoke(`accounts/${id}`, {
+        method: 'PATCH',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return id;
     },
     onSuccess: () => {
@@ -175,4 +167,3 @@ export function useRestoreAccount() {
 
 // NOTA: A função useUpdateAccountBalance foi REMOVIDA.
 // O saldo das contas é atualizado exclusivamente via trigger no banco de dados.
-// Isso evita duplicidade de atualizações e garante consistência financeira.

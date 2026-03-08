@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { addMonths } from "date-fns";
 import type { Database } from "@/integrations/supabase/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -71,7 +70,6 @@ export function useBills(filters?: BillFilters) {
         .is("deleted_at", null)
         .order("due_date", { ascending: true });
 
-      // Filtro por mês
       if (filters?.month) {
         const startOfMonth = new Date(filters.month.getFullYear(), filters.month.getMonth(), 1);
         const endOfMonth = new Date(filters.month.getFullYear(), filters.month.getMonth() + 1, 0);
@@ -81,7 +79,6 @@ export function useBills(filters?: BillFilters) {
           .lte("due_date", endOfMonth.toISOString().split("T")[0]);
       }
 
-      // Filtro por status
       if (filters?.status && filters.status !== "all") {
         query = query.eq("status", filters.status);
       }
@@ -144,60 +141,19 @@ export function useBillsSummary(month?: Date) {
 
 export function useCreateBill() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: CreateBillInput) => {
-      if (!user?.id) throw new Error("Usuário não autenticado");
-
-      const billsToCreate: Array<{
-        user_id: string;
-        description: string;
-        amount: number;
-        category_id: string;
-        due_date: string;
-        status: BillStatus;
-        recurrence_group_id: string | null;
-      }> = [];
-
-      const recurrenceGroupId = input.is_recurring ? crypto.randomUUID() : null;
-      const baseDate = new Date(input.due_date);
-
-      if (input.is_recurring) {
-        // Criar 6 contas (mês atual + 5 próximos)
-        for (let i = 0; i < 6; i++) {
-          const dueDate = addMonths(baseDate, i);
-          billsToCreate.push({
-            user_id: user.id,
-            description: input.description,
-            amount: input.amount,
-            category_id: input.category_id,
-            due_date: dueDate.toISOString().split("T")[0],
-            status: "pending",
-            recurrence_group_id: recurrenceGroupId,
-          });
-        }
-      } else {
-        billsToCreate.push({
-          user_id: user.id,
-          description: input.description,
-          amount: input.amount,
-          category_id: input.category_id,
-          due_date: input.due_date,
-          status: "pending",
-          recurrence_group_id: null,
-        });
-      }
-
-      const { data, error } = await supabase
-        .from("bills")
-        .insert(billsToCreate)
-        .select();
+      const { data, error } = await supabase.functions.invoke('bills', {
+        method: 'POST',
+        body: input,
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["bills-summary"] });
       
@@ -216,7 +172,7 @@ export function useCreateBill() {
     onError: (error) => {
       console.error("Erro ao criar conta a pagar:", error);
       toast.error("Erro ao criar conta", {
-        description: "Não foi possível criar a conta a pagar. Tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível criar a conta a pagar. Tente novamente.",
       });
     },
   });
@@ -224,54 +180,17 @@ export function useCreateBill() {
 
 export function usePayBill() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: PayBillInput) => {
-      if (!user?.id) throw new Error("Usuário não autenticado");
+      const { data, error } = await supabase.functions.invoke('bills/pay', {
+        method: 'POST',
+        body: input,
+      });
 
-      // Buscar dados da bill
-      const { data: bill, error: billError } = await supabase
-        .from("bills")
-        .select("*")
-        .eq("id", input.bill_id)
-        .single();
-
-      if (billError || !bill) throw new Error("Conta não encontrada");
-
-      // Criar transação de despesa
-      const { data: transaction, error: txError } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: user.id,
-          amount: bill.amount,
-          type: "expense" as const,
-          payment_method: input.payment_method,
-          account_id: input.account_id,
-          category_id: bill.category_id,
-          description: bill.description,
-          date: input.payment_date,
-        })
-        .select()
-        .single();
-
-      if (txError) throw txError;
-
-      // Atualizar bill como paga
-      const { error: updateError } = await supabase
-        .from("bills")
-        .update({
-          status: "paid" as BillStatus,
-          paid_at: new Date().toISOString(),
-          paid_transaction_id: transaction.id,
-          account_id: input.account_id,
-          payment_method: input.payment_method,
-        })
-        .eq("id", input.bill_id);
-
-      if (updateError) throw updateError;
-
-      return { bill, transaction };
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { bill: Bill; transaction: unknown };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
@@ -286,7 +205,7 @@ export function usePayBill() {
     onError: (error) => {
       console.error("Erro ao pagar conta:", error);
       toast.error("Erro ao pagar conta", {
-        description: "Não foi possível registrar o pagamento. Tente novamente.",
+        description: error instanceof Error ? error.message : "Não foi possível registrar o pagamento. Tente novamente.",
       });
     },
   });
@@ -297,12 +216,12 @@ export function useDeleteBill() {
 
   return useMutation({
     mutationFn: async (billId: string) => {
-      const { error } = await supabase
-        .from("bills")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", billId);
+      const { data, error } = await supabase.functions.invoke(`bills/${billId}`, {
+        method: 'DELETE',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
@@ -322,12 +241,12 @@ export function useRestoreBill() {
 
   return useMutation({
     mutationFn: async (billId: string) => {
-      const { error } = await supabase
-        .from("bills")
-        .update({ deleted_at: null })
-        .eq("id", billId);
+      const { data, error } = await supabase.functions.invoke(`bills/${billId}`, {
+        method: 'PATCH',
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
