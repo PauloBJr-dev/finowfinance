@@ -78,13 +78,13 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
   };
 
   const content = (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col gap-4 px-4 py-2">
       {/* Type Toggle */}
       <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-1">
         <button
           onClick={() => setType("expense")}
           className={cn(
-            "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
             type === "expense"
               ? "bg-destructive/10 text-destructive"
               : "text-muted-foreground hover:text-foreground"
@@ -95,7 +95,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         <button
           onClick={() => setType("income")}
           className={cn(
-            "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
             type === "income"
               ? "bg-success/10 text-success"
               : "text-muted-foreground hover:text-foreground"
@@ -105,55 +105,72 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         </button>
       </div>
 
-      {/* Amount */}
-      <div className="space-y-2">
-        <Label>Valor</Label>
-        <CurrencyInput
-          value={amount}
-          onChange={setAmount}
-          placeholder="R$ 0,00"
-          className="text-xl font-semibold h-12"
-        />
+      {/* Amount + Date row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Valor</Label>
+          <CurrencyInput
+            value={amount}
+            onChange={setAmount}
+            placeholder="R$ 0,00"
+            className="text-base font-semibold h-10"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Data</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal h-10 text-sm"
+              >
+                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                {format(date, "dd/MM/yyyy")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(d) => d && setDate(d)}
+                locale={ptBR}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
-      {/* Date */}
-      <div className="space-y-2">
-        <Label>Data</Label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-start text-left font-normal"
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {format(date, "PPP", { locale: ptBR })}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(d) => d && setDate(d)}
-              locale={ptBR}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Category */}
-      <div className="space-y-2">
-        <Label>Categoria</Label>
-        <CategorySelect
-          value={categoryId}
-          onChange={setCategoryId}
-          type={type}
-        />
+      {/* Category + Account row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Categoria</Label>
+          <CategorySelect
+            value={categoryId}
+            onChange={setCategoryId}
+            type={type}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Conta</Label>
+          <Select value={accountId || ""} onValueChange={setAccountId}>
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Payment Method */}
-      <div className="space-y-2">
-        <Label>Forma de pagamento</Label>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Forma de pagamento</Label>
         <PaymentMethodSelect
           value={paymentMethod}
           onChange={(v) => setPaymentMethod(v as PaymentMethod)}
@@ -161,42 +178,27 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         />
       </div>
 
-      {/* Account */}
-      <div className="space-y-2">
-        <Label>Conta</Label>
-        <Select value={accountId || ""} onValueChange={setAccountId}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione uma conta" />
-          </SelectTrigger>
-          <SelectContent>
-            {accounts.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
-                {account.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* Description */}
-      <div className="space-y-2">
-        <Label>Descrição</Label>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Descrição</Label>
         <Input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Ex: Mercado, Almoço..."
+          className="h-10"
         />
       </div>
     </div>
   );
 
   const footer = (
-    <div className="flex gap-2 p-4">
+    <div className="flex gap-2 px-4 py-3">
       {onDelete && (
         <Button
           variant="outline"
+          size="icon"
           onClick={onDelete}
-          className="text-destructive hover:text-destructive"
+          className="text-destructive hover:text-destructive shrink-0"
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -222,11 +224,13 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
     return (
       <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
         <DrawerContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-          <DrawerHeader>
+          <DrawerHeader className="pb-0">
             <DrawerTitle>Editar transação</DrawerTitle>
           </DrawerHeader>
-          {content}
-          <DrawerFooter>{footer}</DrawerFooter>
+          <div className="max-h-[70vh] overflow-y-auto">
+            {content}
+          </div>
+          <DrawerFooter className="pt-0">{footer}</DrawerFooter>
         </DrawerContent>
       </Drawer>
     );
@@ -234,11 +238,13 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Editar transação</DialogTitle>
         </DialogHeader>
-        {content}
+        <div className="flex-1 overflow-y-auto">
+          {content}
+        </div>
         <DialogFooter>{footer}</DialogFooter>
       </DialogContent>
     </Dialog>
