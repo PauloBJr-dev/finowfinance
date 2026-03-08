@@ -8,7 +8,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingDown, TrendingUp, ArrowRight } from "lucide-react";
+import { TrendingDown, TrendingUp, ArrowRight, Wallet, UtensilsCrossed } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
