@@ -66,29 +66,41 @@ export type Database = {
       }
       ai_settings: {
         Row: {
+          allow_coach_use_goals: boolean
+          allow_coach_use_transactions: boolean
           categorization_enabled: boolean
           created_at: string
           daily_token_limit: number
           id: string
+          persona_memory: string | null
           reminders_enabled: boolean
+          store_conversations: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
+          allow_coach_use_goals?: boolean
+          allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
           created_at?: string
           daily_token_limit?: number
           id?: string
+          persona_memory?: string | null
           reminders_enabled?: boolean
+          store_conversations?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
+          allow_coach_use_goals?: boolean
+          allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
           created_at?: string
           daily_token_limit?: number
           id?: string
+          persona_memory?: string | null
           reminders_enabled?: boolean
+          store_conversations?: boolean
           updated_at?: string
           user_id?: string
         }
