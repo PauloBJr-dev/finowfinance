@@ -1,6 +1,7 @@
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LucideIcon, Lock } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 interface NavItemProps {
   to: string;
@@ -13,6 +14,9 @@ interface NavItemProps {
 export function NavItem({ to, icon: Icon, label, collapsed = false, premium = false }: NavItemProps) {
   const location = useLocation();
   const isActive = location.pathname === to;
+  const { plan } = useAuth();
+
+  const showLock = premium && plan === "free";
 
   return (
     <RouterNavLink
@@ -30,7 +34,7 @@ export function NavItem({ to, icon: Icon, label, collapsed = false, premium = fa
       {!collapsed && (
         <span className="flex items-center gap-1.5">
           {label}
-          {premium && <Lock className="h-3 w-3 text-muted-foreground" />}
+          {showLock && <Lock className="h-3 w-3 text-muted-foreground" />}
         </span>
       )}
     </RouterNavLink>
