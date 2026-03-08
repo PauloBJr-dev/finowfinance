@@ -1,44 +1,8 @@
 import { Tables } from "@/integrations/supabase/types";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import {
-  Wallet,
-  CreditCard,
-  Banknote,
-  ArrowRightLeft,
-  FileText,
-  Ticket,
-  Smartphone,
-  HelpCircle,
-  ShoppingBag,
-  ShoppingCart,
-  Car,
-  Home,
-  Utensils,
-  Heart,
-  HeartPulse,
-  Briefcase,
-  GraduationCap,
-  Plane,
-  Gift,
-  Dumbbell,
-  Music,
-  TrendingUp,
-  Building,
-  Users,
-  Tag,
-  Gamepad2,
-  MoreHorizontal,
-  Coffee,
-  Shirt,
-  Wifi,
-  Zap,
-  Droplet,
-  PiggyBank,
-  Wrench,
-  Laptop,
-  PlusCircle,
-} from "lucide-react";
+import { resolveCategoryIcon, resolvePaymentMethodIcon, paymentMethodLabels } from "@/lib/category-icons";
+import { HelpCircle } from "lucide-react";
 
 type Transaction = Tables<"transactions"> & {
   categories?: {
@@ -63,96 +27,12 @@ interface TransactionItemProps {
   onClick?: () => void;
 }
 
-const paymentMethodIcons: Record<string, React.ElementType> = {
-  cash: Banknote,
-  debit: Wallet,
-  credit_card: CreditCard,
-  pix: Smartphone,
-  transfer: ArrowRightLeft,
-  boleto: FileText,
-  voucher: Ticket,
-};
-
-const paymentMethodLabels: Record<string, string> = {
-  cash: "Dinheiro",
-  debit: "Débito",
-  credit_card: "Crédito",
-  pix: "Pix",
-  transfer: "Pix/TED",
-  boleto: "Boleto",
-  voucher: "Voucher",
-};
-
-// Mapa completo de ícones Lucide para categorias
-const categoryIconMap: Record<string, React.ElementType> = {
-  "shopping-bag": ShoppingBag,
-  "shopping-cart": ShoppingCart,
-  car: Car,
-  home: Home,
-  utensils: Utensils,
-  heart: Heart,
-  "heart-pulse": HeartPulse,
-  briefcase: Briefcase,
-  "graduation-cap": GraduationCap,
-  plane: Plane,
-  gift: Gift,
-  smartphone: Smartphone,
-  dumbbell: Dumbbell,
-  music: Music,
-  "trending-up": TrendingUp,
-  building: Building,
-  users: Users,
-  tag: Tag,
-  "gamepad-2": Gamepad2,
-  gamepad: Gamepad2,
-  "more-horizontal": MoreHorizontal,
-  coffee: Coffee,
-  shirt: Shirt,
-  wifi: Wifi,
-  zap: Zap,
-  droplet: Droplet,
-  "piggy-bank": PiggyBank,
-  wrench: Wrench,
-  laptop: Laptop,
-  "plus-circle": PlusCircle,
-  "credit-card": CreditCard,
-  wallet: Wallet,
-  Wallet: Wallet,
-  // PascalCase fallbacks
-  ShoppingBag,
-  ShoppingCart,
-  Car,
-  Home,
-  Utensils,
-  Heart,
-  HeartPulse,
-  Briefcase,
-  GraduationCap,
-  Plane,
-  Gift,
-  Smartphone,
-  Dumbbell,
-  Music,
-  TrendingUp,
-  Building,
-  Users,
-  Tag,
-  Gamepad2,
-  Wrench,
-  Laptop,
-  PlusCircle,
-  CreditCard,
-  HelpCircle,
-};
-
 export function TransactionItem({ transaction, onClick }: TransactionItemProps) {
-  const PaymentIcon = paymentMethodIcons[transaction.payment_method] || HelpCircle;
+  const PaymentIcon = resolvePaymentMethodIcon(transaction.payment_method);
   const isExpense = transaction.type === "expense";
 
   const categoryColor = transaction.categories?.color || "hsl(var(--muted-foreground))";
-  const CategoryIcon = transaction.categories?.icon
-    ? categoryIconMap[transaction.categories.icon] || Tag
-    : Tag;
+  const CategoryIcon = resolveCategoryIcon(transaction.categories?.icon);
 
   return (
     <button
