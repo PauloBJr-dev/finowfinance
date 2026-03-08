@@ -59,11 +59,11 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
   const to = parseISO(endDate);
   const days = differenceInDays(to, from) + 1;
 
-  // ≤ 2 days → each day
-  if (days <= 2) {
+  // ≤ 7 days → each day
+  if (days <= 7) {
     return eachDayOfInterval({ start: from, end: to }).map((d) => ({
       key: format(d, "yyyy-MM-dd"),
-      label: format(d, "dd MMM", { locale: ptBR }),
+      label: format(d, "EEE, dd", { locale: ptBR }),
       from: d,
       to: d,
       income: 0,
@@ -71,26 +71,14 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
     }));
   }
 
-  // ≤ 31 days → each day
-  if (days <= 31) {
-    return eachDayOfInterval({ start: from, end: to }).map((d) => ({
-      key: format(d, "yyyy-MM-dd"),
-      label: format(d, "dd/MM", { locale: ptBR }),
-      from: d,
-      to: d,
-      income: 0,
-      expenses: 0,
-    }));
-  }
-
-  // ≤ 90 days → each week
-  if (days <= 90) {
+  // 8–60 days → each week
+  if (days <= 60) {
     const weeks = eachWeekOfInterval({ start: from, end: to }, { weekStartsOn: 1 });
     return weeks.map((weekStart) => {
       const wEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
       return {
         key: format(weekStart, "yyyy-'W'II"),
-        label: `${format(weekStart, "dd/MM")} - ${format(wEnd, "dd/MM")}`,
+        label: `${format(weekStart, "dd/MM")} – ${format(wEnd, "dd/MM")}`,
         from: weekStart,
         to: wEnd,
         income: 0,
@@ -99,7 +87,7 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
     });
   }
 
-  // > 90 days → each month
+  // > 60 days → each month
   return eachMonthOfInterval({ start: from, end: to }).map((mStart) => {
     const mEnd = endOfMonth(mStart);
     return {
@@ -242,14 +230,10 @@ export function IncomeVsExpensesChart({
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 11 }}
               className="fill-muted-foreground"
               axisLine={false}
               tickLine={false}
-              interval={chartData.length > 15 ? Math.ceil(chartData.length / 10) : 0}
-              angle={chartData.length > 10 ? -45 : 0}
-              textAnchor={chartData.length > 10 ? "end" : "middle"}
-              height={chartData.length > 10 ? 50 : 30}
             />
             <YAxis
               tick={{ fontSize: 10 }}
