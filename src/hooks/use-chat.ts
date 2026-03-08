@@ -1,12 +1,17 @@
 import { useState, useCallback, useRef } from "react";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  dataPoints?: string[];
+};
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/finow-chat`;
 
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (input: string) => {
@@ -14,13 +19,20 @@ export function useChat() {
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setIsStreaming(true);
+    setIsLoadingContext(true);
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     let assistantSoFar = "";
+    let receivedFirstChunk = false;
+    let pendingDataPoints: string[] | undefined;
 
     const upsert = (chunk: string) => {
+      if (!receivedFirstChunk) {
+        receivedFirstChunk = true;
+        setIsLoadingContext(false);
+      }
       assistantSoFar += chunk;
       setMessages((prev) => {
         const last = prev[prev.length - 1];
@@ -33,8 +45,20 @@ export function useChat() {
       });
     };
 
+    const applyDataPoints = (dp: string[]) => {
+      pendingDataPoints = dp;
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return prev.map((m, i) =>
+            i === prev.length - 1 ? { ...m, dataPoints: dp } : m
+          );
+        }
+        return prev;
+      });
+    };
+
     try {
-      // Get token from supabase session
       const { supabase } = await import("@/integrations/supabase/client");
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada");
@@ -63,6 +87,29 @@ export function useChat() {
       let textBuffer = "";
       let streamDone = false;
 
+      const processLine = (line: string) => {
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") return false;
+        if (!line.startsWith("data: ")) return false;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") return true; // done
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          // Check for meta event (data_points)
+          if (parsed.meta?.data_points) {
+            applyDataPoints(parsed.meta.data_points);
+            return false;
+          }
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) upsert(content);
+        } catch {
+          // ignore parse errors
+        }
+        return false;
+      };
+
       while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -70,25 +117,10 @@ export function useChat() {
 
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
+          const line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
+          if (processLine(line)) {
             streamDone = true;
-            break;
-          }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsert(content);
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
             break;
           }
         }
@@ -96,23 +128,13 @@ export function useChat() {
 
       // Final flush
       if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
+        for (const raw of textBuffer.split("\n")) {
           if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (raw.startsWith(":") || raw.trim() === "") continue;
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) upsert(content);
-          } catch { /* ignore */ }
+          processLine(raw);
         }
       }
     } catch (err: any) {
       if (err.name === "AbortError") return;
-      // Add error as assistant message
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         const errMsg = `⚠ ${err.message || "Erro ao conectar com o mentor."}`;
@@ -125,6 +147,7 @@ export function useChat() {
       });
     } finally {
       setIsStreaming(false);
+      setIsLoadingContext(false);
       abortRef.current = null;
     }
   }, [messages]);
@@ -140,5 +163,5 @@ export function useChat() {
     setIsStreaming(false);
   }, []);
 
-  return { messages, isStreaming, sendMessage, clearChat, stopStreaming };
+  return { messages, isStreaming, isLoadingContext, sendMessage, clearChat, stopStreaming };
 }

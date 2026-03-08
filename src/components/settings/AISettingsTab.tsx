@@ -1,11 +1,15 @@
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Sparkles, Bell, TrendingUp, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Brain, Sparkles, Bell, TrendingUp, AlertCircle, ShieldCheck, User } from "lucide-react";
 import { useAISettings, useUpdateAISettings, useAIUsage, useTodayUsage } from "@/hooks/use-ai";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export function AISettingsTab() {
   const { data: settings, isLoading: settingsLoading } = useAISettings();
@@ -13,9 +17,44 @@ export function AISettingsTab() {
   const { data: todayUsage } = useTodayUsage();
   const updateSettings = useUpdateAISettings();
 
-  const handleToggle = (field: "categorization_enabled" | "reminders_enabled", value: boolean) => {
-    updateSettings.mutate({ [field]: value });
+  // Persona state (fetched via edge function)
+  const [persona, setPersona] = useState<{ tone: string; summary_length: string }>({
+    tone: "casual",
+    summary_length: "short",
+  });
+  const [personaLoading, setPersonaLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("finow-chat", {
+          body: { action: "get_persona" },
+        });
+        if (!error && data?.persona) {
+          setPersona(data.persona);
+        }
+      } catch { /* use defaults */ }
+      setPersonaLoading(false);
+    })();
+  }, []);
+
+  const handleToggle = (field: string, value: boolean) => {
+    updateSettings.mutate({ [field]: value } as any);
   };
+
+  const handlePersonaChange = useCallback(async (key: string, value: string) => {
+    const updated = { ...persona, [key]: value };
+    setPersona(updated);
+    try {
+      const { error } = await supabase.functions.invoke("finow-chat", {
+        body: { action: "update_persona", persona: updated },
+      });
+      if (error) throw error;
+      toast.success("Preferências do mentor atualizadas!");
+    } catch {
+      toast.error("Erro ao salvar preferências.");
+    }
+  }, [persona]);
 
   if (settingsLoading) {
     return (
@@ -56,8 +95,8 @@ export function AISettingsTab() {
                 {todayUsage?.total.toLocaleString()} / {todayUsage?.limit.toLocaleString()} tokens
               </span>
             </div>
-            <Progress 
-              value={todayUsage?.percentage || 0} 
+            <Progress
+              value={todayUsage?.percentage || 0}
               className="h-2"
             />
             {(todayUsage?.percentage || 0) >= 80 && (
@@ -76,8 +115,9 @@ export function AISettingsTab() {
                 Object.entries(usageByAgent).map(([agent, tokens]) => (
                   <div key={agent} className="flex justify-between items-center">
                     <Badge variant="outline" className="capitalize">
-                      {agent === 'categorization' ? 'Categorização' : 
-                       agent === 'reminders' ? 'Lembretes' : agent}
+                      {agent === 'categorization' ? 'Categorização' :
+                       agent === 'reminders' ? 'Lembretes' :
+                       agent === 'chat' ? 'Mentor' : agent}
                     </Badge>
                     <span className="text-sm font-mono">{tokens.toLocaleString()} tokens</span>
                   </div>
@@ -158,6 +198,119 @@ export function AISettingsTab() {
         </CardContent>
       </Card>
 
+      {/* Permissões do Mentor */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Permissões do Mentor
+          </CardTitle>
+          <CardDescription>
+            Controle quais dados o mentor financeiro pode acessar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="coach-transactions" className="font-medium">
+                Compartilhar transações
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Permite que o mentor analise suas receitas, despesas e contas a pagar
+              </p>
+            </div>
+            <Switch
+              id="coach-transactions"
+              checked={settings?.allow_coach_use_transactions ?? true}
+              onCheckedChange={(checked) => handleToggle("allow_coach_use_transactions", checked)}
+              disabled={updateSettings.isPending}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="coach-goals" className="font-medium">
+                Compartilhar metas
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Permite que o mentor acompanhe suas metas financeiras
+              </p>
+            </div>
+            <Switch
+              id="coach-goals"
+              checked={settings?.allow_coach_use_goals ?? true}
+              onCheckedChange={(checked) => handleToggle("allow_coach_use_goals", checked)}
+              disabled={updateSettings.isPending}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="store-conversations" className="font-medium">
+                Armazenar conversas
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Salva o histórico de conversas com o mentor entre sessões
+              </p>
+            </div>
+            <Switch
+              id="store-conversations"
+              checked={settings?.store_conversations ?? false}
+              onCheckedChange={(checked) => handleToggle("store_conversations", checked)}
+              disabled={updateSettings.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Personalização do Mentor */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            Personalização do Mentor
+          </CardTitle>
+          <CardDescription>
+            Ajuste como o mentor se comunica com você
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label className="font-medium">Tom da conversa</Label>
+            <Select
+              value={persona.tone}
+              onValueChange={(v) => handlePersonaChange("tone", v)}
+              disabled={personaLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="casual">Casual — amigável e descontraído</SelectItem>
+                <SelectItem value="formal">Formal — profissional e direto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-medium">Tamanho das respostas</Label>
+            <Select
+              value={persona.summary_length}
+              onValueChange={(v) => handlePersonaChange("summary_length", v)}
+              disabled={personaLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="short">Curto — respostas objetivas</SelectItem>
+                <SelectItem value="long">Longo — respostas detalhadas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Informações */}
       <Card className="bg-muted/30">
         <CardContent className="pt-6">
@@ -168,7 +321,7 @@ export function AISettingsTab() {
                 <strong>Limite diário:</strong> {settings?.daily_token_limit?.toLocaleString() || '5.000'} tokens por usuário
               </p>
               <p>
-                A IA apenas sugere categorias e envia lembretes. 
+                A IA apenas sugere categorias e envia lembretes.
                 <strong> Nenhuma ação é executada automaticamente.</strong>
               </p>
               <p>
