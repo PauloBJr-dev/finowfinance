@@ -1,87 +1,25 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Problema
 
-## Resumo
+O `NotificationCenter` (sino) está posicionado com `absolute top-3 right-4` no MainLayout, mas o header do Dashboard tem seus próprios botões (olho de privacidade + engrenagem de customização) alinhados à direita via `justify-between`. Esses dois grupos se sobrepõem no desktop e ficam desorganizados no mobile.
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+## Solução
 
----
+Remover o `NotificationCenter` do posicionamento absoluto no MainLayout e integrá-lo diretamente na linha de botões do header do Dashboard (e das outras páginas). Isso garante que todos os botões de ação fiquem na mesma linha, com espaçamento correto.
 
-## O que será removido
+### Alterações
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+**`src/components/layout/MainLayout.tsx`**
+- Remover o `div` absoluto com `NotificationCenter` — ele será renderizado pelas páginas no próprio header
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+**`src/pages/Dashboard.tsx`**
+- Adicionar `NotificationCenter` dentro do `div` de botões do header (ao lado do olho e da engrenagem), na mesma linha flex
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+**Outras páginas** (Transacoes, ContasPagar, Metas, Cofrinho, Configuracoes, Chat, Faturas)
+- Verificar se possuem header com botões e adicionar `NotificationCenter` de forma consistente. Para páginas sem header próprio, adicionar uma linha simples com o sino alinhado à direita.
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
-
----
-
-## O que será modificado
-
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
-
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
-
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
-
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Resultado esperado
+- Desktop: sino, olho e engrenagem na mesma linha, sem sobreposição
+- Mobile: mesmos botões alinhados horizontalmente no topo, sem conflito
 
