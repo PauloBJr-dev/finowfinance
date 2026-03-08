@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { PrivacyProvider } from "@/contexts/PrivacyContext";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -66,6 +67,7 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <SidebarProvider>
+          <PrivacyProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -73,6 +75,7 @@ const App = () => (
               <AppRoutes />
             </BrowserRouter>
           </TooltipProvider>
+          </PrivacyProvider>
         </SidebarProvider>
       </AuthProvider>
     </ThemeProvider>
