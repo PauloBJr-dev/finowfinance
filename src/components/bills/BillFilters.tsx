@@ -66,26 +66,26 @@ export function BillFilters({
         onValueChange={(v) => onStatusFilterChange(v as BillStatus | "all")}
         className="w-full"
       >
-        <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger value="pending" className="text-xs sm:text-sm">
+        <TabsList className="w-full flex overflow-x-auto no-scrollbar">
+          <TabsTrigger value="pending" className="flex-1 min-w-0 text-xs sm:text-sm whitespace-nowrap">
             A Vencer
             {counts && counts.pending > 0 && (
               <span className="ml-1 text-xs opacity-70">({counts.pending})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="overdue" className="text-xs sm:text-sm">
+          <TabsTrigger value="overdue" className="flex-1 min-w-0 text-xs sm:text-sm whitespace-nowrap">
             Vencidas
             {counts && counts.overdue > 0 && (
               <span className="ml-1 text-xs opacity-70">({counts.overdue})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="paid" className="text-xs sm:text-sm">
+          <TabsTrigger value="paid" className="flex-1 min-w-0 text-xs sm:text-sm whitespace-nowrap">
             Pagas
             {counts && counts.paid > 0 && (
               <span className="ml-1 text-xs opacity-70">({counts.paid})</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="all" className="text-xs sm:text-sm">
+          <TabsTrigger value="all" className="flex-1 min-w-0 text-xs sm:text-sm whitespace-nowrap">
             Todas
             {counts && counts.all > 0 && (
               <span className="ml-1 text-xs opacity-70">({counts.all})</span>

@@ -86,8 +86,8 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
           className={cn(
             "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
             type === "expense"
-              ? "bg-destructive/10 text-destructive"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-destructive text-destructive-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
           )}
         >
           Despesa
@@ -97,8 +97,8 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
           className={cn(
             "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
             type === "income"
-              ? "bg-success/10 text-success"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-success text-success-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
           )}
         >
           Receita

@@ -27,7 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           isMobile && "pb-24"
         )}
       >
-        <div className="container py-6">
+        <div className="container px-4 sm:px-6 py-6">
           {children}
         </div>
       </main>

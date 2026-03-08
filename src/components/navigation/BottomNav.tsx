@@ -1,6 +1,5 @@
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { NavItem } from "./NavItem";
 import { navigationItems, settingsItem } from "./navigation-items";
 import { MoreHorizontal } from "lucide-react";
 import {
@@ -11,13 +10,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 
-// Show first 4 items in bottom nav, rest in overflow menu
+// Mobile-friendly short labels
+const mobileLabels: Record<string, string> = {
+  "Contas a pagar": "Contas",
+  "Configurações": "Config",
+};
+
 const visibleItems = navigationItems.slice(0, 4);
 const overflowItems = [...navigationItems.slice(4), settingsItem];
 
 export function BottomNav() {
   const location = useLocation();
-  
   const isOverflowActive = overflowItems.some(item => item.to === location.pathname);
 
   return (
@@ -26,30 +29,30 @@ export function BottomNav() {
         {visibleItems.map((item) => {
           const isActive = location.pathname === item.to;
           const Icon = item.icon;
-          
+          const label = mobileLabels[item.label] || item.label;
+
           return (
             <Link
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-2xs transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium">{label}</span>
             </Link>
           );
         })}
 
-        {/* Overflow menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-2xs transition-colors",
+                "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
                 isOverflowActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -59,11 +62,11 @@ export function BottomNav() {
               <span className="font-medium">Mais</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="mb-2 w-48">
+          <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-48">
             {overflowItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.to;
-              
+
               return (
                 <DropdownMenuItem key={item.to} asChild>
                   <Link

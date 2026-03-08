@@ -8,10 +8,8 @@ import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingDown, TrendingUp, ArrowRight, Wallet, UtensilsCrossed } from "lucide-react";
+import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
@@ -80,7 +78,7 @@ export default function Dashboard() {
         <PeriodFilter onPeriodChange={handlePeriodChange} />
 
         {/* Summary cards */}
-        <div className={`grid gap-4 md:grid-cols-3 ${hasBenefit ? "lg:grid-cols-4" : ""}`}>
+        <div className={`grid grid-cols-2 gap-4 ${hasBenefit ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
@@ -154,14 +152,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Ver transações */}
-        <div className="flex justify-end">
-          <Button variant="outline" asChild>
-            <Link to="/transacoes">
-              Ver transações <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
 
         <RemindersCard />
 

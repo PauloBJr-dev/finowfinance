@@ -10,6 +10,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { DateRange } from "react-day-picker";
 
 type PeriodKey = "today" | "yesterday" | "7d" | "15d" | "last_month" | "this_month" | "custom";
@@ -81,6 +82,7 @@ interface PeriodFilterProps {
 }
 
 export function PeriodFilter({ onPeriodChange, defaultPeriod = "this_month" }: PeriodFilterProps) {
+  const isMobile = useIsMobile();
   const [activePeriod, setActivePeriod] = useState<PeriodKey>(defaultPeriod);
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
 
@@ -137,7 +139,7 @@ export function PeriodFilter({ onPeriodChange, defaultPeriod = "this_month" }: P
             selected={customRange}
             onSelect={handleCustomRangeChange}
             locale={ptBR}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
             initialFocus
             className="pointer-events-auto"
           />
