@@ -1,87 +1,86 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plano: Agente de Insights + Chat com Mentor Financeiro
 
-## Resumo
+### Parte 1: Agente de Insights
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+**Edge Function `supabase/functions/ai-insights/index.ts`** (novo)
+- Recebe POST com `{ startDate, endDate }`
+- Busca transações do período do usuário autenticado (com categorias)
+- Monta prompt para Gemini 3 Flash Preview com contexto financeiro: totais por categoria, receitas vs despesas, padrões de gasto
+- Usa tool calling para retornar estrutura: `{ summary, highlights[], warnings[], tips[] }`
+- Registra tokens em `ai_token_usage` (agent: `insights`, cap: 20k/dia)
+- Trata erros 429/402
 
----
+**`src/hooks/use-ai.ts`** — Adicionar `useInsights(startDate, endDate)` mutation que invoca a edge function
 
-## O que será removido
+**`src/components/dashboard/InsightsCard.tsx`** (novo)
+- Card no dashboard com botão "Gerar Insights" (não automático, para economizar tokens)
+- Exibe resultado: resumo, destaques, alertas e dicas
+- Renderiza markdown via formatação simples (bold, listas)
+- Estado: idle → loading → resultado
+- Toggle controlável via `DashboardCustomizer` (widget id: `ai_insights`)
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+**`src/hooks/use-dashboard-preferences.ts`** — Adicionar `ai_insights` aos defaults
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+**`src/pages/Dashboard.tsx`** — Renderizar `InsightsCard` condicionalmente
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
-
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+**`supabase/config.toml`** — Adicionar `[functions.ai-insights]`
 
 ---
 
-## O que será modificado
+### Parte 2: Chat com Mentor Financeiro (streaming)
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+**Edge Function `supabase/functions/finow-chat/index.ts`** (novo, substituindo o stub `chat-messages`)
+- POST com `{ messages: [{role, content}] }`
+- Valida auth, verifica token budget (agent: `chat`, cap: 40k/dia)
+- Busca contexto financeiro do usuário (último mês de transações resumido, saldo de contas, bills pendentes) para injetar no system prompt
+- System prompt: mentor financeiro calmo, casual, PT-BR. Não executa transações. Não dá conselho regulado. Cita dados usados
+- Chama Lovable AI Gateway com `stream: true` (model: `google/gemini-3-flash-preview`)
+- Retorna SSE stream direto ao cliente
+- Trata 429/402
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+**`src/hooks/use-chat.ts`** (novo)
+- Gerencia estado de mensagens `{role, content}[]`
+- Função `sendMessage` que faz fetch SSE e parseia token-por-token
+- Atualiza última mensagem assistant progressivamente
+- Não persiste conversas por padrão (conforme spec: `store_conversations` default = não)
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+**`src/pages/Chat.tsx`** (novo)
+- Layout fullscreen com header, área de mensagens scrollável, input fixo no bottom
+- Mensagens renderizadas com markdown (react-markdown não está instalado, usaremos formatação simples com `whitespace-pre-wrap` e detecção de bold/listas)
+- Indicador de typing durante streaming
+- Mensagem inicial de boas-vindas do mentor
+- Botão de limpar conversa
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
+**Navegação** — Adicionar rota `/chat` e item na sidebar/bottom nav (ícone `MessageCircle`)
 
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
+**`src/App.tsx`** — Adicionar rota protegida `/chat`
 
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
+**`supabase/config.toml`** — Adicionar `[functions.finow-chat]`
 
 ---
 
-## O que NÃO será alterado no banco de dados
+### Arquivos afetados
 
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+| Ação | Arquivo |
+|------|---------|
+| Criar | `supabase/functions/ai-insights/index.ts` |
+| Criar | `supabase/functions/finow-chat/index.ts` |
+| Criar | `src/components/dashboard/InsightsCard.tsx` |
+| Criar | `src/hooks/use-chat.ts` |
+| Criar | `src/pages/Chat.tsx` |
+| Editar | `src/hooks/use-ai.ts` (add useInsights) |
+| Editar | `src/hooks/use-dashboard-preferences.ts` (add ai_insights) |
+| Editar | `src/components/dashboard/DashboardCustomizer.tsx` (add ai_insights) |
+| Editar | `src/pages/Dashboard.tsx` (render InsightsCard) |
+| Editar | `src/App.tsx` (add /chat route) |
+| Editar | `src/components/navigation/navigation-items.ts` (add Chat) |
 
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Segurança
+- Ambas edge functions validam JWT manualmente
+- Sanitização de inputs no chat (max 500 chars por mensagem)
+- Token budget enforced por usuário e por agente
+- Chat NÃO executa transações (apenas sugere)
+- CORS restrito aos domínios autorizados
 
