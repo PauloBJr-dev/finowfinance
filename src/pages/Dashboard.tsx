@@ -8,7 +8,7 @@ import { useBillsSummary } from "@/hooks/use-bills";
 import { useUpcomingBills, usePreviousMonthTotals } from "@/hooks/use-dashboard-data";
 import { useProfile } from "@/hooks/use-profile";
 import { useDashboardPreferences } from "@/hooks/use-dashboard-preferences";
-import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
+import { formatCurrency, getGreeting, getFirstName, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed, Scale } from "lucide-react";
