@@ -1,27 +1,11 @@
-import { useState } from "react";
 import { useCategories } from "@/hooks/use-categories";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ShoppingBag,
-  Car,
-  Home,
-  Utensils,
-  Heart,
-  Briefcase,
-  GraduationCap,
-  Plane,
-  Gift,
-  Smartphone,
-  Dumbbell,
-  Music,
-  ShoppingCart,
-  Wallet,
-  TrendingUp,
-  Building,
-  Users,
-  HelpCircle,
-  Tag,
+  ShoppingBag, Car, Home, Utensils, Heart, Briefcase, GraduationCap,
+  Plane, Gift, Smartphone, Dumbbell, Music, ShoppingCart, Wallet,
+  TrendingUp, Building, Users, HelpCircle, Tag,
 } from "lucide-react";
 
 type CategoryType = "expense" | "income";
@@ -33,82 +17,32 @@ interface CategorySelectProps {
   className?: string;
 }
 
-// Mapeamento de nomes de ícones para componentes (PascalCase)
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  ShoppingBag,
-  Car,
-  Home,
-  Utensils,
-  Heart,
-  Briefcase,
-  GraduationCap,
-  Plane,
-  Gift,
-  Smartphone,
-  Dumbbell,
-  Music,
-  ShoppingCart,
-  Wallet,
-  TrendingUp,
-  Building,
-  Users,
-  HelpCircle,
-  Tag,
+  ShoppingBag, Car, Home, Utensils, Heart, Briefcase, GraduationCap,
+  Plane, Gift, Smartphone, Dumbbell, Music, ShoppingCart, Wallet,
+  TrendingUp, Building, Users, HelpCircle, Tag,
 };
 
-// Mapeamento kebab-case (banco de dados) para PascalCase (componentes)
 const iconNameMap: Record<string, string> = {
-  "shopping-bag": "ShoppingBag",
-  "shopping-cart": "ShoppingCart",
-  "car": "Car",
-  "home": "Home",
-  "utensils": "Utensils",
-  "heart": "Heart",
-  "briefcase": "Briefcase",
-  "graduation-cap": "GraduationCap",
-  "plane": "Plane",
-  "gift": "Gift",
-  "smartphone": "Smartphone",
-  "dumbbell": "Dumbbell",
-  "music": "Music",
-  "wallet": "Wallet",
-  "trending-up": "TrendingUp",
-  "building": "Building",
-  "users": "Users",
-  "help-circle": "HelpCircle",
-  "tag": "Tag",
+  "shopping-bag": "ShoppingBag", "shopping-cart": "ShoppingCart", "car": "Car",
+  "home": "Home", "utensils": "Utensils", "heart": "Heart", "briefcase": "Briefcase",
+  "graduation-cap": "GraduationCap", "plane": "Plane", "gift": "Gift",
+  "smartphone": "Smartphone", "dumbbell": "Dumbbell", "music": "Music",
+  "wallet": "Wallet", "trending-up": "TrendingUp", "building": "Building",
+  "users": "Users", "help-circle": "HelpCircle", "tag": "Tag",
 };
 
-/**
- * Resolve nome do ícone de kebab-case para PascalCase
- */
 const resolveIconName = (icon: string | null | undefined): string => {
   if (!icon) return "Tag";
-  // Primeiro tenta o mapeamento kebab-case
   if (iconNameMap[icon]) return iconNameMap[icon];
-  // Se não encontrar, retorna como está (pode já estar em PascalCase)
   return icon;
 };
 
-/**
- * Grid de seleção de categorias
- */
-export function CategorySelect({
-  value,
-  onChange,
-  type,
-  className,
-}: CategorySelectProps) {
+export function CategorySelect({ value, onChange, type, className }: CategorySelectProps) {
   const { data: categories, isLoading } = useCategories(type);
 
   if (isLoading) {
-    return (
-      <div className={cn("grid grid-cols-4 gap-2", className)}>
-        {[...Array(8)].map((_, i) => (
-          <Skeleton key={i} className="h-16 rounded-lg" />
-        ))}
-      </div>
-    );
+    return <Skeleton className="h-10 w-full rounded-md" />;
   }
 
   if (!categories?.length) {
@@ -119,56 +53,57 @@ export function CategorySelect({
     );
   }
 
-  return (
-    <div className={cn(
-      "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2",
-      "max-h-48 overflow-y-auto pr-1",
-      className
-    )}>
-    {categories.map((category) => {
-        const resolvedIcon = resolveIconName(category.icon);
-        const IconComponent = iconMap[resolvedIcon] || Tag;
-        const isSelected = value === category.id;
+  const selectedCategory = categories.find(c => c.id === value);
+  const SelectedIcon = selectedCategory
+    ? iconMap[resolveIconName(selectedCategory.icon)] || Tag
+    : null;
 
-        return (
-          <button
-            key={category.id}
-            type="button"
-            onClick={() => onChange(category.id)}
-            className={cn(
-              "flex flex-col items-center justify-center rounded-lg p-2 sm:p-3 transition-all",
-              "border-2 hover:bg-muted/50",
-              isSelected
-                ? "border-primary bg-primary/5"
-                : "border-border bg-card"
-            )}
-          >
-            <div
-              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full mb-1"
-              style={{
-                backgroundColor: category.color
-                  ? `${category.color}20`
-                  : "hsl(var(--muted))",
-              }}
-            >
-              <IconComponent
-                className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+  return (
+    <Select value={value || ""} onValueChange={onChange}>
+      <SelectTrigger className={cn("w-full", className)}>
+        <SelectValue placeholder="Selecione uma categoria">
+          {selectedCategory && SelectedIcon && (
+            <span className="flex items-center gap-2">
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full"
                 style={{
-                  color: category.color || "hsl(var(--muted-foreground))",
+                  backgroundColor: selectedCategory.color ? `${selectedCategory.color}20` : "hsl(var(--muted))",
                 }}
-              />
-            </div>
-            <span
-              className={cn(
-                "text-[10px] sm:text-xs font-medium text-center line-clamp-1",
-                isSelected ? "text-primary" : "text-foreground"
-              )}
-            >
-              {category.name}
+              >
+                <SelectedIcon
+                  className="h-3 w-3"
+                  style={{ color: selectedCategory.color || "hsl(var(--muted-foreground))" }}
+                />
+              </span>
+              {selectedCategory.name}
             </span>
-          </button>
-        );
-      })}
-    </div>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="bg-popover max-h-60">
+        {categories.map((category) => {
+          const resolvedIcon = resolveIconName(category.icon);
+          const IconComponent = iconMap[resolvedIcon] || Tag;
+          return (
+            <SelectItem key={category.id} value={category.id}>
+              <span className="flex items-center gap-2">
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: category.color ? `${category.color}20` : "hsl(var(--muted))",
+                  }}
+                >
+                  <IconComponent
+                    className="h-3 w-3"
+                    style={{ color: category.color || "hsl(var(--muted-foreground))" }}
+                  />
+                </span>
+                {category.name}
+              </span>
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
   );
 }

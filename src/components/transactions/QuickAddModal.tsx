@@ -17,10 +17,9 @@ import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCreateTransaction } from "@/hooks/use-transactions";
 import { useCreateBill } from "@/hooks/use-bills";
-import { useSuggestCategory, useAISettings } from "@/hooks/use-ai";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ArrowLeft, Loader2, Sparkles, FileText } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Loader2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
