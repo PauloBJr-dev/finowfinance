@@ -28,10 +28,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           isMobile && "pb-24"
         )}
       >
-        <div className="flex items-center justify-end px-4 sm:px-6 pt-4">
+        {/* Notification bell — absolute top-right, no extra space */}
+        <div className="absolute top-3 right-4 z-10">
           <NotificationCenter />
         </div>
-        <div className="container px-4 sm:px-6 py-4">
+        <div className="container px-4 sm:px-6 py-6">
           {children}
         </div>
       </main>
