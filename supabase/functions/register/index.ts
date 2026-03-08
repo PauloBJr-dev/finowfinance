@@ -31,7 +31,7 @@ function isValidPhone(phone: string): boolean {
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req)
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
