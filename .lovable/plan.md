@@ -1,87 +1,35 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plano: Badge Premium no Dashboard + Bloqueio de features no plano gratuito
 
-## Resumo
+### 1. Badge Premium no Dashboard
+- No header do `Dashboard.tsx`, ao lado da saudacao, exibir um badge condicional usando `useAuth()`:
+  - Se `plan === "premium"` ou `plan === "lifetime"`: badge verde "Premium" ou "Lifetime"
+  - Se `plan === "free"`: badge cinza "Free" (opcional, pode omitir)
+- Usar o componente `Badge` existente com variantes de cor customizadas
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+### 2. Componente PremiumGate (novo)
+- Criar `src/components/shared/PremiumGate.tsx`: wrapper que verifica `useAuth().plan`
+  - Se free: renderiza um overlay/card informando que a feature e Premium, com CTA para upgrade
+  - Se premium/lifetime: renderiza `children` normalmente
 
----
+### 3. Bloquear features para usuarios free
+- **Metas** (`src/pages/Metas.tsx`): envolver conteudo com `PremiumGate`
+- **Cofrinho** (`src/pages/Cofrinho.tsx`): envolver conteudo com `PremiumGate`
+- **Relatorios PDF** (`src/components/reports/ExportReportModal.tsx`): dentro do modal, antes de gerar, verificar plan. Se free, mostrar mensagem de upgrade ao inves do botao de export
+- **Mentor IA / Chat** (`src/pages/Chat.tsx`): envolver com `PremiumGate`
 
-## O que será removido
+### 4. Indicadores visuais na navegacao
+- No `NavItem.tsx`, aceitar prop opcional `premium?: boolean` e renderizar um mini icone de cadeado ou badge ao lado do label para itens premium
+- Em `navigation-items.ts`, marcar `metas`, `cofrinho` e `chat` como `premium: true`
+- No `Sidebar.tsx`, marcar o botao de Relatorios como premium tambem
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
-
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
-
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
-
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
-
----
-
-## O que será modificado
-
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
-
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
-
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
-
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Arquivos modificados
+- `src/pages/Dashboard.tsx` — badge de plano no header
+- `src/components/shared/PremiumGate.tsx` — novo componente gate
+- `src/pages/Metas.tsx`, `src/pages/Cofrinho.tsx`, `src/pages/Chat.tsx` — wrap com PremiumGate
+- `src/components/reports/ExportReportModal.tsx` — check de plano antes de gerar
+- `src/components/navigation/NavItem.tsx` — prop premium + icone cadeado
+- `src/components/navigation/navigation-items.ts` — marcar itens premium
+- `src/components/navigation/Sidebar.tsx` — marcar Relatorios como premium
 
