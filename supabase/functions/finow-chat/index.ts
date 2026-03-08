@@ -11,7 +11,7 @@ const USER_DAILY_CAP = 5000
 const MAX_MESSAGE_LENGTH = 500
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req)
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -211,7 +211,7 @@ ${financialContext}`
 
   } catch (error) {
     console.error('[finow-chat] Internal error:', error)
-    const corsHeaders = getCorsHeaders(req)
+    
     return new Response(JSON.stringify({ error: 'Erro interno do servidor' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })

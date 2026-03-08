@@ -11,7 +11,7 @@ const AGENT_DAILY_CAP = 20000
 const USER_DAILY_CAP = 5000
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req)
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
