@@ -67,13 +67,12 @@ export type Database = {
       ai_settings: {
         Row: {
           allow_coach_use_goals: boolean
-          allow_coach_use_invoices: boolean
           allow_coach_use_transactions: boolean
           categorization_enabled: boolean
           created_at: string
           daily_token_limit: number
           id: string
-          persona_memory: Json
+          persona_memory: string | null
           reminders_enabled: boolean
           store_conversations: boolean
           updated_at: string
@@ -81,13 +80,12 @@ export type Database = {
         }
         Insert: {
           allow_coach_use_goals?: boolean
-          allow_coach_use_invoices?: boolean
           allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
           created_at?: string
           daily_token_limit?: number
           id?: string
-          persona_memory?: Json
+          persona_memory?: string | null
           reminders_enabled?: boolean
           store_conversations?: boolean
           updated_at?: string
@@ -95,13 +93,12 @@ export type Database = {
         }
         Update: {
           allow_coach_use_goals?: boolean
-          allow_coach_use_invoices?: boolean
           allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
           created_at?: string
           daily_token_limit?: number
           id?: string
-          persona_memory?: Json
+          persona_memory?: string | null
           reminders_enabled?: boolean
           store_conversations?: boolean
           updated_at?: string
