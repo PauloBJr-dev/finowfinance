@@ -1,87 +1,117 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plano: Fase 2 — Notificações Inteligentes
 
-## Resumo
+### 1. Edge Function `ai-anomaly/index.ts` (NOVA)
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+- `verify_jwt = true` em config.toml (chamada do frontend com JWT)
+- Recebe `{ transaction_id }`, extrai userId via `getUser()`
+- Busca `ai_settings` → se `allow_coach_use_transactions = false` → return 200 no-op
+- Busca a transação (deve ser expense com category_id)
+- Busca transações da mesma categoria nos últimos 3 meses (excluindo a atual)
+- Se < 10 históricas → return 200 no-op
+- Calcula média por transação e total do mês anterior na categoria
+- Condição A: valor > 2x média → flag
+- Condição B: total mês atual na categoria > 80% mês anterior → flag
+- Se flagged: chama Lovable AI Gateway (gemini-3-flash-preview, max_tokens: 500) para gerar título + mensagem PT-BR casual
+- Verifica duplicata: não criar se já existe `anomaly_spending` + mesmo `related_entity_id` não dispensado
+- Insere em `reminders` (type: `anomaly_spending`, expires_at: +7d) usando service_role client
+- Registra em `ai_token_usage` (agent_name: `anomaly`)
 
----
+### 2. Edge Function `ai-goals-check/index.ts` (NOVA)
 
-## O que será removido
+- `verify_jwt = false` em config.toml
+- Valida `x-cron-secret` no início (padrão igual a `ai-reminders`)
+- Usa service_role para iterar todos os usuários com `allow_coach_use_goals = true`
+- Para cada goal ativo:
+  - **Caso A** (atingida): `current_amount >= target_amount` → gera notificação `goal_achieved`
+  - **Caso B** (em risco): deadline ≤ 30 dias E progresso < 60% → gera notificação `goal_at_risk`
+- Verifica duplicata: mesmo type + related_entity_id + is_read=false nas últimas 24h
+- Chama IA (max_tokens: 300) para título/mensagem
+- Registra tokens (agent_name: `goals_check`)
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+### 3. Edge Function `ai-savings-suggestion/index.ts` (NOVA)
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+- `verify_jwt = false` em config.toml
+- Valida `x-cron-secret` no início
+- Usa service_role para iterar todos os usuários com `allow_coach_use_transactions = true`
+- Calcula receitas - despesas do mês atual
+- Se saldo ≤ 0 → skip
+- Verifica duplicata: `savings_suggestion` no mês atual
+- Chama IA (max_tokens: 200) para sugerir guardar ~20%
+- Insere reminder (type: `savings_suggestion`, expires_at: fim do mês)
+- Registra tokens (agent_name: `savings_suggestion`)
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+### 4. Cron Jobs (SQL insert, não migração)
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
+```text
+A) ai-goals-check: '0 12 * * *' (UTC = 09:00 BRT)
+B) ai-savings-suggestion: '0 13 25 * *' (UTC = 10:00 BRT dia 25)
+```
 
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+Ambos com header `x-cron-secret` usando `CRON_SECRET` existente.
 
----
+### 5. `use-transactions.ts` — fire-and-forget anomaly
 
-## O que será modificado
+No `onSuccess` de `useCreateTransaction`, adicionar:
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+```typescript
+supabase.functions.invoke('ai-anomaly', { body: { transaction_id: data.id } })
+```
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+Sem `await`, não bloqueia.
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+### 6. `use-ai.ts` — ajustes
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
+- Adicionar `refetchInterval: 60000` ao `useUnreadRemindersCount` (polling 60s)
+- Adicionar `useMarkAllRemindersRead` mutation
+- `useUnreadRemindersCount` já existe e funciona corretamente
 
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
+### 7. `NotificationCenter.tsx` (NOVO)
 
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
+- Ícone Bell no header com badge de contagem (usa `useUnreadRemindersCount`)
+- Abre Sheet lateral com lista agrupada (Hoje / Esta semana / Anteriores)
+- Ícones por type: AlertTriangle (anomaly), Target (goals), PiggyBank (savings), Bell (outros)
+- Clique: marca como lida + navega:
+  - `anomaly_spending` → `/transacoes?highlight={related_entity_id}`
+  - `goal_achieved` / `goal_at_risk` → `/metas`
+  - Outros → apenas marca como lida
+- Botão "Marcar todas como lidas"
+- Botão dismiss (X) individual → preenche `dismissed_at`
 
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
+### 8. `MainLayout.tsx` — header com NotificationCenter
 
----
+Adicionar barra de header fixa no topo da `<main>` com o componente `NotificationCenter` alinhado à direita.
 
-## O que NÃO será alterado no banco de dados
+### 9. config.toml
 
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+Adicionar:
+```toml
+[functions.ai-anomaly]
+verify_jwt = true
 
----
+[functions.ai-goals-check]
+verify_jwt = false
 
-## Ordem de implementação
+[functions.ai-savings-suggestion]
+verify_jwt = false
+```
 
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Arquivos criados/editados
+
+| Arquivo | Ação |
+|---|---|
+| `supabase/functions/ai-anomaly/index.ts` | Criar |
+| `supabase/functions/ai-goals-check/index.ts` | Criar |
+| `supabase/functions/ai-savings-suggestion/index.ts` | Criar |
+| `src/components/notifications/NotificationCenter.tsx` | Criar |
+| `src/components/layout/MainLayout.tsx` | Header + NotificationCenter |
+| `src/hooks/use-transactions.ts` | Fire-and-forget anomaly |
+| `src/hooks/use-ai.ts` | refetchInterval + useMarkAllRemindersRead |
+| SQL (insert tool) | 2 cron jobs pg_cron |
+
+### NÃO alterados
+- `finow-chat/index.ts`, `personal-coach/index.ts`, `ai-reminders/index.ts`
+- Nenhuma tabela criada ou alterada
+- Nenhuma regra de negócio existente
 
