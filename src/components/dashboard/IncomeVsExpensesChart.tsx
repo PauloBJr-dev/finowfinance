@@ -4,9 +4,9 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,19 +89,22 @@ export function IncomeVsExpensesChart({ transactions, isLoading }: Props) {
               tickLine={false}
             />
             <YAxis hide />
-            <Tooltip
-              formatter={(value: number) => formatCurrency(value)}
-              contentStyle={{
-                backgroundColor: "hsl(160 25% 11%)",
-                border: "1px solid hsl(160 20% 18%)",
-                borderRadius: "8px",
-                color: "hsl(160 10% 95%)",
-                fontSize: "12px",
-              }}
-              labelStyle={{ color: "hsl(155 10% 60%)" }}
-            />
-            <Bar dataKey="income" name="Receitas" fill="#2A9D7E" radius={[4, 4, 0, 0]} maxBarSize={28} />
-            <Bar dataKey="expenses" name="Despesas" fill="hsl(0 40% 50%)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+            <Bar dataKey="income" name="Receitas" fill="#2A9D7E" radius={[4, 4, 0, 0]} maxBarSize={28}>
+              <LabelList
+                dataKey="income"
+                position="top"
+                formatter={(v: number) => v > 0 ? formatCurrency(v) : ""}
+                style={{ fill: "hsl(155 10% 60%)", fontSize: 9 }}
+              />
+            </Bar>
+            <Bar dataKey="expenses" name="Despesas" fill="hsl(0 40% 50%)" radius={[4, 4, 0, 0]} maxBarSize={28}>
+              <LabelList
+                dataKey="expenses"
+                position="top"
+                formatter={(v: number) => v > 0 ? formatCurrency(v) : ""}
+                style={{ fill: "hsl(155 10% 60%)", fontSize: 9 }}
+              />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
