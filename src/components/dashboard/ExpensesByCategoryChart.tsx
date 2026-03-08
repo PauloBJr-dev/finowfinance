@@ -122,7 +122,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
             const color = item.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
             const IconComponent = resolveCategoryIcon(item.icon);
             return (
-              <div key={item.name} className="flex items-center gap-3">
+              <div key={`${item.name}-${i}`} className="flex items-center gap-3">
                 <div
                   className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: `${color}20` }}
