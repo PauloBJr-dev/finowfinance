@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,21 +8,27 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 
-import Dashboard from "./pages/Dashboard";
-import Transacoes from "./pages/Transacoes";
-import ContasPagar from "./pages/ContasPagar";
-import Metas from "./pages/Metas";
-import Cofrinho from "./pages/Cofrinho";
-import Configuracoes from "./pages/Configuracoes";
-import Chat from "./pages/Chat";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Transacoes = lazy(() => import("./pages/Transacoes"));
+const ContasPagar = lazy(() => import("./pages/ContasPagar"));
+const Metas = lazy(() => import("./pages/Metas"));
+const Cofrinho = lazy(() => import("./pages/Cofrinho"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
+const PageLoader = () => (
+  <div className="flex min-h-screen items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>;
+  if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
@@ -31,17 +38,19 @@ function AppRoutes() {
   if (loading) return null;
   
   return (
-    <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/transacoes" element={<ProtectedRoute><Transacoes /></ProtectedRoute>} />
-      <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagar /></ProtectedRoute>} />
-      <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
-      <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
-      <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/transacoes" element={<ProtectedRoute><Transacoes /></ProtectedRoute>} />
+        <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagar /></ProtectedRoute>} />
+        <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
+        <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
+        <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
