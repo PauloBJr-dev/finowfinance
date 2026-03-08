@@ -221,13 +221,11 @@ export default function Faturas() {
   const navigate = useNavigate();
   const { data: cards, isLoading: cardsLoading } = useCards();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const { data: invoices, isLoading: invoicesLoading } = useInvoices(selectedCardId);
+  const activeCardId = selectedCardId ?? cards?.[0]?.id ?? null;
+  const { data: invoices, isLoading: invoicesLoading } = useInvoices(activeCardId);
+  const selectedCard = cards?.find((c) => c.id === activeCardId);
 
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
-
-  // Auto-select first card
-  const activeCardId = selectedCardId ?? cards?.[0]?.id ?? null;
-  const selectedCard = cards?.find((c) => c.id === activeCardId);
 
   const hasCards = !!cards?.length;
 

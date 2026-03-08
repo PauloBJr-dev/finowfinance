@@ -1,35 +1,87 @@
 
 
-## Resultado do Teste: Bug encontrado na tela de Faturas
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### O que funciona:
-- "Faturas" aparece corretamente na sidebar
-- Aba "Cartões" em Configurações funciona (cartão "Nubank teste" visível)
-- Seletor de cartão na tela de Faturas exibe o cartão correto
-- Navegação e layout estão corretos
+## Resumo
 
-### Bug encontrado:
-A tela mostra **"Nenhuma fatura encontrada para este cartão"** mesmo com um cartão selecionado. O problema está em `src/pages/Faturas.tsx` linha 224:
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
-```text
-Linha 223: const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-Linha 224: const { data: invoices } = useInvoices(selectedCardId);  // ← BUG: selectedCardId é null
-     ...
-Linha 229: const activeCardId = selectedCardId ?? cards?.[0]?.id ?? null;  // ← valor correto, mas calculado DEPOIS do hook
-```
+---
 
-O `useInvoices` recebe `selectedCardId` (sempre `null` no primeiro render), enquanto deveria receber `activeCardId` (que faz fallback para o primeiro cartão). Mas `activeCardId` é computado **depois** da chamada do hook.
+## O que será removido
 
-### Correção:
-Reordenar o código para que `activeCardId` seja computado **antes** do `useInvoices`, e passar `activeCardId` ao hook:
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-```typescript
-const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-const activeCardId = selectedCardId ?? cards?.[0]?.id ?? null;   // ← mover para ANTES
-const { data: invoices, isLoading: invoicesLoading } = useInvoices(activeCardId);  // ← usar activeCardId
-const selectedCard = cards?.find((c) => c.id === activeCardId);
-```
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-### Arquivo a editar:
-- `src/pages/Faturas.tsx` (apenas 3 linhas reordenadas, nenhum outro arquivo tocado)
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
+
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
+
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
+
+---
+
+## O que será modificado
+
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
+
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 
