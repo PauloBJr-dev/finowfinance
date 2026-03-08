@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/format";
 
 interface CurrencyInputProps {
   value: number;
@@ -10,11 +9,23 @@ interface CurrencyInputProps {
   className?: string;
   disabled?: boolean;
   autoFocus?: boolean;
+  max?: number;
+}
+
+const MAX_CENTS = 999999999; // R$ 9.999.999,99
+
+function formatFromCents(cents: number): string {
+  if (cents === 0) return "";
+  const reais = cents / 100;
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(reais);
 }
 
 /**
  * Input de moeda formatado para BRL
- * Aceita apenas números e formata automaticamente
+ * Trabalha internamente com centavos para evitar bugs de acumulação
  */
 export function CurrencyInput({
   value,
@@ -23,16 +34,18 @@ export function CurrencyInput({
   className,
   disabled = false,
   autoFocus = false,
+  max,
 }: CurrencyInputProps) {
+  const [centsState, setCentsState] = useState(0);
   const [displayValue, setDisplayValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Formata valor numérico para exibição
+  // Sync external value → internal cents
   useEffect(() => {
-    if (value === 0) {
-      setDisplayValue("");
-    } else {
-      setDisplayValue(formatCurrency(value));
+    const externalCents = Math.round(value * 100);
+    if (externalCents !== centsState) {
+      setCentsState(externalCents);
+      setDisplayValue(formatFromCents(externalCents));
     }
   }, [value]);
 
@@ -45,30 +58,34 @@ export function CurrencyInput({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value;
-    
-    // Remove tudo exceto números
-    const numericOnly = rawValue.replace(/\D/g, "");
-    
-    // Converte para centavos e depois para reais
-    const cents = parseInt(numericOnly, 10) || 0;
-    const reais = cents / 100;
-    
-    onChange(reais);
-    setDisplayValue(formatCurrency(reais));
+
+    // Extract only digits from the current input
+    const digitsOnly = rawValue.replace(/\D/g, "");
+
+    // Limit to 9 digits (max R$ 9.999.999,99)
+    const limited = digitsOnly.slice(0, 9);
+
+    let cents = parseInt(limited, 10) || 0;
+
+    // Apply custom max if provided
+    const effectiveMax = max ? Math.min(Math.round(max * 100), MAX_CENTS) : MAX_CENTS;
+    if (cents > effectiveMax) {
+      cents = effectiveMax;
+    }
+
+    setCentsState(cents);
+    setDisplayValue(formatFromCents(cents));
+    onChange(cents / 100);
   };
 
   const handleFocus = () => {
-    // Seleciona todo o texto ao focar
     if (inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.select();
-      }, 0);
+      setTimeout(() => inputRef.current?.select(), 0);
     }
   };
 
   const handleBlur = () => {
-    // Se vazio, mostra placeholder
-    if (value === 0) {
+    if (centsState === 0) {
       setDisplayValue("");
     }
   };
@@ -84,10 +101,7 @@ export function CurrencyInput({
       onBlur={handleBlur}
       placeholder={placeholder}
       disabled={disabled}
-      className={cn(
-        "text-lg font-medium tabular-nums",
-        className
-      )}
+      className={cn("text-lg font-medium tabular-nums", className)}
     />
   );
 }

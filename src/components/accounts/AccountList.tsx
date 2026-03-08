@@ -57,13 +57,11 @@ export function AccountList() {
 
   const handleCreate = async (data: AccountFormData) => {
     await createAccount.mutateAsync(data);
-    setFormOpen(false);
   };
 
   const handleUpdate = async (data: AccountFormData) => {
     if (!editingAccount) return;
     await updateAccount.mutateAsync({ id: editingAccount.id, ...data });
-    setEditingAccount(null);
   };
 
   const handleDelete = async () => {

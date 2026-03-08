@@ -146,9 +146,36 @@ export function useCreateTransaction() {
       if (error) throw error;
       return data;
     },
+    onMutate: async (newTransaction) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ACCOUNTS_KEY });
+
+      // Snapshot previous accounts
+      const previousAccounts = queryClient.getQueryData(ACCOUNTS_KEY);
+
+      // Optimistic update for account balance
+      if (newTransaction.account_id) {
+        queryClient.setQueryData(ACCOUNTS_KEY, (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.map((account) => {
+            if (account.id === newTransaction.account_id) {
+              const delta = newTransaction.type === "expense"
+                ? -Number(newTransaction.amount)
+                : Number(newTransaction.amount);
+              return {
+                ...account,
+                current_balance: Number(account.current_balance) + delta,
+              };
+            }
+            return account;
+          });
+        });
+      }
+
+      return { previousAccounts };
+    },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
-      queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
       
       const isExpense = data.type === "expense";
       const formattedAmount = formatCurrency(Number(data.amount));
@@ -159,9 +186,17 @@ export function useCreateTransaction() {
           : `Receita de ${formattedAmount} registrada!`
       );
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      // Rollback optimistic update
+      if (context?.previousAccounts) {
+        queryClient.setQueryData(ACCOUNTS_KEY, context.previousAccounts);
+      }
       console.error("[useCreateTransaction] Erro:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao criar transação. Tente novamente.");
+    },
+    onSettled: () => {
+      // Always reconcile with server
+      queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
     },
   });
 }
