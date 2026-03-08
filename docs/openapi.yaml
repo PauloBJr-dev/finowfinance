@@ -12,8 +12,8 @@ info:
     name: Proprietary
 
 servers:
-  - url: https://fbsuhhmuwkqzpslonlxt.supabase.co/functions/v1
-    description: Production
+  - url: https://YOUR_PROJECT_ID.supabase.co/functions/v1
+    description: Production (substitua YOUR_PROJECT_ID pelo ID real do projeto)
 
 tags:
   - name: Accounts
