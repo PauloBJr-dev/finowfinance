@@ -26,7 +26,7 @@ export function MonthFlowCard({ income, expenses, pendingBills, isLoading }: Pro
       label: "Despesas Previstas",
       value: pendingBills,
       icon: Target,
-      color: "text-accent",
+      color: "text-orange-400",
     },
     {
       label: "Saldo Projetado",
