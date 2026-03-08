@@ -1,87 +1,78 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+# Fase 3 — Relatórios Ultra-Personalizados
 
-## Resumo
+## Arquivos a criar
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+### 1. `supabase/functions/reports-preview/index.ts`
+Edge function com `verify_jwt = true`. Recebe `{ startDate, endDate }`, autentica via JWT, e:
 
----
+- Agrega dados: transações do período, últimos 6 meses, metas, cofrinho, anomalias
+- Calcula score de saúde (0-100) com os 6 critérios definidos
+- Verifica consentimentos (`allow_coach_use_transactions`, `allow_coach_use_goals`)
+- Verifica token budget (5.000/dia) antes de chamar IA
+- Faz **uma única chamada** ao Lovable AI Gateway (`google/gemini-3-flash-preview`) com tool calling para gerar as 4 seções em uma resposta
+- System prompt inclui as 4 regras anti-alucinação obrigatórias
+- Registra tokens em `ai_token_usage` com `agent_name: 'reporting'`
+- Retorna JSON com: summary, expensesByCategory, incomeByCategory, historicalMonths, projection, score, ai (narrative, historicalObservation, projectionInterpretation, scoreAnalysis, unavailable, unavailableReason)
 
-## O que será removido
+### 2. `src/pages/Relatorios.tsx`
+Nova página dedicada de relatórios com:
+- PeriodFilter para selecionar período
+- Botão "Analisar" que chama `reports-preview`
+- Loading: "O Mentor está analisando seus dados..."
+- Preview das 4 seções: ScoreGauge em destaque, narrativa, tabela comparativa com setas, projeção
+- Dois botões: "Gerar PDF completo" e "Gerar sem análise IA"
+- Tratamento de 429 com mensagem amigável
+- Premium gate
+- NotificationCenter no header (consistente com outras páginas)
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+### 3. `src/components/reports/ScoreGauge.tsx`
+Componente visual gauge circular (0-100) com cor por faixa (verde/amarelo/laranja/vermelho) e label do nível.
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
+### 4. `src/components/reports/ReportPreview.tsx`
+Componente que renderiza as 4 seções do preview (narrativa, comparativo, projeção, score com análise IA).
 
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
+## Arquivos a modificar
 
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
+### 5. `supabase/functions/reports/index.ts`
+Expandir para aceitar `{ startDate, endDate, includeAI, aiData }`:
+- Se `includeAI = true` e `aiData` fornecido: renderizar 4 novas seções no PDF
+- **CORREÇÃO 2**: Envolver uso de `aiData` em try/catch. Se `aiData` vier null/undefined/inválido, continuar gerando PDF normalmente com avisos discretos no lugar das seções IA. Nunca travar por `aiData` inválido.
+- Seção A: Narrativa (texto corrido com fundo light)
+- Seção B: Tabela comparativa 6 meses + observação IA
+- Seção C: Projeção (3 cards + interpretação + disclaimer)
+- Seção D: Score gauge simplificado + pontos fortes/melhorias
 
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+### 6. `src/hooks/use-reports.ts`
+- Adicionar `useReportPreview(startDate, endDate)` — mutation que chama `reports-preview`
+- Expandir `generatePDF` para aceitar `{ includeAI, aiData }`
+- Tratar erro 429 com mensagem específica de IA
 
----
+### 7. `src/App.tsx`
+- Adicionar lazy import do `Relatorios` e rota `/relatorios` protegida
 
-## O que será modificado
+### 8. `src/components/navigation/navigation-items.ts`
+- Converter `reportsItem` de modal-only para rota navegável (`to: "/relatorios"`, `premium: true`)
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+### 9. `src/components/navigation/Sidebar.tsx`
+- Mudar o botão de relatórios de onClick modal para NavItem com rota `/relatorios`
+- Remover import e uso do `ExportReportModal`
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+### 10. `src/components/navigation/BottomNav.tsx`
+- Atualizar para usar rota `/relatorios` no overflow menu em vez de abrir modal
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+### 11. `supabase/config.toml`
+- Adicionar `[functions.reports-preview]` com `verify_jwt = true`
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
+## Correções aplicadas
 
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
+- **CORREÇÃO 1**: Todas as chamadas IA usam `google/gemini-3-flash-preview` via Lovable AI Gateway, consistente com Fases 1 e 2
+- **CORREÇÃO 2**: No `reports/index.ts`, `aiData` é envolto em try/catch; se inválido, PDF continua normalmente com avisos discretos
 
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+## NÃO alterados
+- Fases 1 e 2 (chat, notificações, persona_memory)
+- personal-coach/index.ts
+- Nenhuma tabela ou migração
+- Nenhuma regra de negócio existente
 
