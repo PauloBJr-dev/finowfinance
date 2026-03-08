@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -11,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 import {
   differenceInDays,
   parseISO,
@@ -19,9 +19,7 @@ import {
   eachDayOfInterval,
   eachWeekOfInterval,
   eachMonthOfInterval,
-  startOfWeek,
   endOfWeek,
-  startOfMonth,
   endOfMonth,
   isWithinInterval,
 } from "date-fns";
@@ -59,7 +57,6 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
   const to = parseISO(endDate);
   const days = differenceInDays(to, from) + 1;
 
-  // ≤ 7 days → each day
   if (days <= 7) {
     return eachDayOfInterval({ start: from, end: to }).map((d) => ({
       key: format(d, "yyyy-MM-dd"),
@@ -71,7 +68,6 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
     }));
   }
 
-  // 8–60 days → each week
   if (days <= 60) {
     const weeks = eachWeekOfInterval({ start: from, end: to }, { weekStartsOn: 1 });
     return weeks.map((weekStart) => {
@@ -87,7 +83,6 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
     });
   }
 
-  // > 60 days → each month
   return eachMonthOfInterval({ start: from, end: to }).map((mStart) => {
     const mEnd = endOfMonth(mStart);
     return {
@@ -104,12 +99,14 @@ function buildBuckets(startDate: string, endDate: string): Bucket[] {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-popover px-3 py-2 shadow-md text-popover-foreground">
-      <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+    <div className="rounded-xl border border-border/50 bg-popover/90 backdrop-blur-md px-4 py-3 shadow-lg text-popover-foreground">
+      <p className="text-xs font-semibold text-muted-foreground mb-2">{label}</p>
       {payload.map((p: any) => (
-        <p key={p.dataKey} className="text-xs" style={{ color: p.fill }}>
-          {p.name}: {formatCurrency(p.value)}
-        </p>
+        <div key={p.dataKey} className="flex items-center gap-2 text-xs">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.stroke }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-bold">{formatCurrency(p.value)}</span>
+        </div>
       ))}
     </div>
   );
@@ -128,7 +125,6 @@ export function IncomeVsExpensesChart({
 
     transactions?.forEach((t) => {
       const tDate = parseISO(t.date);
-      // Find the bucket this transaction belongs to
       for (const bucket of buckets) {
         if (
           isWithinInterval(tDate, { start: bucket.from, end: bucket.to }) ||
@@ -145,9 +141,9 @@ export function IncomeVsExpensesChart({
     return buckets;
   }, [transactions, startDate, endDate]);
 
-  // Summary totals
   const totalIncome = chartData.reduce((s, b) => s + b.income, 0);
   const totalExpenses = chartData.reduce((s, b) => s + b.expenses, 0);
+  const balance = totalIncome - totalExpenses;
 
   if (isLoading) {
     return (
@@ -157,10 +153,7 @@ export function IncomeVsExpensesChart({
             Receitas vs Despesas
           </CardTitle>
         </CardHeader>
-        <CardContent
-          className="flex items-end gap-3 pt-4 pb-6"
-          style={{ height: 280 }}
-        >
+        <CardContent className="flex items-end gap-3 pt-4 pb-6" style={{ height: 280 }}>
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton
               key={i}
@@ -193,17 +186,15 @@ export function IncomeVsExpensesChart({
     );
   }
 
-  const barSize = chartData.length > 15 ? 8 : chartData.length > 7 ? 14 : 24;
-
   return (
     <Card>
       <CardHeader className="pb-0">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           Receitas vs Despesas
         </CardTitle>
-        <div className="flex gap-6 mt-2">
+        <div className="flex items-center gap-6 mt-2">
           <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
               Receitas
             </span>
             <p className="text-sm font-bold text-primary">
@@ -211,26 +202,46 @@ export function IncomeVsExpensesChart({
             </p>
           </div>
           <div>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
               Despesas
             </span>
             <p className="text-sm font-bold text-destructive">
               {formatCurrency(totalExpenses)}
             </p>
           </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            {balance >= 0 ? (
+              <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+            )}
+            <span className={`text-xs font-bold ${balance >= 0 ? "text-primary" : "text-destructive"}`}>
+              {balance >= 0 ? "+" : ""}{formatCurrency(balance)}
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-4">
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData} barGap={2} barCategoryGap="20%">
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="gradientIncome" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="gradientExpenses" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
             <CartesianGrid
               strokeDasharray="3 3"
-              className="stroke-border/40"
+              className="stroke-border/30"
               vertical={false}
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11 }}
+              tick={{ fontSize: 10 }}
               className="fill-muted-foreground"
               axisLine={false}
               tickLine={false}
@@ -244,23 +255,27 @@ export function IncomeVsExpensesChart({
               width={40}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Bar
+            <Area
+              type="monotone"
               dataKey="income"
               name="Receitas"
-              className="fill-primary"
-              fill="hsl(var(--primary))"
-              radius={[3, 3, 0, 0]}
-              maxBarSize={barSize}
+              stroke="hsl(var(--primary))"
+              strokeWidth={2.5}
+              fill="url(#gradientIncome)"
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 2, fill: "hsl(var(--background))", stroke: "hsl(var(--primary))" }}
             />
-            <Bar
+            <Area
+              type="monotone"
               dataKey="expenses"
               name="Despesas"
-              className="fill-destructive"
-              fill="hsl(var(--destructive))"
-              radius={[3, 3, 0, 0]}
-              maxBarSize={barSize}
+              stroke="hsl(var(--destructive))"
+              strokeWidth={2.5}
+              fill="url(#gradientExpenses)"
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 2, fill: "hsl(var(--background))", stroke: "hsl(var(--destructive))" }}
             />
-          </BarChart>
+          </AreaChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
