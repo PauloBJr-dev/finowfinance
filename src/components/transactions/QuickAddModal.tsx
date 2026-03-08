@@ -84,11 +84,6 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
     setCategoryId(null);
   }, [type]);
 
-  useEffect(() => {
-    if (step === 3 && regularAccounts.length > 0 && !accountId) {
-      setAccountId(regularAccounts[0].id);
-    }
-  }, [step, regularAccounts, accountId]);
 
   const canProceedStep1 = amount > 0 && (isPaid || dueDate);
   const canProceedStep2 = categoryId !== null && (!isBillFlow || description.trim().length > 0);
