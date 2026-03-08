@@ -1,14 +1,15 @@
 import { useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
+import { PieChart as PieIcon } from "lucide-react";
 
 const CHART_COLORS = [
   "#1F7A63",
   "#2A9D7E",
   "#35C099",
-  "#4DD9B4",
+  "#E0B84C",
   "#7AE5CA",
   "#A8F0DE",
 ];
@@ -36,12 +37,16 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
+  const total = chartData.reduce((s, d) => s + d.value, 0);
+
   if (isLoading) {
     return (
       <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">Despesas por Categoria</CardTitle></CardHeader>
-        <CardContent className="flex items-center justify-center h-[250px]">
-          <Skeleton className="h-40 w-40 rounded-full" />
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Despesas por Categoria</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center pt-4 pb-6">
+          <Skeleton className="h-36 w-36 rounded-full" />
         </CardContent>
       </Card>
     );
@@ -50,9 +55,12 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
   if (chartData.length === 0) {
     return (
       <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">Despesas por Categoria</CardTitle></CardHeader>
-        <CardContent className="flex flex-col items-center justify-center h-[250px] text-muted-foreground text-sm">
-          <p>Sem despesas este mês 🎉</p>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Despesas por Categoria</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
+          <PieIcon className="h-10 w-10 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">Sem despesas este mês 🎉</p>
         </CardContent>
       </Card>
     );
@@ -60,45 +68,54 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-sm font-medium">Despesas por Categoria</CardTitle></CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={55}
-              outerRadius={85}
-              dataKey="value"
-              paddingAngle={2}
-              stroke="none"
-              isAnimationActive={false}
-            >
-              {chartData.map((_, i) => (
-                <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-              ))}
-              <Label
-                value={formatCurrency(chartData.reduce((s, d) => s + d.value, 0))}
-                position="center"
-                className="fill-foreground text-sm font-semibold"
-              />
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="space-y-1.5 mt-2">
-          {chartData.slice(0, 5).map((item, i) => (
-            <div key={item.name} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
+      <CardHeader className="pb-0">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Despesas por Categoria</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {/* Chart + Center label */}
+        <div className="relative">
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={78}
+                dataKey="value"
+                paddingAngle={3}
+                stroke="none"
+                isAnimationActive={false}
+              >
+                {chartData.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Center total */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
+            <span className="text-base font-bold text-foreground">{formatCurrency(total)}</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 space-y-2.5">
+          {chartData.slice(0, 5).map((item, i) => {
+            const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+            return (
+              <div key={item.name} className="flex items-center gap-3">
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                 />
-                <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
+                <span className="text-xs text-muted-foreground flex-1 truncate">{item.name}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
+                <span className="text-xs font-semibold tabular-nums w-20 text-right">{formatCurrency(item.value)}</span>
               </div>
-              <span className="font-medium">{formatCurrency(item.value)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
