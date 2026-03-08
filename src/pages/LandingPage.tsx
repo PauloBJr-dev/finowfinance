@@ -728,9 +728,10 @@ function PricingSection() {
                   <Button
                     className="w-full"
                     variant={plan.highlight ? "default" : "outline"}
-                    onClick={() => navigate("/auth")}
+                    onClick={plan.action}
+                    disabled={loadingPlan === plan.name}
                   >
-                    {plan.cta}
+                    {loadingPlan === plan.name ? "Redirecionando..." : plan.cta}
                   </Button>
                 </CardContent>
               </Card>
