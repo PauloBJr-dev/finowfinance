@@ -139,8 +139,6 @@ export default function Dashboard() {
           <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
         </div>
 
-        {/* Upcoming bills */}
-        <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
       </div>
     </MainLayout>
   );
