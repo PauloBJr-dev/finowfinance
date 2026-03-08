@@ -61,6 +61,20 @@ serve(async (req) => {
 
     const userId = user.id
 
+    // Rate limiting: 20 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'upload-attachment',
+      p_max_requests: 20,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Parse multipart form data
     const contentType = req.headers.get('content-type') || ''
     if (!contentType.includes('multipart/form-data')) {

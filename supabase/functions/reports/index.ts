@@ -53,6 +53,20 @@ serve(async (req) => {
     const userId = user.id
     console.log(`[reports] Authenticated user: ${userId}`)
 
+    // Rate limiting: 10 req/min
+    const { data: allowed } = await supabase.rpc('check_rate_limit', {
+      p_identifier: userId,
+      p_endpoint: 'reports',
+      p_max_requests: 10,
+      p_window_seconds: 60
+    })
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: 'Muitas requisições. Tente novamente em alguns segundos.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // TODO: Implement PDF report generation
     // - Aggregate transactions by category, account
     // - Generate PDF using a library like pdfmake or jspdf
