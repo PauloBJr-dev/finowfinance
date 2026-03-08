@@ -3,12 +3,12 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
 import { useBillsSummary } from "@/hooks/use-bills";
-import { useSixMonthTransactions, useUpcomingBills } from "@/hooks/use-dashboard-data";
+import { useUpcomingBills } from "@/hooks/use-dashboard-data";
 import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Wallet, TrendingDown, TrendingUp, ArrowRight } from "lucide-react";
+import { TrendingDown, TrendingUp, ArrowRight } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,11 @@ export default function Dashboard() {
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
   });
-  const { data: sixMonthTx, isLoading: loading6m } = useSixMonthTransactions();
+  // Pass the selected period to the income vs expenses chart
+  const { data: periodTx, isLoading: loadingPeriodTx } = useTransactions({
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+  });
   const { data: billsSummary } = useBillsSummary(now);
   const { data: upcomingBills, isLoading: loadingUpcoming } = useUpcomingBills();
 
@@ -77,7 +81,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground font-normal">(hoje)</span>
             </CardHeader>
             <CardContent>
               {loadingAccounts ? (
@@ -139,8 +143,8 @@ export default function Dashboard() {
             isLoading={loadingTx}
           />
           <IncomeVsExpensesChart
-            transactions={sixMonthTx}
-            isLoading={loading6m}
+            transactions={periodTx}
+            isLoading={loadingPeriodTx}
           />
         </div>
 
