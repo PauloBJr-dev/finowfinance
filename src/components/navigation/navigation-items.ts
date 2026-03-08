@@ -56,10 +56,12 @@ export const secondaryItems = [
   },
 ] as const;
 
-/** Reports item (opens modal, not a route) */
+/** Reports item (navigable route) */
 export const reportsItem = {
+  to: "/relatorios",
   icon: FileBarChart,
   label: "Relatórios",
+  premium: true,
 };
 
 export const settingsItem = {

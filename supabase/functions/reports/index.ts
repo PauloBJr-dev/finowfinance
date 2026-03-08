@@ -8,10 +8,10 @@ const corsHeaders = {
 }
 
 // Design system colors
-const PRIMARY = [31, 122, 99] as const    // #1F7A63
-const TEXT = [28, 31, 30] as const        // #1C1F1E
-const MUTED = [120, 130, 126] as const    // #78827E
-const BG_LIGHT = [247, 248, 246] as const // #F7F8F6
+const PRIMARY = [31, 122, 99] as const
+const TEXT = [28, 31, 30] as const
+const MUTED = [120, 130, 126] as const
+const BG_LIGHT = [247, 248, 246] as const
 
 function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -20,6 +20,37 @@ function formatBRL(value: number): string {
 function formatDateBR(date: string): string {
   const d = new Date(date + 'T12:00:00')
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
+}
+
+// Safe accessor for aiData sections
+function safeAI(aiData: any): {
+  narrative: string | null
+  historicalObservation: string | null
+  projectionInterpretation: string | null
+  scoreAnalysis: { strengths: string[]; improvements: string[]; motivation: string } | null
+  historicalMonths: any[]
+  projection: any
+  score: any
+} {
+  try {
+    return {
+      narrative: typeof aiData?.ai?.narrative === 'string' ? aiData.ai.narrative : null,
+      historicalObservation: typeof aiData?.ai?.historicalObservation === 'string' ? aiData.ai.historicalObservation : null,
+      projectionInterpretation: typeof aiData?.ai?.projectionInterpretation === 'string' ? aiData.ai.projectionInterpretation : null,
+      scoreAnalysis: aiData?.ai?.scoreAnalysis && typeof aiData.ai.scoreAnalysis === 'object'
+        ? {
+            strengths: Array.isArray(aiData.ai.scoreAnalysis.strengths) ? aiData.ai.scoreAnalysis.strengths : [],
+            improvements: Array.isArray(aiData.ai.scoreAnalysis.improvements) ? aiData.ai.scoreAnalysis.improvements : [],
+            motivation: typeof aiData.ai.scoreAnalysis.motivation === 'string' ? aiData.ai.scoreAnalysis.motivation : '',
+          }
+        : null,
+      historicalMonths: Array.isArray(aiData?.historicalMonths) ? aiData.historicalMonths : [],
+      projection: aiData?.projection && typeof aiData.projection === 'object' ? aiData.projection : null,
+      score: aiData?.score && typeof aiData.score === 'object' ? aiData.score : null,
+    }
+  } catch {
+    return { narrative: null, historicalObservation: null, projectionInterpretation: null, scoreAnalysis: null, historicalMonths: [], projection: null, score: null }
+  }
 }
 
 serve(async (req) => {
@@ -67,13 +98,16 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { startDate, endDate } = body
+    const { startDate, endDate, includeAI, aiData: rawAiData } = body
 
     if (!startDate || !endDate) {
       return new Response(JSON.stringify({ error: 'startDate e endDate são obrigatórios' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    // Safely parse aiData - CORRECTION 2
+    const ai = includeAI ? safeAI(rawAiData) : safeAI(null)
 
     // Fetch profile
     const { data: profile } = await supabase
@@ -142,7 +176,6 @@ serve(async (req) => {
     doc.setTextColor(...MUTED)
     doc.text('Relatório Financeiro', margin, y + 18)
 
-    // User name and period on right
     doc.setFontSize(9)
     doc.setTextColor(...TEXT)
     const userName = profile?.name || 'Usuário'
@@ -177,12 +210,15 @@ serve(async (req) => {
     y += 32
 
     // --- TABLE HELPER ---
-    function drawTable(title: string, items: { name: string; total: number }[], totalAmount: number) {
-      // Check if we need a new page
-      if (y > 250) {
+    function checkPage(needed: number) {
+      if (y + needed > 275) {
         doc.addPage()
         y = margin
       }
+    }
+
+    function drawTable(title: string, items: { name: string; total: number }[], totalAmount: number) {
+      checkPage(30)
 
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
@@ -190,7 +226,6 @@ serve(async (req) => {
       doc.text(title, margin, y)
       y += 2
 
-      // Divider
       doc.setDrawColor(...PRIMARY)
       doc.setLineWidth(0.5)
       doc.line(margin, y, pageWidth - margin, y)
@@ -216,13 +251,9 @@ serve(async (req) => {
       doc.text('%', pageWidth - margin - 4, y, { align: 'right' })
       y += 6
 
-      // Rows
       doc.setFont('helvetica', 'normal')
       items.forEach((item, i) => {
-        if (y > 275) {
-          doc.addPage()
-          y = margin
-        }
+        checkPage(8)
 
         if (i % 2 === 0) {
           doc.setFillColor(250, 251, 249)
@@ -252,6 +283,245 @@ serve(async (req) => {
 
     drawTable('Despesas por Categoria', expensesList, totalExpenses)
     drawTable('Receitas por Categoria', incomeList, totalIncome)
+
+    // ========= AI SECTIONS (if includeAI) =========
+    if (includeAI) {
+      const AI_NOTICE = 'Ative o compartilhamento de dados nas configurações para ver esta análise.'
+
+      // Section A: Narrative
+      checkPage(30)
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...PRIMARY)
+      doc.text('Narrativa do Mês', margin, y)
+      y += 2
+      doc.setDrawColor(...PRIMARY)
+      doc.setLineWidth(0.5)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6
+
+      if (ai.narrative) {
+        doc.setFillColor(245, 250, 248)
+        doc.roundedRect(margin, y - 3, contentWidth, 28, 2, 2, 'F')
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TEXT)
+        const narrativeLines = doc.splitTextToSize(ai.narrative, contentWidth - 8)
+        doc.text(narrativeLines, margin + 4, y + 2)
+        y += Math.max(28, narrativeLines.length * 4 + 6)
+      } else {
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(...MUTED)
+        doc.text(AI_NOTICE, margin, y)
+        y += 10
+      }
+
+      // Section B: Historical comparison table
+      checkPage(40)
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...PRIMARY)
+      doc.text('Comparativo Histórico', margin, y)
+      y += 2
+      doc.setDrawColor(...PRIMARY)
+      doc.setLineWidth(0.5)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 6
+
+      if (ai.historicalMonths.length > 0) {
+        // Table header
+        doc.setFillColor(...BG_LIGHT)
+        doc.rect(margin, y - 4, contentWidth, 8, 'F')
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...TEXT)
+        doc.text('Mês', margin + 4, y)
+        doc.text('Despesas', margin + 50, y)
+        doc.text('Receitas', margin + 90, y)
+        doc.text('Top Categoria', margin + 125, y)
+        y += 6
+
+        doc.setFont('helvetica', 'normal')
+        for (let i = 0; i < ai.historicalMonths.length; i++) {
+          checkPage(8)
+          const m = ai.historicalMonths[i]
+          if (i % 2 === 0) {
+            doc.setFillColor(250, 251, 249)
+            doc.rect(margin, y - 4, contentWidth, 7, 'F')
+          }
+          doc.setFontSize(8)
+          doc.setTextColor(...TEXT)
+          doc.text(String(m.month || ''), margin + 4, y)
+          doc.text(formatBRL(m.expenses || 0), margin + 50, y)
+          doc.text(formatBRL(m.income || 0), margin + 90, y)
+          doc.setTextColor(...MUTED)
+          doc.text(String(m.topCategory || '-'), margin + 125, y)
+          y += 7
+        }
+        y += 4
+      }
+
+      if (ai.historicalObservation) {
+        checkPage(15)
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(...MUTED)
+        const obsLines = doc.splitTextToSize(ai.historicalObservation, contentWidth - 8)
+        doc.text(obsLines, margin + 4, y)
+        y += obsLines.length * 4 + 6
+      }
+
+      // Section C: Projection
+      if (ai.projection) {
+        checkPage(35)
+        doc.setFontSize(12)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...PRIMARY)
+        doc.text('Projeção Próximo Mês', margin, y)
+        y += 2
+        doc.setDrawColor(...PRIMARY)
+        doc.setLineWidth(0.5)
+        doc.line(margin, y, pageWidth - margin, y)
+        y += 6
+
+        const projCards = [
+          { label: 'Receitas est.', value: formatBRL(ai.projection.estimatedIncome || 0), color: [34, 197, 94] as const },
+          { label: 'Despesas est.', value: formatBRL(ai.projection.estimatedExpenses || 0), color: [239, 68, 68] as const },
+          { label: 'Saldo est.', value: formatBRL(ai.projection.projectedBalance || 0), color: (ai.projection.projectedBalance || 0) >= 0 ? PRIMARY : [239, 68, 68] as const },
+        ]
+
+        projCards.forEach((card, i) => {
+          const x = margin + i * (cardWidth + 6)
+          doc.setFillColor(245, 246, 244)
+          doc.roundedRect(x, y, cardWidth, 18, 2, 2, 'F')
+          doc.setFontSize(7)
+          doc.setTextColor(...MUTED)
+          doc.text(card.label, x + 4, y + 6)
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...card.color)
+          doc.text(card.value, x + 4, y + 13)
+          doc.setFont('helvetica', 'normal')
+        })
+        y += 24
+
+        if (ai.projectionInterpretation) {
+          const projLines = doc.splitTextToSize(ai.projectionInterpretation, contentWidth - 8)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'italic')
+          doc.setTextColor(...MUTED)
+          doc.text(projLines, margin + 4, y)
+          y += projLines.length * 4 + 4
+        }
+
+        // Disclaimer
+        doc.setFontSize(7)
+        doc.setTextColor(160, 165, 162)
+        doc.text('Projeção baseada no seu histórico. Não é garantia de resultado.', margin, y)
+        y += 8
+      }
+
+      // Section D: Score
+      if (ai.score) {
+        checkPage(40)
+        doc.setFontSize(12)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...PRIMARY)
+        doc.text('Score de Saúde Financeira', margin, y)
+        y += 2
+        doc.setDrawColor(...PRIMARY)
+        doc.setLineWidth(0.5)
+        doc.line(margin, y, pageWidth - margin, y)
+        y += 8
+
+        const scoreVal = ai.score.value ?? 0
+        const scoreLevel = ai.score.level || 'attention'
+        const scoreColors: Record<string, readonly [number, number, number]> = {
+          excellent: [34, 197, 94],
+          good: [234, 179, 8],
+          attention: [249, 115, 22],
+          critical: [239, 68, 68],
+        }
+        const scoreLabels: Record<string, string> = {
+          excellent: 'Saúde excelente 🟢',
+          good: 'Saúde boa 🟡',
+          attention: 'Atenção necessária 🟠',
+          critical: 'Situação crítica 🔴',
+        }
+
+        const sColor = scoreColors[scoreLevel] || scoreColors.attention
+
+        // Score circle (simplified)
+        doc.setFillColor(245, 246, 244)
+        doc.roundedRect(margin, y, 40, 25, 3, 3, 'F')
+        doc.setFontSize(20)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...sColor)
+        doc.text(String(scoreVal), margin + 20, y + 13, { align: 'center' })
+        doc.setFontSize(7)
+        doc.setTextColor(...MUTED)
+        doc.text('/100', margin + 20, y + 19, { align: 'center' })
+
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...sColor)
+        doc.text(scoreLabels[scoreLevel] || '', margin + 48, y + 10)
+        y += 30
+
+        if (ai.scoreAnalysis) {
+          if (ai.scoreAnalysis.strengths.length > 0) {
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(...TEXT)
+            doc.text('Pontos fortes:', margin, y)
+            y += 5
+            doc.setFont('helvetica', 'normal')
+            for (const s of ai.scoreAnalysis.strengths) {
+              checkPage(6)
+              doc.setFontSize(8)
+              doc.setTextColor(34, 197, 94)
+              doc.text('✓', margin + 2, y)
+              doc.setTextColor(...TEXT)
+              const sLines = doc.splitTextToSize(s, contentWidth - 12)
+              doc.text(sLines, margin + 8, y)
+              y += sLines.length * 4 + 2
+            }
+          }
+
+          if (ai.scoreAnalysis.improvements.length > 0) {
+            y += 2
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(...TEXT)
+            doc.text('Pontos de melhoria:', margin, y)
+            y += 5
+            doc.setFont('helvetica', 'normal')
+            for (const s of ai.scoreAnalysis.improvements) {
+              checkPage(6)
+              doc.setFontSize(8)
+              doc.setTextColor(249, 115, 22)
+              doc.text('!', margin + 2, y)
+              doc.setTextColor(...TEXT)
+              const sLines = doc.splitTextToSize(s, contentWidth - 12)
+              doc.text(sLines, margin + 8, y)
+              y += sLines.length * 4 + 2
+            }
+          }
+
+          if (ai.scoreAnalysis.motivation) {
+            y += 3
+            checkPage(12)
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'italic')
+            doc.setTextColor(...MUTED)
+            const motLines = doc.splitTextToSize(`"${ai.scoreAnalysis.motivation}"`, contentWidth - 8)
+            doc.text(motLines, margin + 4, y)
+            y += motLines.length * 4 + 4
+          }
+        }
+      }
+    }
 
     // --- FOOTER ---
     const footerY = doc.internal.pageSize.getHeight() - 10
