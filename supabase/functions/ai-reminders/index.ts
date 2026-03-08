@@ -21,6 +21,7 @@ const DAILY_TOKEN_LIMIT_PER_AGENT = 5000
 const ESTIMATED_TOKENS_PER_REQUEST = 100
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
