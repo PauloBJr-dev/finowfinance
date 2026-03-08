@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 
 import Dashboard from "./pages/Dashboard";
 import Transacoes from "./pages/Transacoes";
@@ -46,13 +47,15 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </TooltipProvider>
+        <SidebarProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </TooltipProvider>
+        </SidebarProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

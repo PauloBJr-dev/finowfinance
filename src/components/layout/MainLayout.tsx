@@ -5,23 +5,21 @@ import { FloatingActionButton } from "@/components/navigation/FloatingActionButt
 import { QuickAddModal } from "@/components/transactions/QuickAddModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { SidebarProvider, useSidebarContext } from "@/contexts/SidebarContext";
+import { useSidebarContext } from "@/contexts/SidebarContext";
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
-function MainLayoutContent({ children }: MainLayoutProps) {
+export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const { collapsed } = useSidebarContext();
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar */}
       {!isMobile && <Sidebar />}
 
-      {/* Main Content */}
       <main
         className={cn(
           "min-h-screen transition-all duration-300",
@@ -34,22 +32,9 @@ function MainLayoutContent({ children }: MainLayoutProps) {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
       {isMobile && <BottomNav />}
-
-      {/* Floating Action Button */}
       <FloatingActionButton onClick={() => setQuickAddOpen(true)} />
-
-      {/* Quick Add Modal */}
       <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
     </div>
-  );
-}
-
-export function MainLayout({ children }: MainLayoutProps) {
-  return (
-    <SidebarProvider>
-      <MainLayoutContent>{children}</MainLayoutContent>
-    </SidebarProvider>
   );
 }
