@@ -31,6 +31,7 @@ import { Crown } from "lucide-react";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 function toDateStr(d: Date) {
   return d.toISOString().split("T")[0];

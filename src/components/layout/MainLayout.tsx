@@ -3,7 +3,7 @@ import { Sidebar } from "@/components/navigation/Sidebar";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { FloatingActionButton } from "@/components/navigation/FloatingActionButton";
 import { QuickAddModal } from "@/components/transactions/QuickAddModal";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useSidebarContext } from "@/contexts/SidebarContext";

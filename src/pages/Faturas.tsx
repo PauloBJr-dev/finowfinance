@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Receipt, CreditCard, ChevronDown, ChevronUp, Calendar, AlertTriangle, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 /* ─── Status badge helpers ─── */
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -233,9 +234,12 @@ export default function Faturas() {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Faturas</h1>
-          <p className="text-muted-foreground">Acompanhe suas faturas de cartão.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Faturas</h1>
+            <p className="text-muted-foreground">Acompanhe suas faturas de cartão.</p>
+          </div>
+          <NotificationCenter />
         </div>
 
         {/* Card selector or empty state */}

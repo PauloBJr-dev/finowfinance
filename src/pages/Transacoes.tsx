@@ -4,6 +4,7 @@ import { TransactionList } from "@/components/transactions/TransactionList";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { useTransactions } from "@/hooks/use-transactions";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 export default function Transacoes() {
   const [filters, setFilters] = useState<{
@@ -23,9 +24,12 @@ export default function Transacoes() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Transações</h1>
-          <p className="text-muted-foreground">Suas movimentações financeiras.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Transações</h1>
+            <p className="text-muted-foreground">Suas movimentações financeiras.</p>
+          </div>
+          <NotificationCenter />
         </div>
 
         <TransactionFilters filters={filters} onFiltersChange={setFilters} />

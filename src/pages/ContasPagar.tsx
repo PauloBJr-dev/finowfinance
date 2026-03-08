@@ -5,6 +5,7 @@ import { useBillsSummary } from "@/hooks/use-bills";
 import { formatCurrency } from "@/lib/format";
 import { AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import { useState } from "react";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 export default function ContasPagar() {
   const [month] = useState(new Date());
@@ -13,9 +14,12 @@ export default function ContasPagar() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Contas a Pagar</h1>
-          <p className="text-muted-foreground">Gerencie suas contas e compromissos.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Contas a Pagar</h1>
+            <p className="text-muted-foreground">Gerencie suas contas e compromissos.</p>
+          </div>
+          <NotificationCenter />
         </div>
 
         {/* Summary Cards */}
