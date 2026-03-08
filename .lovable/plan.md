@@ -1,87 +1,36 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plano: Adicionar tela de criação de conta na página Auth
 
-## Resumo
+### Resumo
+Transformar a página Auth em um fluxo com duas abas (Login / Criar conta) usando tabs ou toggle de estado. O formulário de registro exige nome, email, telefone, senha forte com indicador visual de requisitos, e confirmação de senha.
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
+### 1. Estado e alternância Login/Registro (Auth.tsx)
+- Adicionar estado `mode: "login" | "register"`
+- Renderizar link/botão para alternar entre modos: "Ainda não tem conta? Criar conta" / "Já tem conta? Entrar"
 
----
+### 2. Formulário de registro — campos
+- **Nome** (obrigatório, 2-100 chars)
+- **Email** (obrigatório, sem validação de formato rigorosa — apenas campo não vazio)
+- **Telefone** (opcional, sem validação)
+- **Senha** com requisitos visuais em tempo real:
+  - Mínimo 8 caracteres
+  - Pelo menos 1 letra maiúscula
+  - Pelo menos 1 letra minúscula
+  - Pelo menos 1 número
+  - Pelo menos 1 caractere especial (!@#$%...)
+  - Cada requisito exibido como checklist (verde quando atendido, cinza quando não)
+- **Confirmar senha** — validação de match antes de submeter
 
-## O que será removido
+### 3. Submissão do registro
+- Chamar `signUp(email, password, name, phone)` do `useAuth()`
+- A edge function `register` já existe e valida server-side
+- Após sucesso, exibir toast "Conta criada! Verifique seu email para confirmar." e voltar ao modo login
 
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
+### 4. Componente de força de senha
+- Inline no formulário (não componente separado), lista de requisitos com ícones Check/X e cores condicionais
+- Botão de submit desabilitado enquanto requisitos não forem todos atendidos ou senhas não coincidirem
 
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
-
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
-
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
-
----
-
-## O que será modificado
-
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
-
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
-
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
-
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
-
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
-
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
-
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
-
----
-
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
-
----
-
-## Ordem de implementação
-
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+### Arquivos modificados
+- `src/pages/Auth.tsx` — reescrita com modo login/register, campos adicionais e checklist de senha
 
