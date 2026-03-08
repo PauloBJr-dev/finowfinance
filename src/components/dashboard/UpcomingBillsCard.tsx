@@ -1,8 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency, formatDate } from "@/lib/format";
-import { CalendarClock, AlertCircle, Clock } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
+import { CalendarClock, AlertCircle, Clock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Bill {
   id: string;
@@ -25,28 +28,26 @@ function getCountdown(dueDate: string): { text: string; overdue: boolean; daysLe
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) return { text: `${Math.abs(diffDays)}d atrasada`, overdue: true, daysLeft: diffDays };
-  if (diffDays === 0) return { text: "Hoje", overdue: false, daysLeft: 0 };
+  if (diffDays === 0) return { text: "Vence hoje", overdue: false, daysLeft: 0 };
   if (diffDays === 1) return { text: "Amanhã", overdue: false, daysLeft: 1 };
-  return { text: `${diffDays} dias`, overdue: false, daysLeft: diffDays };
+  return { text: `em ${diffDays} dias`, overdue: false, daysLeft: diffDays };
+}
+
+function formatShortDate(dateStr: string) {
+  const date = new Date(dateStr + "T00:00:00");
+  return format(date, "dd MMM", { locale: ptBR });
 }
 
 export function UpcomingBillsCard({ bills, isLoading }: Props) {
   if (isLoading) {
     return (
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Próximos Vencimentos</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pt-2">
+        <CardContent className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-9 w-9 rounded-lg" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-3.5 w-28" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-              <Skeleton className="h-4 w-16" />
-            </div>
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </CardContent>
       </Card>
@@ -56,12 +57,12 @@ export function UpcomingBillsCard({ bills, isLoading }: Props) {
   if (!bills || bills.length === 0) {
     return (
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">Próximos Vencimentos</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-10 gap-3">
-          <CalendarClock className="h-10 w-10 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">Nenhuma conta pendente</p>
+        <CardContent className="flex items-center gap-3 py-4">
+          <CalendarClock className="h-5 w-5 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">Nenhuma conta pendente — tudo em dia! 🎉</p>
         </CardContent>
       </Card>
     );
@@ -69,60 +70,61 @@ export function UpcomingBillsCard({ bills, isLoading }: Props) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
         <CardTitle className="text-sm font-medium text-muted-foreground">Próximos Vencimentos</CardTitle>
+        <Link to="/contas-a-pagar" className="text-xs text-primary hover:underline flex items-center gap-1">
+          Ver todas <ArrowRight className="h-3 w-3" />
+        </Link>
       </CardHeader>
-      <CardContent className="pt-2">
-        <div className="divide-y divide-border">
-          {bills.map((bill) => {
-            const countdown = getCountdown(bill.due_date);
-            return (
-              <div key={bill.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                {/* Icon */}
-                <div className={cn(
-                  "flex items-center justify-center h-9 w-9 rounded-lg flex-shrink-0",
-                  countdown.overdue 
-                    ? "bg-destructive/10 text-destructive" 
-                    : countdown.daysLeft <= 2 
-                      ? "bg-yellow-500/10 text-yellow-500"
-                      : "bg-primary/10 text-primary"
-                )}>
-                  {countdown.overdue ? (
-                    <AlertCircle className="h-4 w-4" />
-                  ) : (
-                    <Clock className="h-4 w-4" />
-                  )}
-                </div>
+      <CardContent className="space-y-1.5">
+        {bills.map((bill) => {
+          const countdown = getCountdown(bill.due_date);
+          const urgencyColor = countdown.overdue
+            ? "text-destructive"
+            : countdown.daysLeft <= 2
+              ? "text-yellow-500"
+              : "text-muted-foreground";
+          const urgencyBg = countdown.overdue
+            ? "bg-destructive/8"
+            : countdown.daysLeft <= 2
+              ? "bg-yellow-500/8"
+              : "bg-muted/50";
 
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{bill.description}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">{formatDate(bill.due_date)}</span>
-                    <span className={cn(
-                      "text-[11px] font-medium",
-                      countdown.overdue 
-                        ? "text-destructive" 
-                        : countdown.daysLeft <= 2 
-                          ? "text-yellow-500"
-                          : "text-muted-foreground"
-                    )}>
-                      · {countdown.text}
-                    </span>
-                  </div>
-                </div>
+          return (
+            <div
+              key={bill.id}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors",
+                urgencyBg
+              )}
+            >
+              {/* Status dot */}
+              <div className={cn(
+                "h-2 w-2 rounded-full flex-shrink-0",
+                countdown.overdue
+                  ? "bg-destructive"
+                  : countdown.daysLeft <= 2
+                    ? "bg-yellow-500"
+                    : "bg-primary"
+              )} />
 
-                {/* Amount */}
-                <p className={cn(
-                  "text-sm font-bold tabular-nums whitespace-nowrap",
-                  countdown.overdue ? "text-destructive" : "text-foreground"
-                )}>
-                  {formatCurrency(Number(bill.amount))}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              {/* Description */}
+              <span className="text-sm font-medium truncate flex-1 min-w-0">
+                {bill.description}
+              </span>
+
+              {/* Countdown */}
+              <span className={cn("text-[11px] font-medium whitespace-nowrap", urgencyColor)}>
+                {countdown.text}
+              </span>
+
+              {/* Amount */}
+              <span className="text-sm font-bold tabular-nums whitespace-nowrap">
+                {formatCurrency(Number(bill.amount))}
+              </span>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );
