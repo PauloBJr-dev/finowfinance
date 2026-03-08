@@ -158,7 +158,14 @@ export default function Dashboard() {
                 {loadingAccounts ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold">{formatCurrency(netWorth)}</p>
+                  <>
+                    <p className="text-2xl font-bold">{formatCurrency(netWorth)}</p>
+                    {hasBenefit && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Inclui saldo de benefícios
+                      </p>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
