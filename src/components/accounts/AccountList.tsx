@@ -247,6 +247,12 @@ export function AccountList() {
         itemName={accountToDelete?.name}
         isLoading={deleteAccount.isPending}
       />
+      {/* Modal de depósito para benefício */}
+      <BenefitDepositModal
+        open={!!depositAccount}
+        onOpenChange={(open) => !open && setDepositAccount(null)}
+        account={depositAccount}
+      />
     </div>
   );
 }
