@@ -138,8 +138,10 @@ export default function Dashboard() {
             isLoading={loadingTx}
           />
           <IncomeVsExpensesChart
-            transactions={periodTx}
-            isLoading={loadingPeriodTx}
+            transactions={transactions}
+            isLoading={loadingTx}
+            startDate={dateRange.startDate}
+            endDate={dateRange.endDate}
           />
         </div>
 
