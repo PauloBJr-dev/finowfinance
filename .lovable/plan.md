@@ -1,33 +1,87 @@
 
 
-## Plano: Melhorar FAB e corrigir bugs de layout mobile
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Problemas identificados
+## Resumo
 
-1. **FAB no mobile**: posicionado com `bottom-20` e `left-1/2 -translate-x-1/2`, ficando sobreposto à BottomNav e potencialmente cortado. A animação é apenas `hover:scale-105 active:scale-95` — sem entrada suave nem feedback visual rico.
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
-2. **FAB no desktop**: posicionado `bottom-8 right-8` com classes duplicadas (`bottom-8 right-8` aparece duas vezes). Animação básica sem transição de entrada.
+---
 
-3. **BottomNav z-index**: `z-40` enquanto FAB é `z-50` — correto, mas o FAB centralizado no mobile pode cobrir itens de nav.
+## O que será removido
 
-4. **Layout mobile**: `pb-20` no main pode não ser suficiente dependendo do conteúdo + safe area.
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-### Correções planejadas
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-**`src/components/navigation/FloatingActionButton.tsx`**:
-- Mobile: reposicionar o FAB à **direita** da BottomNav (`right-4 bottom-[4.5rem]`) em vez de centralizado, evitando sobreposição com itens de navegação
-- Desktop: manter `bottom-8 right-8`, remover classes duplicadas
-- Adicionar animação de entrada suave (`animate-scale-in`) e sombra com cor primária (`shadow-primary/25`)
-- Melhorar hover/active: transição mais fluida com `duration-300`, efeito de sombra elevada no hover
-- Adicionar `will-change-transform` para performance
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-**`src/components/navigation/BottomNav.tsx`**:
-- Verificar `pb-safe` (safe area) está aplicado corretamente
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
 
-**`src/components/layout/MainLayout.tsx`**:
-- Ajustar `pb-20` para `pb-24` no mobile para garantir espaço suficiente com FAB reposicionado
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
 
-### Arquivos editados
-- `src/components/navigation/FloatingActionButton.tsx`
-- `src/components/layout/MainLayout.tsx`
+---
+
+## O que será modificado
+
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
+
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 

@@ -24,7 +24,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         className={cn(
           "min-h-screen transition-all duration-300",
           !isMobile && (collapsed ? "ml-16" : "ml-64"),
-          isMobile && "pb-20"
+          isMobile && "pb-24"
         )}
       >
         <div className="container py-6">
