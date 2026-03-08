@@ -30,6 +30,8 @@ interface TransactionCreate {
 }
 
 // Validação
+const MAX_AMOUNT = 999_999_999.99
+
 function validateTransactionCreate(data: unknown): { valid: boolean; error?: string; data?: TransactionCreate } {
   if (!data || typeof data !== 'object') {
     return { valid: false, error: 'Dados inválidos' };
@@ -40,6 +42,13 @@ function validateTransactionCreate(data: unknown): { valid: boolean; error?: str
   const amount = Number(obj.amount);
   if (isNaN(amount) || amount <= 0) {
     return { valid: false, error: 'Valor deve ser maior que zero' };
+  }
+  if (amount > MAX_AMOUNT) {
+    return { valid: false, error: 'Valor excede o limite permitido' };
+  }
+  const rounded = Math.round(amount * 100) / 100;
+  if (rounded !== amount) {
+    return { valid: false, error: 'Valor deve ter no máximo 2 casas decimais' };
   }
 
   const validTypes = ['expense', 'income'];
@@ -67,6 +76,33 @@ function validateTransactionCreate(data: unknown): { valid: boolean; error?: str
     return { valid: false, error: 'Número de parcelas deve estar entre 1 e 48' };
   }
 
+  // Description validation
+  let description = obj.description as string | undefined;
+  if (description !== undefined && typeof description === 'string') {
+    description = description.trim().slice(0, 200);
+  }
+
+  // Date validation
+  if (obj.date !== undefined) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (typeof obj.date !== 'string' || !dateRegex.test(obj.date)) {
+      return { valid: false, error: 'Data deve estar no formato YYYY-MM-DD' };
+    }
+    const parsed = new Date(obj.date + 'T00:00:00Z');
+    if (isNaN(parsed.getTime())) {
+      return { valid: false, error: 'Data inválida' };
+    }
+  }
+
+  // UUID validation for optional IDs
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (obj.category_id && (typeof obj.category_id !== 'string' || !uuidRegex.test(obj.category_id))) {
+    return { valid: false, error: 'ID de categoria inválido' };
+  }
+  if (obj.account_id && (typeof obj.account_id !== 'string' || !uuidRegex.test(obj.account_id))) {
+    return { valid: false, error: 'ID de conta inválido' };
+  }
+
   return {
     valid: true,
     data: {
@@ -74,11 +110,11 @@ function validateTransactionCreate(data: unknown): { valid: boolean; error?: str
       type: obj.type as TransactionCreate['type'],
       payment_method: obj.payment_method as TransactionCreate['payment_method'],
       date: obj.date as string | undefined,
-      description: obj.description as string | undefined,
+      description,
       category_id: obj.category_id as string | undefined,
       account_id: obj.account_id as string | undefined,
       card_id: obj.card_id as string | undefined,
-      tags: Array.isArray(obj.tags) ? obj.tags.filter(t => typeof t === 'string') : [],
+      tags: Array.isArray(obj.tags) ? obj.tags.filter(t => typeof t === 'string').slice(0, 20) : [],
       installments,
     }
   };
