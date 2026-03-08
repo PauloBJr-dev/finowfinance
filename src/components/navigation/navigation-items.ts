@@ -6,9 +6,11 @@ import {
   PiggyBank,
   Settings,
   MessageCircle,
+  FileBarChart,
 } from "lucide-react";
 
-export const navigationItems = [
+/** Primary navigation group */
+export const primaryItems = [
   {
     to: "/",
     icon: LayoutDashboard,
@@ -24,6 +26,10 @@ export const navigationItems = [
     icon: FileText,
     label: "Contas a pagar",
   },
+] as const;
+
+/** Secondary navigation group */
+export const secondaryItems = [
   {
     to: "/metas",
     icon: Target,
@@ -41,8 +47,17 @@ export const navigationItems = [
   },
 ] as const;
 
+/** Reports item (opens modal, not a route) */
+export const reportsItem = {
+  icon: FileBarChart,
+  label: "Relatórios",
+};
+
 export const settingsItem = {
   to: "/configuracoes",
   icon: Settings,
   label: "Configurações",
 };
+
+/** All navigable items (for BottomNav) */
+export const navigationItems = [...primaryItems, ...secondaryItems] as const;
