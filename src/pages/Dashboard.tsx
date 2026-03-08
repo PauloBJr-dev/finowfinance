@@ -66,6 +66,23 @@ export default function Dashboard() {
   ), [benefitAccounts]);
   const hasBenefit = benefitAccounts.length > 0;
 
+  const { data: lastDeposit } = useQuery({
+    queryKey: ["last-benefit-deposit"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("benefit_deposits")
+        .select("date")
+        .is("deleted_at", null)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasBenefit,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const expenses = useMemo(() => transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
