@@ -97,7 +97,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
   }, [step, regularAccounts, accountId]);
 
   const canProceedStep1 = amount > 0 && (isPaid || dueDate);
-  const canProceedStep2 = categoryId !== null;
+  const canProceedStep2 = categoryId !== null && (!isBillFlow || description.trim().length > 0);
   const canProceedStep3 = accountId !== null;
 
   const handleSubmit = async () => {
@@ -330,13 +330,24 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
             )}
 
             <div className="space-y-2">
-              <Label>{isBillFlow ? "Nome da conta" : "Descrição (opcional)"}</Label>
+              <Label>{isBillFlow ? "Nome da conta *" : "Descrição (opcional)"}</Label>
               <Input
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value.slice(0, 200))}
                 placeholder={isBillFlow ? "Ex: Conta de luz, Aluguel..." : type === "expense" ? "Ex: Mercado, Almoço..." : "Ex: Salário de Janeiro..."}
               />
-              {isBillFlow && <p className="text-xs text-muted-foreground">Este nome aparecerá na sua lista de contas a pagar</p>}
+              <div className="flex items-center justify-between">
+                {isBillFlow ? (
+                  <p className={cn("text-xs", description.trim().length === 0 ? "text-destructive" : "text-muted-foreground")}>
+                    {description.trim().length === 0 ? "Obrigatório para contas a pagar" : "Este nome aparecerá na sua lista de contas a pagar"}
+                  </p>
+                ) : (
+                  <span />
+                )}
+                {description.length > 150 && (
+                  <p className="text-xs text-muted-foreground">{description.length}/200</p>
+                )}
+              </div>
             </div>
 
             {isBillFlow ? (

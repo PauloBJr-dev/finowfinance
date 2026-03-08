@@ -105,8 +105,13 @@ export function AccountForm({
   }, [initialData, form]);
 
   const handleSubmit = async (data: AccountFormData) => {
-    await onSubmit(data);
-    form.reset();
+    try {
+      await onSubmit(data);
+      form.reset();
+      onOpenChange(false);
+    } catch {
+      // Error handled by parent mutation
+    }
   };
 
   return (
