@@ -1,63 +1,87 @@
 
 
-## Plano Consolidado: Landing Page Finow
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Arquivos
+## Resumo
 
-| Arquivo | Acao |
-|---|---|
-| `src/pages/LandingPage.tsx` | Criar |
-| `src/hooks/use-scroll-animation.ts` | Criar |
-| `src/App.tsx` | Editar rota `/` condicional |
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
-### Roteamento
+---
 
-Em `App.tsx`, a rota `/` renderiza `<LandingPage />` para visitantes e `<Dashboard />` para usuarios logados.
+## O que será removido
 
-### Secoes da Landing Page
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-**1. Navbar fixa** — Logo Finow, links ancora (Recursos, Como funciona, Depoimentos, Precos, FAQ), botoes "Entrar" (ghost) + "Comecar gratis" (primary). Mobile: hamburger. Transparente no topo, opaca no scroll.
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-**2. Hero** — Headline: "Pare de sobreviver no mes. Comece a dominar seu dinheiro." Sub-headline sobre mentor financeiro IA. CTA duplo + badge "Gratuito - Sem cartao de credito". Mockup estilizado do dashboard com glassmorphism.
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-**3. Features** — Grid 3 colunas, 6 cards: Controle total, Faturas no radar, Mentor IA, Metas inteligentes, Relatorios PDF, Seguranca maxima.
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
 
-**4. Como funciona** — 3 steps animados com delay sequencial: Cadastre-se em 30s, Registre transacoes, Veja sua vida financeira com clareza.
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
 
-**5. Testimonials** — Carousel com 3 depoimentos ficticios (nome, idade, profissao, texto).
+---
 
-**6. Pricing** — 3 cards lado a lado:
+## O que será modificado
 
-- **Gratis (R$ 0)**: Transacoes ilimitadas, 2 contas bancarias, categorias personalizadas, dark mode, sem prazo de validade. CTA: "Comecar gratis"
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
 
-- **Premium (badge "Mais popular")**: R$ 6,90/mes ou R$ 70/ano. Copy mensal: "Por menos de R$ 0,23/dia, tenha um mentor financeiro 24h". Copy anual: "R$ 5,83/mes no anual — economize 15%". Inclui tudo do gratis + IA mentor, relatorios PDF, metas, contas ilimitadas, suporte prioritario. Renovacao automatica, cancele quando quiser. CTA: "Assinar Premium"
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
 
-- **Vitalicio (badge "Melhor custo-beneficio")**: R$ 160 pagamento unico. Copy: "Pague uma vez. Use para sempre. Atualizacoes inclusas." Sub-copy: "Equivale a menos de 2 anos de Premium — e voce tem acesso eterno." Tudo do Premium. CTA: "Garantir acesso vitalicio"
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
 
-Todos redirecionam para `/auth`.
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
 
-**Bloco de conformidade CDC/PROCON** abaixo dos cards:
-- Cancelamento: a qualquer momento, sem multa, acesso ate fim do periodo pago
-- Reembolso: garantia de 7 dias, devolucao integral
-- Renovacao: mensal/anual renovam automaticamente com aviso previo
-- Vitalicio: pagamento unico, inclui atualizacoes futuras, nao inclui produtos independentes lancados separadamente
-- Dados: criptografados, nunca compartilhados, exclusao sob demanda
-- Contato: suporte@finow.com.br
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
 
-**7. FAQ** — Accordion com 6-7 perguntas incluindo:
-- "Preciso conectar minha conta bancaria?" 
-- "Posso cancelar minha assinatura?"
-- "O que inclui o plano vitalicio?"
-- "Meus dados estao seguros?"
-- Outras perguntas gerais sobre o produto
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
 
-**8. Footer** — Logo, links, "Feito com carinho no Brasil", redes sociais placeholder.
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
 
-### Animacoes
+---
 
-Hook `use-scroll-animation.ts` com Intersection Observer. Fade-in/slide-up em cada secao ao entrar na viewport. Steps com delay sequencial. Navbar com transicao de transparencia.
+## O que NÃO será alterado no banco de dados
 
-### Design
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
 
-Cores: Primary Green `#1F7A63`, Amber `#E0B84C`, BG Light `#F7F8F6`, BG Dark `#0F1A17`. Glassmorphism no hero card. Mobile-first. Dark mode respeitado via ThemeProvider existente.
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 

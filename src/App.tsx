@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Transacoes = lazy(() => import("./pages/Transacoes"));
 const ContasPagar = lazy(() => import("./pages/ContasPagar"));
 const Metas = lazy(() => import("./pages/Metas"));
@@ -33,6 +34,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function HomePage() {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  return user ? <Dashboard /> : <LandingPage />;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -41,7 +48,7 @@ function AppRoutes() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
-        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/transacoes" element={<ProtectedRoute><Transacoes /></ProtectedRoute>} />
         <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagar /></ProtectedRoute>} />
         <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
