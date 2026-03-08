@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { DeleteConfirmation } from "@/components/shared/DeleteConfirmation";
 import { showDeleteToast } from "@/components/shared/UndoToast";
 import { AccountForm, AccountFormData } from "./AccountForm";
+import { BenefitDepositModal } from "./BenefitDepositModal";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
