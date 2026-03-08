@@ -59,3 +59,41 @@ export function useUpcomingBills() {
     staleTime: 2 * 60 * 1000,
   });
 }
+
+/**
+ * Calcula totais (income/expenses) do mês anterior ao período selecionado.
+ * Usado para comparação percentual nos KPIs do dashboard.
+ */
+export function usePreviousMonthTotals(startDate: string, endDate: string) {
+  // Derivar mês anterior a partir do startDate
+  const start = new Date(startDate + "T00:00:00");
+  const prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+  const prevEnd = new Date(start.getFullYear(), start.getMonth(), 0); // último dia do mês anterior
+
+  const prevStartStr = prevStart.toISOString().split("T")[0];
+  const prevEndStr = prevEnd.toISOString().split("T")[0];
+
+  return useQuery({
+    queryKey: ["dashboard-prev-month", prevStartStr, prevEndStr],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("amount, type")
+        .is("deleted_at", null)
+        .gte("date", prevStartStr)
+        .lte("date", prevEndStr);
+
+      if (error) throw error;
+
+      let income = 0;
+      let expenses = 0;
+      data?.forEach((t) => {
+        if (t.type === "income") income += Number(t.amount);
+        else if (t.type === "expense") expenses += Number(t.amount);
+      });
+
+      return { income, expenses, balance: income - expenses };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
