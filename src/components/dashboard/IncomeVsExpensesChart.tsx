@@ -230,14 +230,10 @@ export function IncomeVsExpensesChart({
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 11 }}
               className="fill-muted-foreground"
               axisLine={false}
               tickLine={false}
-              interval={chartData.length > 15 ? Math.ceil(chartData.length / 10) : 0}
-              angle={chartData.length > 10 ? -45 : 0}
-              textAnchor={chartData.length > 10 ? "end" : "middle"}
-              height={chartData.length > 10 ? 50 : 30}
             />
             <YAxis
               tick={{ fontSize: 10 }}
