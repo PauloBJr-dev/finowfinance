@@ -13,6 +13,7 @@ import ContasPagar from "./pages/ContasPagar";
 import Metas from "./pages/Metas";
 import Cofrinho from "./pages/Cofrinho";
 import Configuracoes from "./pages/Configuracoes";
+import Chat from "./pages/Chat";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
       <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -26,6 +26,7 @@ const WIDGET_ORDER = [
   "kpi_benefit",
   "month_flow",
   "reminders",
+  "ai_insights",
   "expenses_chart",
   "upcoming_bills",
   "recent_transactions",
