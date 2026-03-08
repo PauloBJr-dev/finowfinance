@@ -98,7 +98,7 @@ function Navbar() {
     >
       <div className="container mx-auto flex items-center justify-between h-16 px-4 lg:px-8">
         <img
-          src={isDark ? finowLogoLight : finowLogoDark}
+          src={finowLogoDark}
           alt="Finow"
           className="h-7"
         />
