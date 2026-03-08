@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import mentorIcon from "@/assets/finow-icon-96.png";
 import { PremiumGate } from "@/components/shared/PremiumGate";
 import { useAuth } from "@/hooks/use-auth";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 function formatMarkdownSimple(text: string) {
   return text
