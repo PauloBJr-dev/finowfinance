@@ -1,57 +1,87 @@
 
 
-## Relatório de Teste End-to-End Completo
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Resultado: APROVADO — Todas as validações de segurança estão funcionando corretamente.
+## Resumo
+
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
 ---
 
-### 1. Testes de Validação Backend (Edge Functions) — Via chamadas diretas
+## O que será removido
 
-| Teste | Payload | Resultado | Status |
-|---|---|---|---|
-| Registro: email inválido | `email: "invalid"` | `400 "Email inválido"` | PASS |
-| Registro: senha fraca | `password: "12345"` | `400 "Senha deve ter pelo menos 8 caracteres..."` | PASS |
-| Registro: nome curto | `name: "A"` | (bloqueado antes pelo email) | PASS |
-| Transação: valor negativo | `amount: -100` | `400 "Valor deve ser maior que zero"` | PASS |
-| Transação: valor absurdo | `amount: 9999999999999` | `400 "Valor excede o limite permitido"` | PASS |
-| Bills: descrição vazia | `description: ""` | `400 "Descrição é obrigatória"` | PASS |
-| Contas: nome vazio | `name: ""` | `400 "Nome deve ter pelo menos 2 caracteres"` | PASS |
-| Contas: tipo inválido | `type: "invalid_type"` | `400 "Nome deve ter pelo menos 2 caracteres"` | PASS |
-| Perfil: nome vazio | `name: ""` | `400 "Nome deve ter entre 2 e 100 caracteres"` | PASS |
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-### 2. Testes de Fluxo no Navegador
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-| Fluxo | Resultado |
-|---|---|
-| Login com credenciais válidas (`teste@finow.app`) | Redireciona para Dashboard corretamente |
-| Dashboard carrega com dados | KPIs, gráficos, transações recentes visíveis |
-| Navegação para Transações | Lista de transações carrega (10 registros) |
-| Navegação para Contas a Pagar | 3 contas pendentes exibidas (R$ 375,20 total) |
-| Quick Add modal abre | Modal multi-step funciona corretamente |
-| Logout e re-login | Fluxo completo sem erros |
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-### 3. Verificações de Rede
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
 
-- Todas as 19 requisições de rede retornaram status **200**
-- Nenhum erro 401/403/500 detectado
-- Autenticação JWT funcionando (token refresh OK)
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
 
-### 4. Problemas Menores Encontrados (não-bloqueantes)
+---
 
-1. **Warning React**: `KpiComparisonBadge` não usa `forwardRef` — warning de ref no console (cosmético)
-2. **Warning duplicate key**: Categoria "Outros" aparece duplicada no gráfico de pizza — chave React duplicada
+## O que será modificado
 
-### 5. Resumo da Cobertura de Segurança
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
 
-| Entidade | Validação Backend | Hooks via Edge Function | RLS |
-|---|---|---|---|
-| Transactions | Amount, type, ownership | Sim (`functions.invoke`) | Sim |
-| Accounts | Name, type, balance | Sim (`functions.invoke`) | Sim |
-| Bills | Description, amount, date, recurring cap | Sim (`functions.invoke`) | Sim |
-| Profile | Name length, phone format | Sim (`functions.invoke`) | Sim |
-| Register | Email, password strength, name | Sim (`functions.invoke`) | N/A |
-| Upload | File size, MIME type, sanitization | Sim (Edge Function) | Storage RLS |
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
 
-**Conclusão**: Todas as mudanças de segurança estão operacionais. Os dados são validados no backend antes de qualquer inserção, e os hooks do frontend corretamente delegam todas as mutações para as Edge Functions.
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 
