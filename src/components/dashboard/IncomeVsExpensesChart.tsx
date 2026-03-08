@@ -106,7 +106,6 @@ export function IncomeVsExpensesChart({ transactions, isLoading }: Props) {
               />
             </Bar>
           </BarChart>
-          </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
