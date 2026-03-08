@@ -220,8 +220,8 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
+      <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
+        <DrawerContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DrawerHeader>
             <DrawerTitle>Editar transação</DrawerTitle>
           </DrawerHeader>
@@ -234,7 +234,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Editar transação</DialogTitle>
         </DialogHeader>
