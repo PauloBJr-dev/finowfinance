@@ -3,17 +3,22 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
 import { useBillsSummary } from "@/hooks/use-bills";
-import { useUpcomingBills } from "@/hooks/use-dashboard-data";
+import { useUpcomingBills, usePreviousMonthTotals } from "@/hooks/use-dashboard-data";
 import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed } from "lucide-react";
+import { TrendingDown, TrendingUp, Wallet, UtensilsCrossed, Scale } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
+import { MonthFlowCard } from "@/components/dashboard/MonthFlowCard";
+import { RecentTransactionsCard } from "@/components/dashboard/RecentTransactionsCard";
+import { MicroInsightCard } from "@/components/dashboard/MicroInsightCard";
+import { KpiComparisonBadge } from "@/components/dashboard/KpiComparisonBadge";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { cn } from "@/lib/utils";
 
 function toDateStr(d: Date) {
   return d.toISOString().split("T")[0];
@@ -34,6 +39,7 @@ export default function Dashboard() {
   });
   const { data: billsSummary } = useBillsSummary(now);
   const { data: upcomingBills, isLoading: loadingUpcoming } = useUpcomingBills();
+  const { data: prevMonth } = usePreviousMonthTotals(dateRange.startDate, dateRange.endDate);
 
   const netWorth = accounts
     .filter((a) => a.include_in_net_worth)
@@ -54,6 +60,9 @@ export default function Dashboard() {
   const income = transactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + Number(t.amount), 0);
+  const balance = income - expenses;
+
+  const pendingBills = (billsSummary?.pending || 0) + (billsSummary?.overdue || 0);
 
   const firstName = profile?.name ? getFirstName(profile.name) : "";
   const greeting = getGreeting();
@@ -77,8 +86,17 @@ export default function Dashboard() {
         {/* Period Filter */}
         <PeriodFilter onPeriodChange={handlePeriodChange} />
 
+        {/* Micro Insight */}
+        <MicroInsightCard
+          income={income}
+          expenses={expenses}
+          prevExpenses={prevMonth?.expenses ?? null}
+          transactions={transactions}
+        />
+
         {/* Summary cards */}
-        <div className={`grid grid-cols-2 gap-4 ${hasBenefit ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          {/* Saldo Total */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
@@ -95,6 +113,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* Despesas */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Despesas</CardTitle>
@@ -106,13 +125,21 @@ export default function Dashboard() {
               {loadingTx ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
-                <p className="text-2xl font-bold text-destructive">
-                  {formatCurrency(expenses)}
-                </p>
+                <>
+                  <p className="text-2xl font-bold text-destructive">
+                    {formatCurrency(expenses)}
+                  </p>
+                  <KpiComparisonBadge
+                    current={expenses}
+                    previous={prevMonth?.expenses ?? null}
+                    invertColor
+                  />
+                </>
               )}
             </CardContent>
           </Card>
 
+          {/* Receitas */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Receitas</CardTitle>
@@ -124,13 +151,51 @@ export default function Dashboard() {
               {loadingTx ? (
                 <Skeleton className="h-8 w-24" />
               ) : (
-                <p className="text-2xl font-bold text-primary">
-                  {formatCurrency(income)}
-                </p>
+                <>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatCurrency(income)}
+                  </p>
+                  <KpiComparisonBadge
+                    current={income}
+                    previous={prevMonth?.income ?? null}
+                  />
+                </>
               )}
             </CardContent>
           </Card>
 
+          {/* Balanço do Mês */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Balanço</CardTitle>
+              <div className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full",
+                balance >= 0 ? "bg-primary/15" : "bg-destructive/15"
+              )}>
+                <Scale className={cn("h-4 w-4", balance >= 0 ? "text-primary" : "text-destructive")} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingTx ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    balance >= 0 ? "text-primary" : "text-destructive"
+                  )}>
+                    {formatCurrency(balance)}
+                  </p>
+                  <KpiComparisonBadge
+                    current={balance}
+                    previous={prevMonth?.balance ?? null}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Vale Refeição (condicional) */}
           {hasBenefit && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -152,10 +217,17 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Month Flow Card */}
+        <MonthFlowCard
+          income={income}
+          expenses={expenses}
+          pendingBills={pendingBills}
+          isLoading={loadingTx}
+        />
 
         <RemindersCard />
 
-        {/* Charts + Upcoming bills */}
+        {/* Charts + Upcoming bills + Recent Transactions */}
         <div className="grid gap-4 md:grid-cols-2">
           <ExpensesByCategoryChart
             transactions={transactions}
@@ -164,6 +236,8 @@ export default function Dashboard() {
           <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
         </div>
 
+        {/* Recent Transactions */}
+        <RecentTransactionsCard />
       </div>
     </MainLayout>
   );
