@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { z } from "zod";
 import { toast } from "sonner";
+import logoLight from "@/assets/finow-logo-light@2x.png";
+import logoDark from "@/assets/finow-logo-dark@2x.png";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -16,7 +19,10 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const { signIn } = useAuth();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
+
+  const logo = resolvedTheme === "dark" ? logoDark : logoLight;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +49,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-            <span className="text-2xl font-bold text-primary-foreground">F</span>
-          </div>
-          <h1 className="text-2xl font-semibold">Bem-vindo ao Finow</h1>
+          <img src={logo} alt="Finow" className="mx-auto mb-4 h-10 w-auto" />
           <p className="mt-2 text-muted-foreground">Seu mentor financeiro pessoal</p>
         </div>
 

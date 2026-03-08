@@ -4,8 +4,9 @@ import { useChat } from "@/hooks/use-chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Trash2, Square, Sparkles } from "lucide-react";
+import { Send, Trash2, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import mentorIcon from "@/assets/finow-icon-96.png";
 
 function formatMarkdownSimple(text: string) {
   return text
@@ -47,7 +48,7 @@ export default function Chat() {
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <img src={mentorIcon} alt="Mentor" className="h-6 w-6 rounded" />
             <h1 className="text-lg font-semibold">Mentor Financeiro</h1>
           </div>
           <Button variant="ghost" size="icon" onClick={clearChat} title="Limpar conversa">
@@ -60,7 +61,7 @@ export default function Chat() {
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <div className="max-w-md space-y-3 text-center">
-                <Sparkles className="mx-auto h-10 w-10 text-primary/40" />
+                <img src={mentorIcon} alt="Mentor" className="mx-auto h-10 w-10 opacity-40" />
                 <h2 className="text-lg font-medium">Olá! Sou seu mentor financeiro 👋</h2>
                 <p className="text-sm text-muted-foreground">
                   Me pergunte sobre seus gastos, metas, ou peça dicas para organizar suas finanças.

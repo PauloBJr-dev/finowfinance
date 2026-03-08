@@ -3,12 +3,19 @@ import { cn } from "@/lib/utils";
 import { NavItem } from "./NavItem";
 import { navigationItems, settingsItem } from "./navigation-items";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { Button } from "@/components/ui/button";
 import { useSidebarContext } from "@/contexts/SidebarContext";
+import logoLight from "@/assets/finow-logo-light@2x.png";
+import logoDark from "@/assets/finow-logo-dark@2x.png";
+import iconImg from "@/assets/finow-icon-96.png";
 
 export function Sidebar() {
   const { collapsed, toggle } = useSidebarContext();
   const { signOut, user } = useAuth();
+  const { resolvedTheme } = useTheme();
+
+  const logo = resolvedTheme === "dark" ? logoDark : logoLight;
 
   return (
     <aside
@@ -20,17 +27,10 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-lg font-bold text-primary-foreground">F</span>
-            </div>
-            <span className="text-xl font-semibold text-sidebar-foreground">Finow</span>
-          </div>
+          <img src={logo} alt="Finow" className="h-8 w-auto" />
         )}
         {collapsed && (
-          <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-bold text-primary-foreground">F</span>
-          </div>
+          <img src={iconImg} alt="Finow" className="mx-auto h-8 w-8 rounded-lg" />
         )}
       </div>
 

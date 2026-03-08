@@ -1,59 +1,87 @@
 
 
-## Plano: Logos Finow + Modo Light Inteligente + Sistema de Tema
+# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
 
-### Logos enviadas
+## Resumo
 
-| Arquivo | Tamanho | Uso |
-|---------|---------|-----|
-| `finow-icon-32.png` | 32px | favicon |
-| `finow-icon-48.png` | 48px | PWA icon |
-| `finow-icon-96.png` | 96px | PWA icon |
-| `finow-icon-180.png` | 180px | apple-touch-icon |
-| `finow-icon-192.png` | 192px | PWA icon |
-| `finow-icon-512.png` | 512px | PWA splash |
-| `finow-logo-light@1x.png` | 1x | Sidebar/Auth (light mode) |
-| `finow-logo-light@2x.png` | 2x | Sidebar/Auth (light mode, retina) |
-| `finow-logo-dark@1x.png` | 1x | Sidebar/Auth (dark mode) |
-| `finow-logo-dark@2x.png` | 2x | Sidebar/Auth (dark mode, retina) |
+Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
 
-### Onde inserir logos
+---
 
-1. **Sidebar (desktop)** — substituir o ícone "F" + texto "Finow" pela logo horizontal (dark/light conforme tema). Collapsed: mostrar apenas o ícone hexagonal
-2. **Tela de login (Auth)** — substituir o ícone "F" pela logo horizontal centralizada
-3. **PWA manifest** — atualizar icons com os tamanhos corretos (48, 96, 192, 512)
-4. **index.html** — atualizar favicon e apple-touch-icon
-5. **Chat** — o header do chat pode usar o ícone hexagonal como avatar do mentor
+## O que será removido
 
-### Modo Light Inteligente
+### Páginas e Rotas
+- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
+- **Navegação "Faturas"** — remover de `navigation-items.ts`
 
-O dark mode atual já está bem implementado. O light mode precisa de refinamento para não ser "branco puro". Ajustes no `index.css`:
+### Componentes
+- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
+- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
 
-- **Background light**: manter `#F7F8F6` (já bom, tom esverdeado sutil)
-- **Cards light**: trocar de `#FFFFFF` puro para `#FAFBF9` (off-white quente)
-- **Sidebar light**: usar tom levemente mais escuro `#F0F2EE` para criar hierarquia visual
-- **Muted backgrounds**: intensificar levemente para `#ECEFEA`
-- **Borders light**: tornar mais sutis com tom esverdeado `#E2E6DE`
-- **Sombras light**: adicionar sombras suaves com tom verde (já existe no glass, expandir para cards)
+### Hooks
+- `src/hooks/use-cards.ts` — deletar
+- `src/hooks/use-invoices.ts` — deletar
+- `src/hooks/use-benefit-deposits.ts` — deletar
 
-### Tema segue sistema por padrão
+### Libs
+- `src/lib/invoice-utils.ts` — deletar
+- `src/lib/installment-utils.ts` — deletar
 
-O hook `use-theme.tsx` já suporta `system` como default — funciona corretamente. Apenas garantir que o default localStorage key seja `"system"` (já é).
+### Edge Functions
+- `supabase/functions/cards/` — deletar
+- `supabase/functions/invoices/` — deletar
+- `supabase/functions/pay-invoice/` — deletar
+- `supabase/functions/close-invoices/` — deletar
+- `supabase/functions/installments/` — deletar
 
-### Seletor de Tema nas Configurações
+---
 
-Adicionar na tab **Perfil** das Configurações um seletor de aparência (Light / Dark / Sistema) usando radio group ou segmented control.
+## O que será modificado
 
-### Arquivos
+### `src/pages/Configuracoes.tsx`
+- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
 
-| Ação | Arquivo |
-|------|---------|
-| Copiar | 10 imagens → `public/images/` (ícones) e `src/assets/` (logos) |
-| Editar | `public/manifest.json` — icons PWA |
-| Editar | `index.html` — favicon + apple-touch-icon |
-| Editar | `src/index.css` — refinamento light mode |
-| Editar | `src/components/navigation/Sidebar.tsx` — logo real com tema |
-| Editar | `src/pages/Auth.tsx` — logo real |
-| Editar | `src/pages/Chat.tsx` — ícone hexagonal no header |
-| Editar | `src/components/settings/ProfileTab.tsx` — seletor de tema |
+### `src/pages/Dashboard.tsx`
+- Remover card "Fatura Atual" e card "Benefícios"
+- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
+- Grid passa de 5 colunas para 3
+
+### `src/components/transactions/QuickAddModal.tsx`
+- Remover toda lógica de seleção de fatura (invoice selector)
+- Remover lógica de parcelamento (campo de parcelas)
+- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
+- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
+- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+
+### `src/hooks/use-transactions.ts`
+- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
+- Remover `selected_invoice_id` do `CreateTransactionParams`
+- Remover invalidação de `INVOICES_KEY`
+- Transação é um insert simples, sem buscar faturas
+
+### `src/components/shared/PaymentMethodSelect.tsx`
+- Remover opção `benefit_card`
+
+### `src/components/navigation/navigation-items.ts`
+- Remover item "Faturas"
+
+### `src/App.tsx`
+- Remover import e rota de `Faturas`
+
+---
+
+## O que NÃO será alterado no banco de dados
+
+As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+
+---
+
+## Ordem de implementação
+
+1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
+2. Atualizar `App.tsx` e navegação
+3. Simplificar `Dashboard.tsx`
+4. Simplificar `Configuracoes.tsx`
+5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
+6. Limpar `PaymentMethodSelect.tsx`
 

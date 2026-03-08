@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useProfile, useUpdateProfile } from "@/hooks/use-profile";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -16,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { User, Mail, Phone, Clock } from "lucide-react";
+import { User, Mail, Phone, Clock, Sun, Moon, Monitor } from "lucide-react";
 import { useEffect } from "react";
 
 const profileSchema = z.object({
@@ -30,6 +31,7 @@ export function ProfileTab() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
+  const { theme, setTheme } = useTheme();
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -39,7 +41,6 @@ export function ProfileTab() {
     },
   });
 
-  // Atualiza form quando perfil carrega
   useEffect(() => {
     if (profile) {
       form.reset({
@@ -61,6 +62,12 @@ export function ProfileTab() {
       </div>
     );
   }
+
+  const themeOptions = [
+    { value: "light" as const, label: "Claro", icon: Sun },
+    { value: "dark" as const, label: "Escuro", icon: Moon },
+    { value: "system" as const, label: "Sistema", icon: Monitor },
+  ];
 
   return (
     <div className="space-y-6">
@@ -90,6 +97,38 @@ export function ProfileTab() {
               <p className="text-sm text-muted-foreground">Fuso horário</p>
               <p className="font-medium">{profile?.timezone || "America/Sao_Paulo"}</p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Aparência */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Aparência</CardTitle>
+          <CardDescription>
+            Escolha o tema visual do aplicativo
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            {themeOptions.map((opt) => {
+              const Icon = opt.icon;
+              const isActive = theme === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setTheme(opt.value)}
+                  className={`flex flex-1 flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors ${
+                    isActive
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:border-primary/30"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-sm font-medium">{opt.label}</span>
+                </button>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
