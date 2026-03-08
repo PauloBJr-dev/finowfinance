@@ -5,13 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { PieChart as PieIcon } from "lucide-react";
 
-const CHART_COLORS = [
-  "#1F7A63",
-  "#2A9D7E",
-  "#35C099",
-  "#E0B84C",
-  "#7AE5CA",
-  "#A8F0DE",
+const FALLBACK_COLORS = [
+  "#1F7A63", "#2A9D7E", "#35C099", "#E0B84C", "#7AE5CA", "#A8F0DE",
 ];
 
 interface Props {
@@ -26,14 +21,18 @@ interface Props {
 export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
   const chartData = useMemo(() => {
     if (!transactions) return [];
-    const map = new Map<string, number>();
+    const map = new Map<string, { value: number; color: string | null }>();
     transactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         const name = t.categories?.name || "Sem categoria";
-        map.set(name, (map.get(name) || 0) + Number(t.amount));
+        const existing = map.get(name);
+        map.set(name, {
+          value: (existing?.value || 0) + Number(t.amount),
+          color: existing?.color || t.categories?.color || null,
+        });
       });
-    return Array.from(map, ([name, value]) => ({ name, value }))
+    return Array.from(map, ([name, { value, color }]) => ({ name, value, color }))
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
@@ -87,8 +86,8 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
                 stroke="none"
                 isAnimationActive={false}
               >
-                {chartData.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
                 ))}
               </Pie>
             </PieChart>
@@ -108,7 +107,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
               <div key={item.name} className="flex items-center gap-3">
                 <span
                   className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                  style={{ backgroundColor: item.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length] }}
                 />
                 <span className="text-xs text-muted-foreground flex-1 truncate">{item.name}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
