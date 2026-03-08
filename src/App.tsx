@@ -17,6 +17,7 @@ const Metas = lazy(() => import("./pages/Metas"));
 const Cofrinho = lazy(() => import("./pages/Cofrinho"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Chat = lazy(() => import("./pages/Chat"));
+const Faturas = lazy(() => import("./pages/Faturas"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -52,6 +53,7 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/transacoes" element={<ProtectedRoute><Transacoes /></ProtectedRoute>} />
         <Route path="/contas-pagar" element={<ProtectedRoute><ContasPagar /></ProtectedRoute>} />
+        <Route path="/faturas" element={<ProtectedRoute><Faturas /></ProtectedRoute>} />
         <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
         <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
         <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
