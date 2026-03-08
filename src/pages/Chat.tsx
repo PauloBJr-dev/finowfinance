@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Trash2, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import mentorIcon from "@/assets/finow-icon-96.png";
+import { PremiumGate } from "@/components/shared/PremiumGate";
 
 function formatMarkdownSimple(text: string) {
   return text

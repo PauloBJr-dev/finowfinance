@@ -22,6 +22,9 @@ import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
+import { Crown } from "lucide-react";
 
 function toDateStr(d: Date) {
   return d.toISOString().split("T")[0];
