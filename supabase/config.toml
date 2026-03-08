@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.ai-reminders]
 verify_jwt = false
+
+[functions.ai-insights]
+verify_jwt = false
+
+[functions.finow-chat]
+verify_jwt = false
