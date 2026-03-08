@@ -837,7 +837,7 @@ function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col items-center md:items-start gap-2">
             <img
-              src={isDark ? finowLogoLight : finowLogoDark}
+              src={finowLogoDark}
               alt="Finow"
               className="h-6"
             />
