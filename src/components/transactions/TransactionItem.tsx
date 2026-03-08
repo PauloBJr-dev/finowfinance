@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { resolveCategoryIcon, resolvePaymentMethodIcon, paymentMethodLabels } from "@/lib/category-icons";
 import { HelpCircle } from "lucide-react";
+import { usePrivacy } from "@/contexts/PrivacyContext";
 
 type Transaction = Tables<"transactions"> & {
   categories?: {
@@ -29,6 +30,7 @@ interface TransactionItemProps {
 }
 
 export const TransactionItem = memo(function TransactionItem({ transaction, onClick }: TransactionItemProps) {
+  const { mask } = usePrivacy();
   const PaymentIcon = resolvePaymentMethodIcon(transaction.payment_method);
   const isExpense = transaction.type === "expense";
 
@@ -80,7 +82,7 @@ export const TransactionItem = memo(function TransactionItem({ transaction, onCl
         )}
       >
         {isExpense ? "-" : "+"}
-        {formatCurrency(Number(transaction.amount))}
+        {mask(formatCurrency(Number(transaction.amount)))}
       </div>
     </button>
   );
