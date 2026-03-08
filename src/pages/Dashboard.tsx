@@ -21,6 +21,7 @@ import { MicroInsightCard } from "@/components/dashboard/MicroInsightCard";
 import { KpiComparisonBadge } from "@/components/dashboard/KpiComparisonBadge";
 import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
+import { CurrentInvoicesCard } from "@/components/dashboard/CurrentInvoicesCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -320,6 +321,9 @@ export default function Dashboard() {
         {w.ai_insights && (
           <InsightsCard startDate={dateRange.startDate} endDate={dateRange.endDate} />
         )}
+
+        {/* Current Invoices */}
+        {w.current_invoices && <CurrentInvoicesCard />}
 
         {/* Charts + Upcoming bills */}
         {(w.expenses_chart || w.upcoming_bills) && (
