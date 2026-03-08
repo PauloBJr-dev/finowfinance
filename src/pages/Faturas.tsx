@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import MainLayout from "@/components/layout/MainLayout";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { useCards, Card } from "@/hooks/use-cards";
 import { useInvoices, useInvoiceTransactions, usePayInvoice, Invoice } from "@/hooks/use-invoices";
 import { useAccounts } from "@/hooks/use-accounts";
