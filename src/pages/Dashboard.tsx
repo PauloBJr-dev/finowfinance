@@ -85,12 +85,24 @@ export default function Dashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">
-              {greeting}
-              {firstName ? `, ${firstName}` : ""}!
-            </h1>
-            <p className="text-muted-foreground">Seu resumo financeiro.</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold">
+                {greeting}
+                {firstName ? `, ${firstName}` : ""}!
+              </h1>
+              <p className="text-muted-foreground">Seu resumo financeiro.</p>
+            </div>
+            {plan === "premium" && (
+              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Premium
+              </Badge>
+            )}
+            {plan === "lifetime" && (
+              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Lifetime
+              </Badge>
+            )}
           </div>
           <DashboardCustomizer
             visibleWidgets={w}

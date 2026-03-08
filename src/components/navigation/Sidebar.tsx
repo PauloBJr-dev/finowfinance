@@ -80,6 +80,7 @@ export function Sidebar() {
                 icon={item.icon}
                 label={item.label}
                 collapsed={collapsed}
+                premium={"premium" in item ? item.premium : false}
               />
             ))}
           </div>
