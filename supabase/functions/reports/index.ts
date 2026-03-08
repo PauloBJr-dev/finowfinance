@@ -270,7 +270,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="finow-relatorio-${startDate}-${endDate}.pdf"`,
+        'Content-Disposition': `attachment; filename="Relatorio financeiro ${formatDateBR(startDate)} - ${formatDateBR(endDate)}.pdf"`,
       },
     })
   } catch (error) {

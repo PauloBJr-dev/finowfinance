@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatDate } from "@/lib/format";
 
 export function useReports() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,7 +31,7 @@ export function useReports() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `finow-relatorio-${startDate}-${endDate}.pdf`;
+      a.download = `Relatório financeiro ${formatDate(startDate)} - ${formatDate(endDate)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
