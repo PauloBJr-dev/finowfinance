@@ -49,7 +49,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <img src={logo} alt="Finow" className="mx-auto mb-4 h-10 w-auto" />
+          <img src={logo} alt="Finow" className="mx-auto mb-4 h-10 w-auto" width={233} height={70} fetchPriority="high" />
           <p className="mt-2 text-muted-foreground">Seu mentor financeiro pessoal</p>
         </div>
 
