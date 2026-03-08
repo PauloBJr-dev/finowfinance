@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
+import { supabase } from "@/integrations/supabase/client";
 import { useBillsSummary } from "@/hooks/use-bills";
 import { useUpcomingBills, usePreviousMonthTotals } from "@/hooks/use-dashboard-data";
 import { useProfile } from "@/hooks/use-profile";
