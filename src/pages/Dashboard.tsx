@@ -7,8 +7,10 @@ import { useProfile } from "@/hooks/use-profile";
 import { formatCurrency, getGreeting, getFirstName } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Wallet, TrendingDown, TrendingUp } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, ArrowRight } from "lucide-react";
 import { RemindersCard } from "@/components/dashboard/RemindersCard";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
 import { IncomeVsExpensesChart } from "@/components/dashboard/IncomeVsExpensesChart";
 import { MonthFlowCard } from "@/components/dashboard/MonthFlowCard";
@@ -49,8 +51,6 @@ export default function Dashboard() {
           </h1>
           <p className="text-muted-foreground">Seu resumo financeiro do mês.</p>
         </div>
-
-        <RemindersCard />
 
         {/* Row 1: Summary cards */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -100,6 +100,17 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Ver transações button */}
+        <div className="flex justify-end">
+          <Button variant="outline" asChild>
+            <Link to="/transacoes">
+              Ver transações <ArrowRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+
+        <RemindersCard />
 
         {/* Row 2: Month flow */}
         <MonthFlowCard
