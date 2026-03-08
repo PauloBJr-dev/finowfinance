@@ -39,21 +39,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string, phone?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          name,
-          phone: phone || null,
-        },
-      },
-    });
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('register', {
+        body: { email, password, name, phone: phone || null },
+      });
 
-    return { error: error as Error | null };
+      if (fnError) {
+        return { error: new Error(fnError.message || 'Erro ao criar conta') };
+      }
+
+      if (data?.error) {
+        return { error: new Error(data.error) };
+      }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error('Erro ao criar conta') };
+    }
   };
 
   const signIn = async (email: string, password: string) => {

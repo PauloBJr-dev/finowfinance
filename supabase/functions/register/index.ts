@@ -1,0 +1,144 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const ALLOWED_ORIGINS = [
+  'https://finowfinance.lovable.app',
+  'https://id-preview--091dae34-4e4b-4820-8fe0-751ab428a6c7.lovable.app',
+]
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  }
+}
+
+// Validation helpers
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 255
+}
+
+function isValidPassword(password: string): boolean {
+  return (
+    password.length >= 8 &&
+    password.length <= 128 &&
+    /[a-zA-Z]/.test(password) &&
+    /[0-9]/.test(password)
+  )
+}
+
+function isValidName(name: string): boolean {
+  const trimmed = name.trim()
+  return trimmed.length >= 2 && trimmed.length <= 100
+}
+
+function isValidPhone(phone: string): boolean {
+  if (!phone) return true // optional
+  return phone.length <= 20 && /^[0-9+\-() ]+$/.test(phone)
+}
+
+serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Método não permitido' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  try {
+    const body = await req.json()
+    const { email, password, name, phone } = body
+
+    // Validate email
+    if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+      return new Response(
+        JSON.stringify({ error: 'Email inválido' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate password
+    if (!password || typeof password !== 'string' || !isValidPassword(password)) {
+      return new Response(
+        JSON.stringify({ error: 'Senha deve ter pelo menos 8 caracteres, incluindo letras e números' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate name
+    if (!name || typeof name !== 'string' || !isValidName(name)) {
+      return new Response(
+        JSON.stringify({ error: 'Nome deve ter entre 2 e 100 caracteres' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Validate phone (optional)
+    if (phone !== undefined && phone !== null && phone !== '') {
+      if (typeof phone !== 'string' || !isValidPhone(phone)) {
+        return new Response(
+          JSON.stringify({ error: 'Telefone inválido. Use apenas números, +, -, (, ) e espaços' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // Use service role to create user (admin privileges)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+
+    const trimmedName = name.trim()
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      password,
+      email_confirm: false, // require email verification
+      user_metadata: {
+        name: trimmedName,
+        phone: phone?.trim() || null,
+      },
+    })
+
+    if (error) {
+      // Generic error to avoid leaking info about existing accounts
+      console.error('[register] Error:', error.message)
+      
+      if (error.message?.includes('already been registered') || error.message?.includes('already exists')) {
+        return new Response(
+          JSON.stringify({ error: 'Não foi possível criar a conta. Verifique os dados e tente novamente.' }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({ error: 'Erro ao criar conta. Tente novamente mais tarde.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({
+        message: 'Conta criada com sucesso. Verifique seu email para confirmar.',
+        user_id: data.user?.id,
+      }),
+      { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error('[register] Internal error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Erro interno do servidor' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
