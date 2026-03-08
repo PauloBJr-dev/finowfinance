@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.profile]
 verify_jwt = false
+
+[functions.register]
+verify_jwt = false
+
+[functions.upload-attachment]
+verify_jwt = false
