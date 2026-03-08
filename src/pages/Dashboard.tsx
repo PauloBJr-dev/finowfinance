@@ -13,7 +13,6 @@ import { RemindersCard } from "@/components/dashboard/RemindersCard";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
-import { IncomeVsExpensesChart } from "@/components/dashboard/IncomeVsExpensesChart";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
 import { PeriodFilter } from "@/components/shared/PeriodFilter";
 import { startOfMonth, endOfMonth } from "date-fns";
@@ -131,22 +130,15 @@ export default function Dashboard() {
 
         <RemindersCard />
 
-        {/* Charts */}
+        {/* Charts + Upcoming bills */}
         <div className="grid gap-4 md:grid-cols-2">
           <ExpensesByCategoryChart
             transactions={transactions}
             isLoading={loadingTx}
           />
-          <IncomeVsExpensesChart
-            transactions={transactions}
-            isLoading={loadingTx}
-            startDate={dateRange.startDate}
-            endDate={dateRange.endDate}
-          />
+          <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
         </div>
 
-        {/* Upcoming bills */}
-        <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
       </div>
     </MainLayout>
   );
