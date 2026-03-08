@@ -585,6 +585,7 @@ const STRIPE_PRICES = {
 function PricingSection() {
   const navigate = useNavigate();
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
 
   const handleCheckout = async (priceId: string, planName: string) => {
     setLoadingPlan(planName);
@@ -593,7 +594,6 @@ function PricingSection() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        // Not logged in — redirect to auth
         navigate("/auth");
         return;
       }
@@ -613,6 +613,14 @@ function PricingSection() {
     }
   };
 
+  const premiumPrice = billingCycle === "monthly"
+    ? { display: "R$ 6,90", period: "/mês", sub: null }
+    : { display: "R$ 5,83", period: "/mês", sub: "R$ 70 cobrados anualmente — economize 15%" };
+
+  const premiumPriceId = billingCycle === "monthly"
+    ? STRIPE_PRICES.premium_monthly
+    : STRIPE_PRICES.premium_yearly;
+
   const plans = [
     {
       name: "Grátis",
@@ -620,6 +628,7 @@ function PricingSection() {
       period: "para sempre",
       badge: null,
       desc: "Comece agora sem gastar nada.",
+      subPrice: null as string | null,
       features: [
         "Transações ilimitadas",
         "2 contas bancárias",
@@ -632,11 +641,11 @@ function PricingSection() {
     },
     {
       name: "Premium",
-      price: "R$ 6,90",
-      period: "/mês",
+      price: premiumPrice.display,
+      period: premiumPrice.period,
       badge: "Mais popular",
       desc: "Por menos de R$ 0,23/dia, tenha um mentor financeiro 24h.",
-      subPrice: "ou R$ 70/ano (R$ 5,83/mês — economize 15%)",
+      subPrice: premiumPrice.sub,
       features: [
         "Tudo do plano Grátis",
         "Mentor IA ilimitado",
@@ -649,7 +658,7 @@ function PricingSection() {
       ],
       cta: "Assinar Premium",
       highlight: true,
-      action: () => handleCheckout(STRIPE_PRICES.premium_monthly, "Premium"),
+      action: () => handleCheckout(premiumPriceId, "Premium"),
     },
     {
       name: "Vitalício",
@@ -680,6 +689,31 @@ function PricingSection() {
           <p className="text-muted-foreground max-w-lg mx-auto">
             Comece de graça. Evolua quando quiser.
           </p>
+
+          {/* Billing cycle toggle */}
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              onClick={() => setBillingCycle("monthly")}
+              className={`text-sm font-medium px-4 py-2 rounded-full transition-colors ${
+                billingCycle === "monthly"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Mensal
+            </button>
+            <button
+              onClick={() => setBillingCycle("yearly")}
+              className={`text-sm font-medium px-4 py-2 rounded-full transition-colors ${
+                billingCycle === "yearly"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Anual
+              <span className="ml-1.5 text-[10px] font-bold opacity-80">-15%</span>
+            </button>
+          </div>
         </AnimatedSection>
 
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-start">
