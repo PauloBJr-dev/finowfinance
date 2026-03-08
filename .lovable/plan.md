@@ -1,87 +1,55 @@
 
 
-# Plano: Remover Faturas, Cartões (CRUD) e Benefícios — Simplificar para Transações Puras
+## Plan: Registration Edge Function, Payment Hardening, and File Upload Edge Function
 
-## Resumo
+### Current State Assessment
 
-Remover toda a lógica de faturas, gestão de cartões (CRUD em Configurações), benefícios (VA/VR) e parcelamento. Manter `credit_card` como opção de forma de pagamento, mas sem vínculo a faturas. Transações passam a ser simples: registrar e visualizar.
-
----
-
-## O que será removido
-
-### Páginas e Rotas
-- **Página `Faturas.tsx`** — remover rota `/faturas` do `App.tsx`
-- **Navegação "Faturas"** — remover de `navigation-items.ts`
-
-### Componentes
-- `src/components/cards/` (CardForm, CardList) — deletar pasta inteira
-- `src/components/benefits/` (BenefitCardForm, BenefitCardList, BenefitDepositForm, BenefitDepositHistory) — deletar pasta inteira
-
-### Hooks
-- `src/hooks/use-cards.ts` — deletar
-- `src/hooks/use-invoices.ts` — deletar
-- `src/hooks/use-benefit-deposits.ts` — deletar
-
-### Libs
-- `src/lib/invoice-utils.ts` — deletar
-- `src/lib/installment-utils.ts` — deletar
-
-### Edge Functions
-- `supabase/functions/cards/` — deletar
-- `supabase/functions/invoices/` — deletar
-- `supabase/functions/pay-invoice/` — deletar
-- `supabase/functions/close-invoices/` — deletar
-- `supabase/functions/installments/` — deletar
+1. **Registration**: Uses `supabase.auth.signUp()` directly from `use-auth.tsx` — no server-side validation on name, email format, password strength, or phone.
+2. **Payment processing**: Already moved to `bills/pay` Edge Function with atomic logic and rollback. **No changes needed.**
+3. **File uploads**: The `transactions.attachments` column exists but no storage bucket or upload mechanism is implemented.
 
 ---
 
-## O que será modificado
+### Task 1: Registration Edge Function
 
-### `src/pages/Configuracoes.tsx`
-- Remover abas "Cartões" e "Benefícios" (manter Contas, Perfil, IA)
+**New file:** `supabase/functions/register/index.ts`
+- Validate: email format, password (min 8 chars, at least 1 number + 1 letter), name (2-100 chars trimmed), phone (optional, max 20 chars, digits/+/- only)
+- Call `supabase.auth.admin.createUser()` using service role key (or `signUp` via anon client)
+- Return sanitized response (no internal error details)
+- Rate-limit awareness: return 429 if same email tried too many times (lightweight, via recent audit_logs check)
 
-### `src/pages/Dashboard.tsx`
-- Remover card "Fatura Atual" e card "Benefícios"
-- Remover imports de `useInvoices`, `useBenefitCardsTotal`, `formatInvoiceMonth`
-- Grid passa de 5 colunas para 3
+**Update:** `supabase/config.toml` — add `[functions.register]` with `verify_jwt = false` (public endpoint)
 
-### `src/components/transactions/QuickAddModal.tsx`
-- Remover toda lógica de seleção de fatura (invoice selector)
-- Remover lógica de parcelamento (campo de parcelas)
-- Remover imports de `useCards`, `useAvailableInvoices`, `formatInstallmentPreview`
-- Simplificar: apenas tipo, valor, data, categoria, método de pagamento, conta, descrição
-- `credit_card` continua como opção de pagamento mas sem vincular a cartão/fatura
+**Update:** `src/hooks/use-auth.tsx` — change `signUp` to invoke the `register` Edge Function instead of calling `supabase.auth.signUp()` directly
 
-### `src/hooks/use-transactions.ts`
-- Remover toda lógica de parcelamento (installment_groups, installments, RPCs de fatura)
-- Remover `selected_invoice_id` do `CreateTransactionParams`
-- Remover invalidação de `INVOICES_KEY`
-- Transação é um insert simples, sem buscar faturas
+### Task 2: Payment Processing — Already Done
 
-### `src/components/shared/PaymentMethodSelect.tsx`
-- Remover opção `benefit_card`
+The `bills/pay` Edge Function already handles atomic payment with rollback. The `PayBillModal` already calls it via `usePayBill` → `supabase.functions.invoke('bills/pay')`. No further work needed.
 
-### `src/components/navigation/navigation-items.ts`
-- Remover item "Faturas"
+### Task 3: File Upload Edge Function + Storage
 
-### `src/App.tsx`
-- Remover import e rota de `Faturas`
+**Migration SQL:**
+- Create storage bucket `attachments` (private)
+- RLS policies: users can upload to `{user_id}/` path, read own files, delete own files
 
----
+**New file:** `supabase/functions/upload-attachment/index.ts`
+- Accept multipart/form-data with a single file
+- Validate: file size (max 5MB), allowed MIME types (image/jpeg, image/png, image/webp, application/pdf)
+- Validate: filename length, sanitize filename
+- Upload to `attachments/{user_id}/{uuid}-{sanitized_name}`
+- Return the public URL path for storage in `transactions.attachments`
 
-## O que NÃO será alterado no banco de dados
-
-As tabelas (`cards`, `invoices`, `installments`, `installment_groups`, `benefit_deposits`) permanecerão no banco para preservar dados históricos. Apenas o frontend e Edge Functions deixam de usá-las.
+**Update:** `supabase/config.toml` — add `[functions.upload-attachment]` with `verify_jwt = false`
 
 ---
 
-## Ordem de implementação
+### Summary of Changes
 
-1. Remover arquivos (hooks, componentes, edge functions, libs, página Faturas)
-2. Atualizar `App.tsx` e navegação
-3. Simplificar `Dashboard.tsx`
-4. Simplificar `Configuracoes.tsx`
-5. Simplificar `QuickAddModal.tsx` e `use-transactions.ts`
-6. Limpar `PaymentMethodSelect.tsx`
+| File | Action |
+|---|---|
+| `supabase/functions/register/index.ts` | Create — registration with validation |
+| `supabase/functions/upload-attachment/index.ts` | Create — file upload with validation |
+| `supabase/config.toml` | Add 2 function entries |
+| `src/hooks/use-auth.tsx` | Route `signUp` through Edge Function |
+| SQL migration | Create `attachments` storage bucket + RLS |
 
