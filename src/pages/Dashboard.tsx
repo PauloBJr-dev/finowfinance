@@ -81,7 +81,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground font-normal">(hoje)</span>
             </CardHeader>
             <CardContent>
               {loadingAccounts ? (
@@ -143,8 +143,8 @@ export default function Dashboard() {
             isLoading={loadingTx}
           />
           <IncomeVsExpensesChart
-            transactions={sixMonthTx}
-            isLoading={loading6m}
+            transactions={periodTx}
+            isLoading={loadingPeriodTx}
           />
         </div>
 
