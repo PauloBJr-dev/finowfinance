@@ -270,10 +270,6 @@ export default function Dashboard() {
                         previous={prevMonth?.balance ?? null}
                       />
                     )}
-                    <KpiComparisonBadge
-                      current={balance}
-                      previous={prevMonth?.balance ?? null}
-                    />
                   </>
                 )}
               </CardContent>
