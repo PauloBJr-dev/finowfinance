@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
@@ -51,25 +51,25 @@ export default function Dashboard() {
   const { data: upcomingBills, isLoading: loadingUpcoming } = useUpcomingBills();
   const { data: prevMonth } = usePreviousMonthTotals(dateRange.startDate, dateRange.endDate);
 
-  const netWorth = accounts
+  const netWorth = useMemo(() => accounts
     .filter((a) => a.include_in_net_worth)
-    .reduce((sum, a) => sum + Number(a.current_balance), 0);
+    .reduce((sum, a) => sum + Number(a.current_balance), 0), [accounts]);
 
-  const benefitAccounts = accounts.filter(
+  const benefitAccounts = useMemo(() => accounts.filter(
     (a) => a.type === "benefit_card" && !a.deleted_at
-  );
-  const benefitBalance = benefitAccounts.reduce(
+  ), [accounts]);
+  const benefitBalance = useMemo(() => benefitAccounts.reduce(
     (sum, a) => sum + Number(a.current_balance),
     0
-  );
+  ), [benefitAccounts]);
   const hasBenefit = benefitAccounts.length > 0;
 
-  const expenses = transactions
+  const expenses = useMemo(() => transactions
     .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const income = transactions
+    .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
+  const income = useMemo(() => transactions
     .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const balance = income - expenses;
 
   const pendingBills = (billsSummary?.pending || 0) + (billsSummary?.overdue || 0);
@@ -77,9 +77,9 @@ export default function Dashboard() {
   const firstName = profile?.name ? getFirstName(profile.name) : "";
   const greeting = getGreeting();
 
-  const handlePeriodChange = (startDate: string, endDate: string) => {
+  const handlePeriodChange = useCallback((startDate: string, endDate: string) => {
     setDateRange({ startDate, endDate });
-  };
+  }, []);
 
   return (
     <MainLayout>

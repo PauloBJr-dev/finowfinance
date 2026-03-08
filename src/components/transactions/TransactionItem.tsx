@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ interface TransactionItemProps {
   onClick?: () => void;
 }
 
-export function TransactionItem({ transaction, onClick }: TransactionItemProps) {
+export const TransactionItem = memo(function TransactionItem({ transaction, onClick }: TransactionItemProps) {
   const PaymentIcon = resolvePaymentMethodIcon(transaction.payment_method);
   const isExpense = transaction.type === "expense";
 
@@ -83,4 +84,4 @@ export function TransactionItem({ transaction, onClick }: TransactionItemProps) 
       </div>
     </button>
   );
-}
+});

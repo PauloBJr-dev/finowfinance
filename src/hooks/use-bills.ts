@@ -89,14 +89,17 @@ export function useBills(filters?: BillFilters) {
       return data as Bill[];
     },
     enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
 export function useBillsSummary(month?: Date) {
   const { user } = useAuth();
+  // Stabilize queryKey: use year-month string instead of Date object
+  const monthKey = month ? `${month.getFullYear()}-${month.getMonth()}` : undefined;
 
   return useQuery({
-    queryKey: ["bills-summary", user?.id, month?.toISOString()],
+    queryKey: ["bills-summary", user?.id, monthKey],
     queryFn: async () => {
       if (!user?.id) return { pending: 0, overdue: 0, paid: 0, total: 0 };
 
@@ -136,6 +139,7 @@ export function useBillsSummary(month?: Date) {
       return summary;
     },
     enabled: !!user?.id,
+    staleTime: 2 * 60 * 1000,
   });
 }
 

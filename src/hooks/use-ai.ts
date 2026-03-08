@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 // Types
@@ -53,10 +54,11 @@ const DEFAULT_USER_LIMIT = 5000;
  * Hook para buscar configurações de IA do usuário
  */
 export function useAISettings() {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: AI_SETTINGS_KEY,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
       const { data, error } = await supabase
@@ -66,7 +68,6 @@ export function useAISettings() {
         .single();
 
       if (error) {
-        // Se não existe, criar com valores padrão
         if (error.code === "PGRST116") {
           const { data: newSettings, error: insertError } = await supabase
             .from("ai_settings")
@@ -82,6 +83,7 @@ export function useAISettings() {
 
       return data as AISettings;
     },
+    enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -91,10 +93,10 @@ export function useAISettings() {
  */
 export function useUpdateAISettings() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (updates: Partial<AISettings>) => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data, error } = await supabase
@@ -122,10 +124,11 @@ export function useUpdateAISettings() {
  * Hook para buscar uso de tokens de IA
  */
 export function useAIUsage(days = 7) {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: [...AI_USAGE_KEY, days],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
       const startDate = new Date();
@@ -141,7 +144,8 @@ export function useAIUsage(days = 7) {
       if (error) throw error;
       return data as AIUsage[];
     },
-    staleTime: 60 * 1000, // 1 minuto
+    enabled: !!user,
+    staleTime: 60 * 1000,
   });
 }
 
@@ -149,10 +153,11 @@ export function useAIUsage(days = 7) {
  * Hook para buscar uso de tokens de hoje
  */
 export function useTodayUsage() {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: [...AI_USAGE_KEY, "today"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { total: 0, limit: DEFAULT_USER_LIMIT, percentage: 0 };
 
       const today = new Date().toISOString().split('T')[0];
@@ -176,6 +181,7 @@ export function useTodayUsage() {
 
       return { total, limit, percentage };
     },
+    enabled: !!user,
     staleTime: 30 * 1000,
   });
 }
@@ -209,9 +215,7 @@ export function useSuggestCategory() {
         };
       }
 
-      // Invalidar cache de uso
       queryClient.invalidateQueries({ queryKey: AI_USAGE_KEY });
-
       return data as CategorySuggestion;
     },
   });
@@ -221,10 +225,11 @@ export function useSuggestCategory() {
  * Hook para buscar reminders não lidos
  */
 export function useReminders(includeRead = false) {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: [...REMINDERS_KEY, { includeRead }],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
       let query = supabase
@@ -239,10 +244,10 @@ export function useReminders(includeRead = false) {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       return data as Reminder[];
     },
+    enabled: !!user,
     staleTime: 60 * 1000,
   });
 }
@@ -251,10 +256,11 @@ export function useReminders(includeRead = false) {
  * Hook para contar reminders não lidos
  */
 export function useUnreadRemindersCount() {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: [...REMINDERS_KEY, "count"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return 0;
 
       const { count, error } = await supabase
@@ -267,6 +273,7 @@ export function useUnreadRemindersCount() {
       if (error) return 0;
       return count || 0;
     },
+    enabled: !!user,
     staleTime: 30 * 1000,
   });
 }
@@ -330,7 +337,6 @@ export function useInsights() {
 
       if (error) throw new Error(error.message || "Erro ao gerar insights");
 
-      // Invalidar cache de uso
       queryClient.invalidateQueries({ queryKey: AI_USAGE_KEY });
 
       return data as {
