@@ -14,7 +14,6 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ExpensesByCategoryChart } from "@/components/dashboard/ExpensesByCategoryChart";
 import { IncomeVsExpensesChart } from "@/components/dashboard/IncomeVsExpensesChart";
-import { MonthFlowCard } from "@/components/dashboard/MonthFlowCard";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
 
 export default function Dashboard() {
