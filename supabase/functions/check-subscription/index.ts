@@ -29,9 +29,6 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
@@ -41,6 +38,38 @@ serve(async (req) => {
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
+
+    // 1. Check internal subscriptions table first (for manual overrides)
+    const { data: internalSub } = await supabaseClient
+      .from("subscriptions")
+      .select("plan, valid_until")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (internalSub && internalSub.plan !== "free") {
+      const isValid = !internalSub.valid_until || new Date(internalSub.valid_until) > new Date();
+      if (isValid) {
+        logStep("Internal subscription found", { plan: internalSub.plan });
+        return new Response(JSON.stringify({
+          subscribed: true,
+          plan: internalSub.plan,
+          subscription_end: internalSub.valid_until,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+
+    // 2. Check Stripe
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) {
+      logStep("STRIPE_SECRET_KEY not set, returning free plan");
+      return new Response(JSON.stringify({ subscribed: false, plan: "free" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
