@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useMonthlyTransactions } from "@/hooks/use-transactions";
@@ -17,11 +18,12 @@ import { MonthFlowCard } from "@/components/dashboard/MonthFlowCard";
 import { UpcomingBillsCard } from "@/components/dashboard/UpcomingBillsCard";
 
 export default function Dashboard() {
+  const currentMonth = useMemo(() => new Date(), []);
   const { data: profile } = useProfile();
   const { data: accounts = [], isLoading: loadingAccounts } = useAccounts();
   const { data: transactions = [], isLoading: loadingTx } = useMonthlyTransactions();
   const { data: sixMonthTx, isLoading: loading6m } = useSixMonthTransactions();
-  const { data: billsSummary, isLoading: loadingBills } = useBillsSummary(new Date());
+  const { data: billsSummary, isLoading: loadingBills } = useBillsSummary(currentMonth);
   const { data: upcomingBills, isLoading: loadingUpcoming } = useUpcomingBills();
 
   const netWorth = accounts
