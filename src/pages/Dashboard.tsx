@@ -41,6 +41,15 @@ export default function Dashboard() {
     .filter((a) => a.include_in_net_worth)
     .reduce((sum, a) => sum + Number(a.current_balance), 0);
 
+  const benefitAccounts = accounts.filter(
+    (a) => a.type === "benefit_card" && !a.deleted_at
+  );
+  const benefitBalance = benefitAccounts.reduce(
+    (sum, a) => sum + Number(a.current_balance),
+    0
+  );
+  const hasBenefit = benefitAccounts.length > 0;
+
   const expenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + Number(t.amount), 0);
