@@ -268,6 +268,45 @@ serve(async (req) => {
       }
 
       const txData = validation.data!
+
+      // Verify category ownership (if provided)
+      if (txData.category_id) {
+        const { data: cat, error: catErr } = await supabase
+          .from('categories')
+          .select('id, is_system, user_id')
+          .eq('id', txData.category_id)
+          .single()
+        if (catErr || !cat) {
+          return new Response(
+            JSON.stringify({ error: 'Categoria não encontrada' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        if (!cat.is_system && cat.user_id !== userId) {
+          return new Response(
+            JSON.stringify({ error: 'Categoria não pertence ao usuário' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
+      // Verify account ownership (if provided)
+      if (txData.account_id) {
+        const { data: acc, error: accErr } = await supabase
+          .from('accounts')
+          .select('id')
+          .eq('id', txData.account_id)
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .single()
+        if (accErr || !acc) {
+          return new Response(
+            JSON.stringify({ error: 'Conta não encontrada' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+      }
+
       const transactionDate = txData.date ? new Date(txData.date) : new Date()
       const transactionDateStr = transactionDate.toISOString().split('T')[0]
       let invoiceId: string | null = null
