@@ -186,6 +186,12 @@ export function AccountList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {account.type === "benefit_card" && (
+                              <DropdownMenuItem onClick={() => setDepositAccount(account)}>
+                                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                                Depositar
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openEdit(account)}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Editar
