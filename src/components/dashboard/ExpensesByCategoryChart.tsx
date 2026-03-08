@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
@@ -73,21 +73,17 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
               dataKey="value"
               paddingAngle={2}
               stroke="none"
+              isAnimationActive={false}
             >
               {chartData.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}
+              <Label
+                value={formatCurrency(chartData.reduce((s, d) => s + d.value, 0))}
+                position="center"
+                className="fill-foreground text-sm font-semibold"
+              />
             </Pie>
-            <Tooltip
-              formatter={(value: number) => formatCurrency(value)}
-              contentStyle={{
-                backgroundColor: "hsl(160 25% 11%)",
-                border: "1px solid hsl(160 20% 18%)",
-                borderRadius: "8px",
-                color: "hsl(160 10% 95%)",
-                fontSize: "12px",
-              }}
-            />
           </PieChart>
         </ResponsiveContainer>
         <div className="space-y-1.5 mt-2">
