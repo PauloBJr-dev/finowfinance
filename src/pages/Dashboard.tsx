@@ -261,9 +261,16 @@ export default function Dashboard() {
                 {loadingAccounts ? (
                   <Skeleton className="h-8 w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-orange-500">
-                    {formatCurrency(benefitBalance)}
-                  </p>
+                  <>
+                    <p className="text-2xl font-bold text-orange-500">
+                      {formatCurrency(benefitBalance)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {benefitAccounts.length} conta(s) · {lastDeposit?.date
+                        ? `Último depósito: ${formatDate(lastDeposit.date)}`
+                        : "Nenhum depósito"}
+                    </p>
+                  </>
                 )}
               </CardContent>
             </Card>
