@@ -4,16 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { PieChart as PieIcon } from "lucide-react";
+import { resolveCategoryIcon } from "@/lib/category-icons";
 
 const FALLBACK_COLORS = [
   "#1F7A63", "#2A9D7E", "#35C099", "#E0B84C", "#7AE5CA", "#A8F0DE",
+  "#5B8C7A", "#D4A843", "#6EC4A8", "#C9E4DB",
 ];
 
 interface Props {
   transactions: Array<{
     amount: number;
     type: string;
-    categories: { name: string; color: string | null } | null;
+    categories: { name: string; color: string | null; icon: string | null } | null;
   }> | undefined;
   isLoading: boolean;
 }
@@ -21,7 +23,7 @@ interface Props {
 export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
   const chartData = useMemo(() => {
     if (!transactions) return [];
-    const map = new Map<string, { value: number; color: string | null }>();
+    const map = new Map<string, { value: number; color: string | null; icon: string | null }>();
     transactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
@@ -30,10 +32,21 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
         map.set(name, {
           value: (existing?.value || 0) + Number(t.amount),
           color: existing?.color || t.categories?.color || null,
+          icon: existing?.icon || t.categories?.icon || null,
         });
       });
-    return Array.from(map, ([name, { value, color }]) => ({ name, value, color }))
+    const sorted = Array.from(map, ([name, { value, color, icon }]) => ({ name, value, color, icon }))
       .sort((a, b) => b.value - a.value);
+
+    // Group beyond 6th into "Outros"
+    if (sorted.length > 6) {
+      const top = sorted.slice(0, 6);
+      const rest = sorted.slice(6);
+      const othersValue = rest.reduce((s, d) => s + d.value, 0);
+      top.push({ name: "Outros", value: othersValue, color: "#94a3b8", icon: "more-horizontal" });
+      return top;
+    }
+    return sorted;
   }, [transactions]);
 
   const total = chartData.reduce((s, d) => s + d.value, 0);
@@ -45,7 +58,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
           <CardTitle className="text-sm font-medium text-muted-foreground">Despesas por Categoria</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center pt-4 pb-6">
-          <Skeleton className="h-36 w-36 rounded-full" />
+          <Skeleton className="h-48 w-48 rounded-full" />
         </CardContent>
       </Card>
     );
@@ -73,18 +86,21 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
       <CardContent className="pt-4">
         {/* Chart + Center label */}
         <div className="relative">
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={78}
+                innerRadius={70}
+                outerRadius={105}
                 dataKey="value"
-                paddingAngle={3}
+                paddingAngle={4}
+                cornerRadius={6}
                 stroke="none"
-                isAnimationActive={false}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
               >
                 {chartData.map((entry, i) => (
                   <Cell key={i} fill={entry.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
@@ -94,24 +110,28 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
           </ResponsiveContainer>
           {/* Center total */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
-            <span className="text-base font-bold text-foreground">{formatCurrency(total)}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] font-medium">Total</span>
+            <span className="text-xl font-bold text-foreground mt-0.5">{formatCurrency(total)}</span>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="mt-4 space-y-2.5">
-          {chartData.slice(0, 5).map((item, i) => {
+        <div className="mt-5 space-y-3">
+          {chartData.map((item, i) => {
             const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0";
+            const color = item.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+            const IconComponent = resolveCategoryIcon(item.icon);
             return (
               <div key={item.name} className="flex items-center gap-3">
-                <span
-                  className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: item.color || FALLBACK_COLORS[i % FALLBACK_COLORS.length] }}
-                />
-                <span className="text-xs text-muted-foreground flex-1 truncate">{item.name}</span>
+                <div
+                  className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${color}20` }}
+                >
+                  <IconComponent className="h-3.5 w-3.5" style={{ color }} />
+                </div>
+                <span className="text-xs text-foreground flex-1 truncate">{item.name}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
-                <span className="text-xs font-semibold tabular-nums w-20 text-right">{formatCurrency(item.value)}</span>
+                <span className="text-xs font-bold tabular-nums w-20 text-right text-foreground">{formatCurrency(item.value)}</span>
               </div>
             );
           })}
