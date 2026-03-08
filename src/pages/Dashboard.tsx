@@ -38,6 +38,7 @@ export default function Dashboard() {
   });
 
   const { visibleWidgets, toggleWidget, resetDefaults } = useDashboardPreferences();
+  const { plan } = useAuth();
   const w = visibleWidgets;
 
   const { data: profile } = useProfile();
