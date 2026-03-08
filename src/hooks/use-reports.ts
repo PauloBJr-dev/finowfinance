@@ -30,7 +30,7 @@ export function useReports() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `finow-relatorio-${startDate}-${endDate}.pdf`;
+      a.download = `Relatório financeiro ${formatDateBR(startDate)} - ${formatDateBR(endDate)}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
