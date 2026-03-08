@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { DeleteConfirmation } from "@/components/shared/DeleteConfirmation";
 import { showDeleteToast } from "@/components/shared/UndoToast";
 import { AccountForm, AccountFormData } from "./AccountForm";
+import { BenefitDepositModal } from "./BenefitDepositModal";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +21,7 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
+  ArrowDownToLine,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -54,6 +56,7 @@ export function AccountList() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+  const [depositAccount, setDepositAccount] = useState<Account | null>(null);
 
   const handleCreate = async (data: AccountFormData) => {
     await createAccount.mutateAsync(data);
@@ -183,6 +186,12 @@ export function AccountList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {account.type === "benefit_card" && (
+                              <DropdownMenuItem onClick={() => setDepositAccount(account)}>
+                                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                                Depositar
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openEdit(account)}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Editar
@@ -237,6 +246,12 @@ export function AccountList() {
         description="Transações associadas a esta conta não serão excluídas, mas perderão a referência."
         itemName={accountToDelete?.name}
         isLoading={deleteAccount.isPending}
+      />
+      {/* Modal de depósito para benefício */}
+      <BenefitDepositModal
+        open={!!depositAccount}
+        onOpenChange={(open) => !open && setDepositAccount(null)}
+        account={depositAccount}
       />
     </div>
   );
