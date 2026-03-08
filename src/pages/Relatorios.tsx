@@ -54,7 +54,7 @@ export default function Relatorios() {
           <NotificationCenter />
         </div>
 
-        <PremiumGate feature="Relatórios PDF">
+        <PremiumGate inline featureName="Relatórios PDF">
           <div className="space-y-6">
             {/* Period + Analyze */}
             <div className="space-y-3">
