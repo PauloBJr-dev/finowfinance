@@ -35,7 +35,11 @@ export default function Dashboard() {
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
   });
-  const { data: sixMonthTx, isLoading: loading6m } = useSixMonthTransactions();
+  // Pass the selected period to the income vs expenses chart
+  const { data: periodTx, isLoading: loadingPeriodTx } = useTransactions({
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+  });
   const { data: billsSummary } = useBillsSummary(now);
   const { data: upcomingBills, isLoading: loadingUpcoming } = useUpcomingBills();
 
