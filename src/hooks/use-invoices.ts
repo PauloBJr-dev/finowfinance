@@ -58,9 +58,18 @@ export function useInvoices(cardId: string | null) {
     queryFn: async () => {
       if (!cardId || !user?.id) return [];
 
-      // Garantir que existe fatura aberta para o mês atual
-      const now = new Date();
-      await getOrCreateInvoice(cardId, user.id, now);
+      // Buscar billing_day do cartão para calcular o mês correto
+      const { data: cardData } = await supabase
+        .from('cards')
+        .select('billing_day')
+        .eq('id', cardId)
+        .single();
+
+      if (cardData) {
+        const { getTargetInvoiceMonth } = await import('@/lib/invoice-cycle');
+        const targetMonth = getTargetInvoiceMonth(cardData.billing_day, new Date());
+        await getOrCreateInvoice(cardId, user.id, targetMonth);
+      }
 
       const { data, error } = await supabase
         .from('invoices')
