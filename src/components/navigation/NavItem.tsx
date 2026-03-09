@@ -2,6 +2,8 @@ import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LucideIcon, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useCallback } from "react";
+import { routeImportMap } from "@/App";
 
 interface NavItemProps {
   to: string;
@@ -18,9 +20,16 @@ export function NavItem({ to, icon: Icon, label, collapsed = false, premium = fa
 
   const showLock = premium && plan === "free";
 
+  const prefetch = useCallback(() => {
+    const importFn = routeImportMap[to];
+    if (importFn) importFn().catch(() => {});
+  }, [to]);
+
   return (
     <RouterNavLink
       to={to}
+      onMouseEnter={prefetch}
+      onTouchStart={prefetch}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
