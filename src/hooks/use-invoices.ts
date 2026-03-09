@@ -180,7 +180,7 @@ export function usePayInvoice() {
         .from('transactions')
         .insert({
           user_id: user.id,
-          amount: invoice.total_amount,
+          amount: computedTotal,
           type: 'expense' as const,
           payment_method: 'transfer' as const,
           account_id: accountId,
