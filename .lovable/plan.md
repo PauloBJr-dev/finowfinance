@@ -1,33 +1,25 @@
 
 
-# Bug Fix — Formulário de edição não carrega cartão de crédito
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Problema
-O `TransactionForm.tsx` não tem estado `cardId`, não importa `useCards`, não renderiza seletor de cartão, e não envia `card_id` no submit. Transações de crédito ficam sem cartão pré-selecionado e falham ao salvar.
+## Resumo
 
-## Correção (apenas `TransactionForm.tsx`)
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-### 1. Adicionar estado e hook
-- Importar `useCards` de `@/hooks/use-cards`
-- Adicionar estado `cardId: string | null`
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-### 2. Inicialização no useEffect
-- Se `payment_method === 'credit_card'`: popular `cardId` com `transaction.card_id`, limpar `accountId`
-- Senão: popular `accountId` com `transaction.account_id`, limpar `cardId`
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-### 3. Handler de mudança de payment method
-- Ao mudar para `credit_card`: limpar `accountId`
-- Ao mudar para qualquer outro: limpar `cardId`
-
-### 4. Renderização condicional
-- Se `paymentMethod === 'credit_card'`: mostrar seletor de Cartão (Select com cards do hook)
-- Senão: mostrar seletor de Conta (como está hoje)
-
-### 5. Submit
-- Se `credit_card`: enviar `card_id: cardId, account_id: null`
-- Senão: enviar `account_id: accountId, card_id: null`
-
-## Escopo
-- **1 arquivo** alterado: `TransactionForm.tsx`
-- 0 novos componentes, 0 alterações em edge functions ou outros formulários
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
