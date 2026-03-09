@@ -84,6 +84,11 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       const isCredit = paymentMethod === "credit_card";
       await updateTransaction.mutateAsync({
         id: transaction.id,
+        _originalTransaction: {
+          date: transaction.date,
+          card_id: transaction.card_id,
+          invoice_id: transaction.invoice_id,
+        },
         type,
         amount,
         date: formatDateLocal(date),

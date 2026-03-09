@@ -1,21 +1,25 @@
 
 
-# Bug Fix — useUpdateTransaction: evitar chamada desnecessária a find_or_create_invoice
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Problema
-O hook chama `find_or_create_invoice` em toda edição de transação de cartão de crédito, mesmo quando apenas valor ou categoria mudaram. Isso causa erros desnecessários.
+## Resumo
 
-## Correção
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-### 1. `src/hooks/use-transactions.ts` (linhas 214-247)
-- Adicionar `_originalTransaction` como parâmetro opcional no `mutationFn`
-- Só chamar RPC quando `date` ou `card_id` realmente mudaram vs. original, ou quando `invoice_id` original não existe
-- Manter lógica de limpeza para mudança de método de pagamento inalterada
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-### 2. `src/components/transactions/TransactionForm.tsx` (linhas 85-95)
-- Passar `_originalTransaction: { date, card_id, invoice_id }` da transação original no `mutateAsync`
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-## Escopo estrito
-- 2 arquivos, blocos mínimos
-- 0 alterações em Edge Functions, SQL ou outros componentes
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava

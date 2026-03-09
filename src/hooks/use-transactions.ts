@@ -211,11 +211,15 @@ export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: TransactionUpdate & { id: string }) => {
+    mutationFn: async ({ id, _originalTransaction, ...updates }: TransactionUpdate & { id: string; _originalTransaction?: { date?: string; card_id?: string | null; invoice_id?: string | null } }) => {
       const finalUpdates: Record<string, unknown> = { ...updates };
 
-      // Se mudou para cartão de crédito, recalcular invoice_id
-      if (updates.payment_method === 'credit_card' && updates.card_id && updates.date) {
+      // Só recalcular invoice se date ou card_id realmente mudaram
+      const dateChanged = updates.date && updates.date !== _originalTransaction?.date;
+      const cardChanged = updates.card_id && updates.card_id !== _originalTransaction?.card_id;
+      const needsInvoiceRecalc = updates.payment_method === 'credit_card' && updates.card_id && updates.date && (dateChanged || cardChanged || !_originalTransaction?.invoice_id);
+
+      if (needsInvoiceRecalc) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Usuário não autenticado');
 
