@@ -1,25 +1,32 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Redesign da Bottom Navigation Mobile
 
-## Resumo
+## Problemas atuais
+- Visual genérico: borda simples `border-t`, sem profundidade
+- Dropdown "Mais" usa `DropdownMenu` padrão — aparece como popup pequeno e feio
+- Sem indicador visual de item ativo além da cor
+- Sem glassmorphism ou identidade Finow
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+## Solução
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+### 1. Redesign da barra (`BottomNav.tsx`)
+- Trocar `border-t bg-background` por **glassmorphism**: `backdrop-blur-xl` com fundo semi-transparente e borda sutil superior
+- Adicionar **pill indicator** no item ativo: um fundo arredondado com `bg-primary/10` e transição suave ao redor do ícone
+- Ícones ativos ganham um leve scale (`scale-110`) com transição
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+### 2. Substituir DropdownMenu por Sheet bottom (`BottomNav.tsx`)
+- Trocar o `DropdownMenu` por um **Sheet** (drawer de baixo) ao tocar em "Mais"
+- O Sheet terá visual elegante: grid de ícones ou lista espaçada com ícones maiores, labels claras
+- Cada item com `rounded-xl`, padding generoso, ícone colorido quando ativo
+- Animação `slide-up` nativa do Sheet
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+### 3. Ajustes visuais finos
+- Labels em `text-2xs` (menor) para dar mais espaço ao ícone
+- Gap entre ícone e label reduzido
+- Sombra superior suave na barra (em vez de border)
+
+### Arquivos modificados
+- `src/components/navigation/BottomNav.tsx` — redesign completo
+- `src/components/navigation/FloatingActionButton.tsx` — ajustar `bottom` se altura da nav mudar
+
