@@ -1,28 +1,25 @@
 
 
-# Reescrever `useUpdateTransaction` — direto via cliente Supabase
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Problema
-O hook `useUpdateTransaction` chama `supabase.functions.invoke('transactions/${id}', { method: 'PUT' })`, causando erros intermitentes de conexão com a Edge Function.
+## Resumo
 
-## Correção
-Substituir o `mutationFn` (linhas 214–222) para usar `supabase.from('transactions').update()` diretamente, com lógica de invoice inline. Adicionar invalidação de `['invoices']` no `onSuccess`.
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-## Detalhes técnicos
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-**Arquivo**: `src/hooks/use-transactions.ts` (linhas 207–233)
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-**Mudanças no bloco `useUpdateTransaction`:**
-
-1. **`mutationFn`** — substituir chamada à Edge Function por:
-   - Montar objeto `finalUpdates` a partir dos updates recebidos
-   - Se `payment_method === 'credit_card'` + `card_id` + `date`: chamar `supabase.rpc('find_or_create_invoice')` e setar `invoice_id`, limpar `account_id`
-   - Se `payment_method` != `credit_card`: limpar `invoice_id` e `card_id` com `null`
-   - Executar `supabase.from('transactions').update(finalUpdates).eq('id', id).select('*, categories(*), accounts(*), cards(*)').single()`
-
-2. **`onSuccess`** — adicionar `queryClient.invalidateQueries({ queryKey: ['invoices'] })`
-
-3. **JSDoc** — atualizar comentário de "via Edge Function" para "via Supabase client"
-
-**Escopo**: apenas o bloco `useUpdateTransaction` (linhas 207–233). Nenhum outro hook, componente, Edge Function ou SQL alterado.
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
