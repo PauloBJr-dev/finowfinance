@@ -1,37 +1,25 @@
 
 
-# Configurar vite-plugin-pwa para suporte offline
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## O que muda
-O projeto já tem um `manifest.json` manual e meta tags PWA no HTML. Com o `vite-plugin-pwa`, ganhamos:
-- **Service Worker automático** com cache de assets (JS, CSS, imagens, fontes)
-- **Suporte offline** — o app carrega mesmo sem internet
-- **Atualização automática** — detecta novas versões e atualiza em background
+## Resumo
 
-## Alterações
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-### 1. Instalar dependência
-- `vite-plugin-pwa`
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-### 2. `vite.config.ts`
-- Importar `VitePWA` do plugin
-- Adicionar ao array de plugins com configuração:
-  - `registerType: 'autoUpdate'` — atualiza o SW automaticamente
-  - `workbox.navigateFallbackDenylist: [/^\/~oauth/]` — protege rotas OAuth
-  - `workbox.runtimeCaching` — cache de fontes do Google e API do backend
-  - `manifest` inline com os mesmos dados do `manifest.json` atual (nome, ícones, cores, display standalone)
-  - `workbox.globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']`
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-### 3. `index.html`
-- Remover `<link rel="manifest">` manual (o plugin injeta automaticamente)
-
-### 4. Remover `public/manifest.json`
-- O plugin gera o manifest a partir da config do Vite
-
-### 5. `src/components/shared/UpdateBanner.tsx`
-- Verificar se há conflito com a lógica de `version.json` polling existente — manter ambas as estratégias (o SW cuida do cache, o banner cuida da UX de atualização)
-
-## Sem impacto em
-- Nenhuma Edge Function, tabela ou componente de UI existente
-- O `versionPlugin()` existente continua funcionando normalmente
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
