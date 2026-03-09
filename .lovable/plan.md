@@ -1,36 +1,25 @@
 
 
-# Melhorias no Dashboard Mobile
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Problemas identificados (pela screenshot e pelo codigo)
+## Resumo
 
-1. **Header de saudacao**: O greeting + badge Lifetime + icones de acao estao todos numa unica linha `flex justify-between`, causando crowding no mobile. O badge "Lifetime" fica deslocado e feio.
-2. **Icones de acao (notificacao, privacidade, customizer)**: Mal posicionados, competem com o texto da saudacao.
-3. **Badge de plano**: Nao precisa estar no header mobile — ocupa espaco sem valor.
-4. **Period Filter**: Pills em `flex-wrap` ficam "esquisitas" no mobile — sem scroll horizontal, quebram em multiplas linhas de forma desorganizada.
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-## Solucao
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-### 1. Header mobile redesenhado
-- **Mobile**: Layout vertical. Saudacao em destaque (texto grande, sem badge de plano). Icones de acao (notificacao, privacidade, customizer) alinhados no canto superior direito em linha compacta.
-- **Desktop**: Manter layout atual horizontal.
-- Badge de plano: esconder no mobile (`hidden md:inline-flex`), manter no desktop.
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-### 2. Period Filter mobile
-- No mobile: scroll horizontal (`overflow-x-auto`) com `flex-nowrap` e `scrollbar-hide`, sem quebra de linha. Pills menores e mais compactas.
-- No desktop: manter `flex-wrap` atual.
-
-### Arquivos modificados
-
-1. **`src/pages/Dashboard.tsx`** (linhas 280-324)
-   - Reestruturar header: no mobile, saudacao ocupa linha inteira, icones ficam acima a direita
-   - Badge de plano com `hidden md:inline-flex`
-   - Subtitulo mais curto no mobile
-
-2. **`src/components/shared/PeriodFilter.tsx`**
-   - Container: `overflow-x-auto scrollbar-hide flex-nowrap` no mobile
-   - Manter `flex-wrap` no desktop
-
-3. **`src/index.css`**
-   - Adicionar classe utilitaria `scrollbar-hide` se nao existir
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
