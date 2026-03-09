@@ -13,6 +13,7 @@ interface Props {
   transactions: Array<{
     type: string;
     amount: number;
+    payment_method?: string;
     categories?: { name: string } | null;
   }>;
 }
