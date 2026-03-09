@@ -145,8 +145,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
     setIsSubmittingCard(true);
     try {
-      const selectedDate = formatDateLocal(date) 1) {
-        // À vista
+      const selectedDate = formatDateLocal(date);
+
+      if (installmentCount === 1) {
         const targetMonth = getTargetInvoiceMonth(card.billing_day, date);
         const invoiceId = await getOrCreateInvoice(selectedCardId, user.id, targetMonth);
 
