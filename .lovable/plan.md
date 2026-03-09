@@ -1,25 +1,34 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Auditoria Mobile — Pagina de Chat
 
-## Resumo
+## Problemas identificados
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+### 1. Header — NotificationCenter fora do padrao
+Linha 122: usa `flex justify-between` com NotificationCenter e botao Limpar a direita. Nao segue o padrao `relative` + `absolute right-0 top-0` adotado em todas as outras paginas ja corrigidas.
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+### 2. Altura do chat conflita com MainLayout
+O chat usa `h-[calc(100vh-8rem)]` no mobile, mas esta dentro do `container py-6` do MainLayout (linhas 33-35). O `py-6` (24px top + 24px bottom) + `pb-24` (96px bottom nav space) nao sao contabilizados corretamente no calc. Resultado: o input bar pode ficar parcialmente coberto pela BottomNav ou haver espaco desperdicado.
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+### 3. Textarea usa min-h base de 80px do componente
+O componente `Textarea` tem `min-h-[80px]` no CSS base. O chat sobrescreve com `min-h-[44px]`, mas a classe base pode ter precedencia dependendo da ordem de merge. Deveria forcar altura minima correta.
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+### 4. Input bar sem safe-area-inset no mobile
+A barra de input (`border-t px-4 py-3`) nao tem `pb-safe` para dispositivos com barra de gestos (iPhone). O conteudo pode ficar atras da home indicator.
+
+---
+
+## Plano de correcoes
+
+### `src/pages/Chat.tsx`
+
+**Header:** Refatorar para `relative` container. Titulo + icone mentor com `pr-20`. NotificationCenter e botao Limpar dentro de `absolute right-0 top-0 flex gap-1`.
+
+**Altura:** Ajustar calc para considerar o padding do MainLayout:
+- Mobile: `h-[calc(100vh-8rem-3rem)]` (8rem = bottom nav + safe, 3rem = container py-6)
+- Ou melhor: usar `flex-1` e deixar o flexbox do MainLayout controlar, removendo height fixo
+
+**Input bar:** Adicionar `pb-safe` ao container do input para safe area em iPhones.
+
+**Textarea:** Garantir que `min-h-[44px]` vence usando `!min-h-[44px]` ou inline style.
+
