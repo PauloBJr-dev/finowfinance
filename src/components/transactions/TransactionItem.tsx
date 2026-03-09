@@ -40,7 +40,7 @@ export const TransactionItem = memo(function TransactionItem({ transaction, onCl
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-muted/50"
+      className="flex w-full items-center gap-3 rounded-xl p-3 min-h-[48px] text-left transition-colors hover:bg-muted/50"
     >
       {/* Category Icon */}
       <div

@@ -24,12 +24,14 @@ export default function Transacoes() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="relative">
+          <div className="pr-12">
             <h1 className="text-2xl font-semibold">Transações</h1>
             <p className="text-muted-foreground">Suas movimentações financeiras.</p>
           </div>
-          <NotificationCenter />
+          <div className="absolute right-0 top-0">
+            <NotificationCenter />
+          </div>
         </div>
 
         <TransactionFilters filters={filters} onFiltersChange={setFilters} />

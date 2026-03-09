@@ -16,7 +16,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { useUpdateTransaction } from "@/hooks/use-transactions";
 import { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -106,7 +106,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       </div>
 
       {/* Amount + Date row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Valor</Label>
           <CurrencyInput
@@ -142,7 +142,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       </div>
 
       {/* Category + Account row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Categoria</Label>
           <CategorySelect
@@ -225,7 +225,17 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
         <DrawerContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DrawerHeader className="pb-0">
-            <DrawerTitle>Editar transação</DrawerTitle>
+            <div className="flex items-center justify-between">
+              <DrawerTitle>Editar transação</DrawerTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </DrawerHeader>
           <div className="max-h-[70vh] overflow-y-auto">
             {content}
