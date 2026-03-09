@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { PrivacyProvider } from "@/contexts/PrivacyContext";
+import { UpdateBanner } from "@/components/shared/UpdateBanner";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -69,6 +70,7 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
+      <UpdateBanner />
       <AuthProvider>
         <SidebarProvider>
           <PrivacyProvider>

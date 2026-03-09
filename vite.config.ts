@@ -1,7 +1,22 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import fs from "fs";
 import { componentTagger } from "lovable-tagger";
+
+function versionPlugin(): Plugin {
+  return {
+    name: "version-json",
+    writeBundle(options) {
+      const outDir = options.dir || "dist";
+      const version = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      fs.writeFileSync(
+        path.resolve(outDir, "version.json"),
+        JSON.stringify({ version }),
+      );
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -12,7 +27,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger(), versionPlugin()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
