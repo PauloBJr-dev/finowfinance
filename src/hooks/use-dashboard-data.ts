@@ -18,7 +18,7 @@ export function useSixMonthTransactions() {
       const { data, error } = await supabase
         .from("transactions")
         .select(`
-          id, amount, type, date,
+          id, amount, type, date, payment_method,
           categories (id, name, icon, color)
         `)
         .is("deleted_at", null)
