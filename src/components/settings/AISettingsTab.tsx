@@ -263,6 +263,77 @@ export function AISettingsTab() {
         </CardContent>
       </Card>
 
+      {/* Check-ins do Mentor */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-primary" />
+            Check-ins do Mentor
+          </CardTitle>
+          <CardDescription>
+            Receba resumos financeiros periódicos gerados pelo mentor
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="weekly-checkin" className="font-medium">
+                Resumo semanal
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Receba um resumo da semana todo domingo
+              </p>
+            </div>
+            <Switch
+              id="weekly-checkin"
+              checked={settings?.weekly_checkin_enabled ?? true}
+              onCheckedChange={(checked) => handleToggle("weekly_checkin_enabled", checked)}
+              disabled={updateSettings.isPending}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="monthly-checkin" className="font-medium">
+                Resumo mensal
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Receba um resumo do mês no último domingo
+              </p>
+            </div>
+            <Switch
+              id="monthly-checkin"
+              checked={settings?.monthly_checkin_enabled ?? true}
+              onCheckedChange={(checked) => handleToggle("monthly_checkin_enabled", checked)}
+              disabled={updateSettings.isPending}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-medium">Horário preferido</Label>
+            <Select
+              value={settings?.checkin_time ?? "20:00"}
+              onValueChange={(v) => updateSettings.mutate({ checkin_time: v } as any)}
+              disabled={updateSettings.isPending}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="18:00">18:00</SelectItem>
+                <SelectItem value="19:00">19:00</SelectItem>
+                <SelectItem value="20:00">20:00</SelectItem>
+                <SelectItem value="21:00">21:00</SelectItem>
+                <SelectItem value="22:00">22:00</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Por ora o check-in é enviado no domingo às 20h BRT.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Personalização do Mentor */}
       <Card>
         <CardHeader className="pb-3">
