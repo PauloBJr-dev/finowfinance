@@ -25,7 +25,7 @@ import {
   distributeInstallments,
   formatInvoiceMonth,
 } from "@/lib/invoice-cycle";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ArrowLeft, Loader2, FileText, X, AlertTriangle, CreditCard } from "lucide-react";
 import { format } from "date-fns";
