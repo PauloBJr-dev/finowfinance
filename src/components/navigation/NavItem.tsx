@@ -32,9 +32,9 @@ export function NavItem({ to, icon: Icon, label, collapsed = false, premium = fa
       onTouchStart={prefetch}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "hover:bg-white/10 dark:hover:bg-white/5 hover:text-sidebar-accent-foreground",
         isActive
-          ? "bg-sidebar-accent text-sidebar-primary"
+          ? "bg-primary/10 backdrop-blur-sm text-sidebar-primary"
           : "text-sidebar-foreground",
         collapsed && "justify-center px-2"
       )}
