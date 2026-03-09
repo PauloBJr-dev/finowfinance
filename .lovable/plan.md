@@ -1,25 +1,20 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Glassmorphism na Sidebar Desktop
 
-## Resumo
+## O que muda
+Aplicar o mesmo tratamento visual da bottom nav mobile na sidebar desktop: fundo semi-transparente com blur, sombra lateral suave e bordas sutis, mantendo consistência com a identidade Finow.
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+## Alterações
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+### `src/components/navigation/Sidebar.tsx`
+- Substituir `bg-sidebar border-r border-sidebar-border` por glassmorphism: `bg-sidebar/80 backdrop-blur-xl border-r border-white/10 dark:border-white/5 shadow-[4px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_16px_rgba(0,0,0,0.2)]`
+- Substituir bordas internas (header `border-b` e footer `border-t`) por versões mais sutis usando `border-sidebar-border/50` para manter a hierarquia sem cortar o efeito glass
+- Botão de colapso: adicionar `backdrop-blur-sm` e fundo sutil no hover
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+### `src/components/navigation/NavItem.tsx`
+- Refinar o item ativo: trocar `bg-sidebar-accent` por `bg-primary/10 backdrop-blur-sm` para harmonizar com o glass
+- Hover state: usar `hover:bg-white/10 dark:hover:bg-white/5` para efeito glass consistente
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+Nenhuma outra alteração necessária. Dois arquivos modificados.
+
