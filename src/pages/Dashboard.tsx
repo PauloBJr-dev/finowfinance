@@ -96,7 +96,7 @@ export default function Dashboard() {
   });
 
   const expenses = useMemo(() => transactions
-    .filter((t) => t.type === "expense")
+    .filter((t) => t.type === "expense" && t.payment_method !== "credit_card")
     .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const income = useMemo(() => transactions
     .filter((t) => t.type === "income")
