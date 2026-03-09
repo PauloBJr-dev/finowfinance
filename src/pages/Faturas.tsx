@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useCards } from "@/hooks/use-cards";
-import { useInvoices, useInvoiceTransactions, usePayInvoice, Invoice } from "@/hooks/use-invoices";
+import { useInvoices, useInvoiceDetails, usePayInvoice, Invoice } from "@/hooks/use-invoices";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -33,13 +33,20 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 /* ─── Invoice Transaction List (expanded) ─── */
 function InvoiceTransactions({ invoiceId }: { invoiceId: string }) {
-  const { data: transactions, isLoading } = useInvoiceTransactions(invoiceId);
+  const { data, isLoading } = useInvoiceDetails(invoiceId);
 
   if (isLoading) return <div className="space-y-2 py-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>;
-  if (!transactions?.length) return <p className="py-3 text-sm text-muted-foreground text-center">Nenhuma transação nesta fatura.</p>;
+
+  const transactions = data?.transactions ?? [];
+  const installments = data?.installments ?? [];
+
+  if (!transactions.length && !installments.length) {
+    return <p className="py-3 text-sm text-muted-foreground text-center">Nenhuma transação nesta fatura.</p>;
+  }
 
   return (
     <div className="divide-y divide-border">
+      {/* Direct transactions (no installment group) */}
       {transactions.map((tx: any) => (
         <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 gap-1 sm:gap-0 text-sm">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
@@ -51,6 +58,27 @@ function InvoiceTransactions({ invoiceId }: { invoiceId: string }) {
           <span className="font-medium tabular-nums shrink-0 sm:ml-3">{formatCurrency(tx.amount)}</span>
         </div>
       ))}
+      {/* Installments */}
+      {installments.map((inst: any) => {
+        const group = inst.installment_groups;
+        const originalTx = group?.transactions;
+        const desc = originalTx?.description || "Parcela";
+        const catName = originalTx?.categories?.name;
+        return (
+          <div key={inst.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 gap-1 sm:gap-0 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+              <span className="truncate">{desc}</span>
+              <Badge variant="secondary" className="text-xs shrink-0 w-fit">
+                Parcela {inst.installment_number}/{group?.total_installments}
+              </Badge>
+              {catName && (
+                <Badge variant="outline" className="text-xs shrink-0 w-fit">{catName}</Badge>
+              )}
+            </div>
+            <span className="font-medium tabular-nums shrink-0 sm:ml-3">{formatCurrency(inst.amount)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -66,8 +94,10 @@ function InvoiceCard({
   onPay: (invoice: Invoice) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { data: details } = useInvoiceDetails(expanded ? invoice.id : null);
+  const computedTotal = details?.computedTotal ?? invoice.total_amount;
   const status = statusConfig[invoice.status] ?? statusConfig.open;
-  const canPay = invoice.status !== "paid" && invoice.total_amount > 0;
+  const canPay = invoice.status !== "paid" && computedTotal > 0;
 
   return (
     <UICard
@@ -108,7 +138,7 @@ function InvoiceCard({
 
         {/* Value + Pay button — stacked on mobile */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <span className="text-xl font-semibold tabular-nums">{formatCurrency(invoice.total_amount)}</span>
+          <span className="text-xl font-semibold tabular-nums">{formatCurrency(computedTotal)}</span>
           {canPay && (
             <Button
               size="sm"
@@ -146,6 +176,8 @@ function PayInvoiceModal({
 }) {
   const isMobile = useIsMobile();
   const { data: accounts } = useAccounts();
+  const { data: details } = useInvoiceDetails(invoice?.id ?? null);
+  const computedTotal = details?.computedTotal ?? invoice?.total_amount ?? 0;
   const payMutation = usePayInvoice();
   const [accountId, setAccountId] = useState("");
   const [payDate, setPayDate] = useState<Date>(new Date());
@@ -155,7 +187,7 @@ function PayInvoiceModal({
   const handleConfirm = () => {
     if (!invoice || !accountId) return;
     payMutation.mutate(
-      { invoice, accountId, paymentDate: payDate.toISOString().split("T")[0], cardName },
+      { invoice, accountId, paymentDate: payDate.toISOString().split("T")[0], cardName, computedTotal },
       { onSuccess: () => onOpenChange(false) }
     );
   };
@@ -167,7 +199,7 @@ function PayInvoiceModal({
           {/* Total */}
           <div className="rounded-lg border bg-muted/30 p-4 text-center space-y-1">
             <p className="text-sm text-muted-foreground">Total da fatura — {cardName}</p>
-            <p className="text-2xl font-bold tabular-nums">{formatCurrency(invoice.total_amount)}</p>
+            <p className="text-2xl font-bold tabular-nums">{formatCurrency(computedTotal)}</p>
           </div>
 
           {/* Account select */}
@@ -232,7 +264,7 @@ function PayInvoiceModal({
             <Button
               variant="destructive"
               onClick={handleConfirm}
-              disabled={!accountId || payMutation.isPending}
+              disabled={!accountId || payMutation.isPending || computedTotal <= 0}
               className="flex-1"
             >
               {payMutation.isPending ? (

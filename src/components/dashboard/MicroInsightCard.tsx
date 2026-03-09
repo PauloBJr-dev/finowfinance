@@ -13,6 +13,7 @@ interface Props {
   transactions: Array<{
     type: string;
     amount: number;
+    payment_method?: string;
     categories?: { name: string } | null;
   }>;
 }
@@ -37,7 +38,7 @@ function generateInsight({ income, expenses, prevExpenses, transactions }: Props
 
   // 3. Categoria dominante
   if (transactions.length > 0) {
-    const expenseTx = transactions.filter((t) => t.type === "expense");
+    const expenseTx = transactions.filter((t) => t.type === "expense" && t.payment_method !== "credit_card");
     const totalExpense = expenseTx.reduce((s, t) => s + Number(t.amount), 0);
 
     if (totalExpense > 0) {

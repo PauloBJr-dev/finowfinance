@@ -16,6 +16,7 @@ interface Props {
   transactions: Array<{
     amount: number;
     type: string;
+    payment_method?: string;
     categories: { name: string; color: string | null; icon: string | null } | null;
   }> | undefined;
   isLoading: boolean;
@@ -27,7 +28,7 @@ export function ExpensesByCategoryChart({ transactions, isLoading }: Props) {
     if (!transactions) return [];
     const map = new Map<string, { value: number; color: string | null; icon: string | null }>();
     transactions
-      .filter((t) => t.type === "expense")
+      .filter((t) => t.type === "expense" && t.payment_method !== "credit_card")
       .forEach((t) => {
         const name = t.categories?.name || "Sem categoria";
         const existing = map.get(name);

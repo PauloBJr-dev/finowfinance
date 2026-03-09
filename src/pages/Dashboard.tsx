@@ -96,7 +96,7 @@ export default function Dashboard() {
   });
 
   const expenses = useMemo(() => transactions
-    .filter((t) => t.type === "expense")
+    .filter((t) => t.type === "expense" && t.payment_method !== "credit_card")
     .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const income = useMemo(() => transactions
     .filter((t) => t.type === "income")
@@ -144,6 +144,7 @@ export default function Dashboard() {
             <>
               <p className="text-2xl font-bold text-destructive">{mask(formatCurrency(expenses))}</p>
               {!hidden && <KpiComparisonBadge current={expenses} previous={prevMonth?.expenses ?? null} invertColor />}
+              <p className="text-xs text-muted-foreground mt-1">Não inclui despesas do cartão de crédito</p>
             </>
           )}
         </CardContent>
