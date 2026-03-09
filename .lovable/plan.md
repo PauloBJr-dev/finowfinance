@@ -1,25 +1,32 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Fix timezone bug na edição e agrupamento de transações
 
-## Resumo
+## Análise do código atual
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+**TransactionForm.tsx linha 55**: Usa `new Date(transaction.date + 'T12:00:00')` — tentativa parcial de fix, mas `T12:00:00` sem offset ainda pode causar problemas dependendo do parser. A abordagem com `split('-')` é mais segura.
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+**TransactionForm.tsx linha 82**: Já usa `formatDateLocal(date)` — **já está correto**, não precisa mudar.
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+**TransactionList.tsx linhas 46-47**: Usa `new Date(tx.date)` + `.toISOString().split('T')[0]` — bug clássico de UTC. Precisa fix.
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+## Alterações
+
+### 1. `src/components/transactions/TransactionForm.tsx` (linha 55)
+Substituir `new Date(transaction.date + 'T12:00:00')` por parsing manual com `split('-')`:
+```typescript
+const [year, month, day] = transaction.date.split('-').map(Number);
+setDate(new Date(year, month - 1, day));
+```
+Linha 82 (`formatDateLocal`) já está correta — sem alteração.
+
+### 2. `src/components/transactions/TransactionList.tsx` (linhas 46-47)
+Substituir parsing UTC por local:
+```typescript
+const [y, m, d] = tx.date.split('-').map(Number);
+const txDate = new Date(y, m - 1, d);
+const dateKey = tx.date;
+```
+
+**Escopo**: 2 linhas em cada arquivo, zero impacto em outros componentes.
+
