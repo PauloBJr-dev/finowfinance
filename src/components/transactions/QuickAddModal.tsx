@@ -25,7 +25,7 @@ import {
   distributeInstallments,
   formatInvoiceMonth,
 } from "@/lib/invoice-cycle";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ArrowLeft, Loader2, FileText, X, AlertTriangle, CreditCard } from "lucide-react";
 import { format } from "date-fns";
@@ -145,10 +145,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
     setIsSubmittingCard(true);
     try {
-      const selectedDate = date.toISOString().split("T")[0];
+      const selectedDate = formatDateLocal(date);
 
       if (installmentCount === 1) {
-        // À vista
         const targetMonth = getTargetInvoiceMonth(card.billing_day, date);
         const invoiceId = await getOrCreateInvoice(selectedCardId, user.id, targetMonth);
 
@@ -235,7 +234,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               invoice_id: invoiceId,
               installment_number: i + 1,
               amount: amounts[i],
-              due_date: months[i].toISOString().split("T")[0],
+              due_date: formatDateLocal(months[i]),
               status: "pending" as const,
             });
 
@@ -277,7 +276,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           description: description || "Conta a pagar",
           amount,
           category_id: categoryId!,
-          due_date: dueDate.toISOString().split("T")[0],
+          due_date: formatDateLocal(dueDate),
           is_recurring: isRecurring,
         });
       } else {
@@ -285,7 +284,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           amount,
           type,
           payment_method: paymentMethod as any,
-          date: date.toISOString().split("T")[0],
+          date: formatDateLocal(date),
           description: description || null,
           category_id: categoryId,
           account_id: accountId,

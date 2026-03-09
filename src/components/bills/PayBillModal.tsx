@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { usePayBill, Bill } from "@/hooks/use-bills";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateLocal } from "@/lib/format";
 import type { Database } from "@/integrations/supabase/types";
 
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
@@ -50,7 +50,7 @@ export function PayBillModal({ open, onOpenChange, bill, onSuccess }: PayBillMod
       bill_id: bill.id,
       payment_method: paymentMethod,
       account_id: accountId,
-      payment_date: paymentDate.toISOString().split("T")[0],
+      payment_date: formatDateLocal(paymentDate),
     });
 
     onSuccess();

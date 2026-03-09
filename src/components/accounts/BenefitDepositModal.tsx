@@ -39,7 +39,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateLocal } from "@/lib/format";
 import { Tables } from "@/integrations/supabase/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,7 @@ function DepositForm({
     resolver: zodResolver(depositSchema),
     defaultValues: {
       amount: 0,
-      date: new Date().toISOString().split("T")[0],
+      date: formatDateLocal(new Date()),
       description: "",
     },
   });
@@ -109,7 +109,7 @@ function DepositForm({
 
       form.reset({
         amount: 0,
-        date: new Date().toISOString().split("T")[0],
+        date: formatDateLocal(new Date()),
         description: "",
       });
       onOpenChange(false);
