@@ -30,6 +30,9 @@ interface AISettings {
   allow_coach_use_goals: boolean;
   store_conversations: boolean;
   persona_memory: string | null;
+  weekly_checkin_enabled: boolean;
+  monthly_checkin_enabled: boolean;
+  checkin_time: string;
 }
 
 interface Reminder {
