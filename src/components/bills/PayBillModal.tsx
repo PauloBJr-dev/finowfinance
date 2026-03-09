@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -156,8 +156,15 @@ export function PayBillModal({ open, onOpenChange, bill, onSuccess }: PayBillMod
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader>
+          <DrawerHeader className="relative">
             <DrawerTitle>Pagar Conta</DrawerTitle>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Fechar</span>
+            </button>
           </DrawerHeader>
           {content}
         </DrawerContent>
