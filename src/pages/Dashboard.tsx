@@ -281,27 +281,9 @@ export default function Dashboard() {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold">
-                {greeting}
-                {firstName ? `, ${firstName}` : ""}!
-              </h1>
-              <p className="text-muted-foreground">Seu resumo financeiro.</p>
-            </div>
-            {plan === "premium" && (
-              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
-                <Crown className="h-3 w-3" /> Premium
-              </Badge>
-            )}
-            {plan === "lifetime" && (
-              <Badge className="bg-primary/15 text-primary border-primary/30 gap-1">
-                <Crown className="h-3 w-3" /> Lifetime
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="relative">
+          {/* Action icons — top right */}
+          <div className="absolute right-0 top-0 flex items-center gap-1">
             <NotificationCenter />
             <Tooltip>
               <TooltipTrigger asChild>
@@ -320,6 +302,25 @@ export default function Dashboard() {
               reorderSections={reorderSections}
               resetDefaults={resetDefaults}
             />
+          </div>
+
+          <div className="flex items-center gap-3 pr-28 md:pr-0">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold leading-tight">
+                {greeting}{firstName ? `, ${firstName}` : ""}!
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Seu resumo financeiro</p>
+            </div>
+            {plan === "premium" && (
+              <Badge className="hidden md:inline-flex bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Premium
+              </Badge>
+            )}
+            {plan === "lifetime" && (
+              <Badge className="hidden md:inline-flex bg-primary/15 text-primary border-primary/30 gap-1">
+                <Crown className="h-3 w-3" /> Lifetime
+              </Badge>
+            )}
           </div>
         </div>
 

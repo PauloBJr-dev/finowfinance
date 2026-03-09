@@ -100,7 +100,7 @@ export function PeriodFilter({ onPeriodChange, defaultPeriod = "this_month" }: P
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide flex-nowrap md:flex-wrap pb-1 -mb-1">
       {PERIOD_OPTIONS.map((option) => (
         <button
           key={option.key}
