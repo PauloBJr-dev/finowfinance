@@ -128,9 +128,9 @@ export function TransactionList({ transactions, isLoading }: TransactionListProp
             <h3 className="px-3 text-sm font-medium text-muted-foreground">
               {group.label}
             </h3>
-            <div className="rounded-lg border bg-card">
+            <div className="rounded-lg border bg-card stagger-list">
               {group.transactions.map((tx, index) => (
-                <div key={tx.id}>
+                <div key={tx.id} style={{ "--i": index } as React.CSSProperties}>
                   {index > 0 && <div className="mx-3 border-t" />}
                   <TransactionItem
                     transaction={tx}

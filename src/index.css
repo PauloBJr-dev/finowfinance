@@ -201,6 +201,12 @@
     margin-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* Staggered list entrance */
+  .stagger-list > * {
+    animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+
   /* Hide scrollbar for horizontal scroll containers */
   .scrollbar-hide {
     -ms-overflow-style: none;
