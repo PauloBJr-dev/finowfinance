@@ -145,7 +145,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
     setIsSubmittingCard(true);
     try {
-      const selectedDate = date.toISOString().split("T")[0];
+      const selectedDate = formatDateLocal(date);
 
       if (installmentCount === 1) {
         // À vista
