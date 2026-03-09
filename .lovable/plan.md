@@ -1,32 +1,25 @@
 
 
-# Notificação de Atualização Disponível
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Abordagem
+## Resumo
 
-Criar um componente que detecta quando uma nova versão do app foi deployada e exibe um banner persistente pedindo ao usuário para atualizar a página. A detecção será feita via **polling de um arquivo de versão** (`/version.json`) a cada 60 segundos, comparando o hash do build atual com o do servidor.
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-## Implementação
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-### 1. Arquivo de versão — `public/version.json`
-Contém `{ "version": "<BUILD_HASH>" }`. Será sobrescrito automaticamente a cada build via plugin Vite.
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-### 2. Plugin Vite — `vite.config.ts`
-Adicionar um plugin simples que gera `version.json` no diretório de output com um hash aleatório a cada build. Isso garante que o hash mude em cada deploy.
-
-### 3. Componente `UpdateBanner` — `src/components/shared/UpdateBanner.tsx`
-- Ao montar, salva o hash atual (primeira resposta do `/version.json`)
-- Polling a cada 60s comparando hash atual vs. servidor
-- Se diferir, exibe um banner fixo no topo com botão "Atualizar agora" que faz `window.location.reload()`
-- Estilo: banner sutil com `bg-primary text-primary-foreground`, ícone `RefreshCw`, botão de ação
-- Banner dismissível temporariamente (volta após 5 min)
-
-### 4. Integração — `src/App.tsx`
-Renderizar `<UpdateBanner />` dentro do `App` component, antes do `BrowserRouter`.
-
-### Arquivos
-- **Criar:** `src/components/shared/UpdateBanner.tsx`
-- **Criar:** `public/version.json`
-- **Editar:** `vite.config.ts` (adicionar plugin de versão)
-- **Editar:** `src/App.tsx` (adicionar `<UpdateBanner />`)
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
