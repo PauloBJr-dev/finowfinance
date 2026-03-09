@@ -145,7 +145,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
     setIsSubmittingCard(true);
     try {
-      const selectedDate = formatDateLocal(date) (installmentCount === 1) {
+      const selectedDate = formatDateLocal(date)ntCount === 1) {
         // À vista
         const targetMonth = getTargetInvoiceMonth(card.billing_day, date);
         const invoiceId = await getOrCreateInvoice(selectedCardId, user.id, targetMonth);
@@ -233,7 +233,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               invoice_id: invoiceId,
               installment_number: i + 1,
               amount: amounts[i],
-              due_date: months[i].tformatDateLocal(months[i])     status: "pending" as const,
+              due_date: months[i].tformatDateLformatDateLocal(months[i]) as const,
             });
 
           if (installmentError) {
@@ -274,8 +274,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           description: description || "Conta a pagar",
           amount,
           category_id: categoryId!,
-          due_date: dueDate.toISOString().split("T")[0],
-          is_recurring: isRecurring,
+          due_date: dueDate.toISOString().formatDateLocal(dueDate)ng: isRecurring,
         });
       } else {
         await createTransaction.mutateAsync({
