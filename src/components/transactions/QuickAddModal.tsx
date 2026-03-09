@@ -274,12 +274,16 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           description: description || "Conta a pagar",
           amount,
           category_id: categoryId!,
-          due_date: dueDate.toISOString().formatDateLocal(dueDatformatDateLocal(dueDate)  } else {
+          due_date: formatDateLocal(dueDate),
+          is_recurring: isRecurring,
+        });
+      } else {
         await createTransaction.mutateAsync({
           amount,
           type,
           payment_method: paymentMethod as any,
-          date: date.toISOString().split("T")[0],formatDateLocal(date)ion || null,
+          date: formatDateLocal(date),
+          description: description || null,
           category_id: categoryId,
           account_id: accountId,
         });
