@@ -36,12 +36,17 @@ const WIDGET_ORDER = [
 export function DashboardCustomizer({ visibleWidgets, toggleWidget, resetDefaults }: Props) {
   return (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Settings2 className="h-4 w-4" />
-          <span className="sr-only">Personalizar dashboard</span>
-        </Button>
-      </SheetTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Settings2 className="h-4 w-4" />
+              <span className="sr-only">Personalizar dashboard</span>
+            </Button>
+          </SheetTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Personalizar dashboard</TooltipContent>
+      </Tooltip>
       <SheetContent side="right" className="w-80">
         <SheetHeader>
           <SheetTitle>Personalizar Dashboard</SheetTitle>
