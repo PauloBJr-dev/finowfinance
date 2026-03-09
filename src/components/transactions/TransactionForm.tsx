@@ -12,6 +12,7 @@ import { CurrencyInput } from "@/components/shared/CurrencyInput";
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
+import { useCards } from "@/hooks/use-cards";
 
 import { useUpdateTransaction } from "@/hooks/use-transactions";
 import { Tables } from "@/integrations/supabase/types";
@@ -42,7 +43,9 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [description, setDescription] = useState("");
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [cardId, setCardId] = useState<string | null>(null);
   const { data: accounts = [] } = useAccounts();
+  const { data: cards = [] } = useCards();
   const updateTransaction = useUpdateTransaction();
 
   // Load transaction data
@@ -54,14 +57,31 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
       setCategoryId(transaction.category_id);
       setPaymentMethod(transaction.payment_method as PaymentMethod);
       setDescription(transaction.description || "");
-      setAccountId(transaction.account_id);
+
+      if (transaction.payment_method === "credit_card") {
+        setCardId(transaction.card_id);
+        setAccountId(null);
+      } else {
+        setAccountId(transaction.account_id);
+        setCardId(null);
+      }
     }
   }, [transaction]);
+
+  const handlePaymentMethodChange = (value: PaymentMethod) => {
+    setPaymentMethod(value);
+    if (value === "credit_card") {
+      setAccountId(null);
+    } else {
+      setCardId(null);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!transaction) return;
 
     try {
+      const isCredit = paymentMethod === "credit_card";
       await updateTransaction.mutateAsync({
         id: transaction.id,
         type,
@@ -70,13 +90,16 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         category_id: categoryId,
         payment_method: paymentMethod,
         description: description || null,
-        account_id: accountId,
+        account_id: isCredit ? null : accountId,
+        card_id: isCredit ? cardId : null,
       });
       onOpenChange(false);
     } catch (error) {
       // Error handled in hook
     }
   };
+
+  const isCredit = paymentMethod === "credit_card";
 
   const content = (
     <div className="flex flex-col gap-4 px-4 py-2">
@@ -142,7 +165,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         </div>
       </div>
 
-      {/* Category + Account row */}
+      {/* Category + Account/Card row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Categoria</Label>
@@ -153,19 +176,39 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Conta</Label>
-          <Select value={accountId || ""} onValueChange={setAccountId}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {isCredit ? (
+            <>
+              <Label className="text-xs">Cartão</Label>
+              <Select value={cardId || ""} onValueChange={setCardId}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Selecione o cartão" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cards.map((card) => (
+                    <SelectItem key={card.id} value={card.id}>
+                      {card.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : (
+            <>
+              <Label className="text-xs">Conta</Label>
+              <Select value={accountId || ""} onValueChange={setAccountId}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
       </div>
 
@@ -174,7 +217,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         <Label className="text-xs">Forma de pagamento</Label>
         <PaymentMethodSelect
           value={paymentMethod}
-          onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+          onChange={(v) => handlePaymentMethodChange(v as PaymentMethod)}
           transactionType={type}
         />
       </div>
