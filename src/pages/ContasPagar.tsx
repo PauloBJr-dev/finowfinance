@@ -27,33 +27,33 @@ export default function ContasPagar() {
         {/* Summary Cards */}
         {summary && summary.total > 0 && (
           <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <Card className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full bg-warning/10 flex items-center justify-center">
-                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+            <Card className="p-3 sm:p-4 flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-1.5 sm:gap-3">
+              <div className="h-7 w-7 sm:h-10 sm:w-10 shrink-0 rounded-full bg-warning/10 flex items-center justify-center">
+                <Clock className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-warning" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <p className="text-xs text-muted-foreground">A Vencer</p>
-                <p className="text-sm sm:text-lg font-semibold truncate">{formatCurrency(summary.pending)}</p>
+                <p className="text-sm sm:text-lg font-semibold">{formatCurrency(summary.pending)}</p>
               </div>
             </Card>
 
-            <Card className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full bg-destructive/10 flex items-center justify-center">
-                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+            <Card className="p-3 sm:p-4 flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-1.5 sm:gap-3">
+              <div className="h-7 w-7 sm:h-10 sm:w-10 shrink-0 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-destructive" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <p className="text-xs text-muted-foreground">Vencidas</p>
-                <p className="text-sm sm:text-lg font-semibold text-destructive truncate">{formatCurrency(summary.overdue)}</p>
+                <p className="text-sm sm:text-lg font-semibold text-destructive">{formatCurrency(summary.overdue)}</p>
               </div>
             </Card>
 
-            <Card className="p-3 sm:p-4 flex items-center gap-2 sm:gap-3">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full bg-success/10 flex items-center justify-center">
-                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+            <Card className="p-3 sm:p-4 flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left gap-1.5 sm:gap-3">
+              <div className="h-7 w-7 sm:h-10 sm:w-10 shrink-0 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="h-3.5 w-3.5 sm:h-5 sm:w-5 text-success" />
               </div>
-              <div className="min-w-0">
+              <div>
                 <p className="text-xs text-muted-foreground">Pagas</p>
-                <p className="text-sm sm:text-lg font-semibold text-success truncate">{formatCurrency(summary.paid)}</p>
+                <p className="text-sm sm:text-lg font-semibold text-success">{formatCurrency(summary.paid)}</p>
               </div>
             </Card>
           </div>
