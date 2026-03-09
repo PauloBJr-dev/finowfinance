@@ -159,12 +159,15 @@ export function usePayInvoice() {
       accountId,
       paymentDate,
       cardName,
+      computedTotal,
     }: {
       invoice: Invoice;
       accountId: string;
       paymentDate: string;
       cardName: string;
+      computedTotal: number;
     }) => {
+      if (computedTotal <= 0) throw new Error('Fatura sem valor a pagar');
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (invoice.status === 'paid') throw new Error('Fatura já foi paga');
 
