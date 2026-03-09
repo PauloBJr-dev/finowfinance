@@ -1,23 +1,25 @@
 
 
-# Duas alteracoes pontuais
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## 1. DashboardCustomizer — drag-and-drop no mobile
+## Resumo
 
-Atualmente no mobile o componente usa botoes ChevronUp/ChevronDown em vez de drag. A mudanca e simples: remover a condicao `isMobile` que diferencia o comportamento. Todos os itens passam a ser `draggable` com `GripVertical` independente do dispositivo. Remover os botoes ChevronUp/ChevronDown e a prop `isMobile` do `DraggableList`.
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-**Arquivo:** `src/components/dashboard/DashboardCustomizer.tsx`
-- Remover import de `ChevronUp`, `ChevronDown`, `useIsMobile`
-- Remover prop `isMobile` do `DraggableList`
-- Tornar todos os itens `draggable` sempre, com `GripVertical` sempre visivel
-- Remover bloco condicional dos botoes up/down
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-## 2. PeriodFilter — remover filtros desnecessarios
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-Remover "Hoje", "Ontem", "7 dias", "15 dias" do array `PERIOD_OPTIONS`, mantendo apenas "Mes passado", "Mes atual" e "Personalizado". Atualizar o type `PeriodKey` para refletir.
-
-**Arquivo:** `src/components/shared/PeriodFilter.tsx`
-- `PeriodKey` = `"last_month" | "this_month" | "custom"`
-- `PERIOD_OPTIONS` com apenas 2 entradas (last_month, this_month)
-- Remover imports nao usados (`subDays`, `startOfDay`, `endOfDay`)
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
