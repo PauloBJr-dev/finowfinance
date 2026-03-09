@@ -11,14 +11,16 @@ export default function Configuracoes() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="relative">
+          <div className="pr-12">
             <h1 className="text-2xl font-semibold text-foreground">Configurações</h1>
             <p className="text-muted-foreground">
               Gerencie suas contas e preferências.
             </p>
           </div>
-          <NotificationCenter />
+          <div className="absolute right-0 top-0">
+            <NotificationCenter />
+          </div>
         </div>
 
         <Tabs defaultValue="accounts" className="w-full">

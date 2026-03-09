@@ -139,22 +139,22 @@ export function AccountList() {
 
               return (
                 <Card key={account.id} className="group">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={cn("p-2 rounded-lg bg-muted", config.color)}>
+              <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={cn("p-2 rounded-lg bg-muted shrink-0", config.color)}>
                           <Icon className="h-5 w-5" />
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{account.name}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium truncate">{account.name}</span>
                             {account.type === "benefit_card" && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs shrink-0">
                                 Vale
                               </Badge>
                             )}
                             {!account.include_in_net_worth && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs shrink-0">
                                 Oculto
                               </Badge>
                             )}
@@ -164,7 +164,7 @@ export function AccountList() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 border-t sm:border-0 pt-2 sm:pt-0 pl-11 sm:pl-0">
                         <span
                           className={cn(
                             "font-semibold tabular-nums",
