@@ -1,4 +1,5 @@
-import { Settings2, RotateCcw } from "lucide-react";
+import { useRef, useState } from "react";
+import { Settings2, RotateCcw, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -11,29 +12,121 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WIDGET_LABELS } from "@/hooks/use-dashboard-preferences";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   visibleWidgets: Record<string, boolean>;
+  kpiOrder: string[];
+  sectionOrder: string[];
   toggleWidget: (id: string) => void;
+  reorderKpis: (from: number, to: number) => void;
+  reorderSections: (from: number, to: number) => void;
   resetDefaults: () => void;
 }
 
-const WIDGET_ORDER = [
-  "micro_insight",
-  "kpi_balance",
-  "kpi_expenses",
-  "kpi_income",
-  "kpi_net",
-  "kpi_benefit",
-  "month_flow",
-  "reminders",
-  "ai_insights",
-  "expenses_chart",
-  "upcoming_bills",
-  "recent_transactions",
-];
+function DraggableList({
+  items,
+  visibleWidgets,
+  toggleWidget,
+  onReorder,
+  isMobile,
+}: {
+  items: string[];
+  visibleWidgets: Record<string, boolean>;
+  toggleWidget: (id: string) => void;
+  onReorder: (from: number, to: number) => void;
+  isMobile: boolean;
+}) {
+  const dragItem = useRef<number | null>(null);
+  const dragOverItem = useRef<number | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
 
-export function DashboardCustomizer({ visibleWidgets, toggleWidget, resetDefaults }: Props) {
+  const handleDragStart = (index: number) => {
+    dragItem.current = index;
+    setDragging(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index;
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current !== null && dragOverItem.current !== null && dragItem.current !== dragOverItem.current) {
+      onReorder(dragItem.current, dragOverItem.current);
+    }
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setDragging(null);
+  };
+
+  const moveUp = (index: number) => {
+    if (index > 0) onReorder(index, index - 1);
+  };
+
+  const moveDown = (index: number) => {
+    if (index < items.length - 1) onReorder(index, index + 1);
+  };
+
+  return (
+    <div className="space-y-1">
+      {items.map((id, index) => (
+        <div
+          key={id}
+          draggable={!isMobile}
+          onDragStart={() => handleDragStart(index)}
+          onDragEnter={() => handleDragEnter(index)}
+          onDragEnd={handleDragEnd}
+          onDragOver={(e) => e.preventDefault()}
+          className={cn(
+            "flex items-center gap-2 rounded-md px-2 py-2 transition-colors",
+            dragging === index && "opacity-50 bg-muted",
+            !isMobile && "cursor-grab active:cursor-grabbing"
+          )}
+        >
+          {!isMobile && (
+            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+          )}
+          {isMobile && (
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button
+                onClick={() => moveUp(index)}
+                disabled={index === 0}
+                className="p-0.5 rounded hover:bg-muted disabled:opacity-20"
+              >
+                <ChevronUp className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => moveDown(index)}
+                disabled={index === items.length - 1}
+                className="p-0.5 rounded hover:bg-muted disabled:opacity-20"
+              >
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <span className="text-sm flex-1 select-none">{WIDGET_LABELS[id]}</span>
+          <Switch
+            checked={visibleWidgets[id] ?? true}
+            onCheckedChange={() => toggleWidget(id)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function DashboardCustomizer({
+  visibleWidgets,
+  kpiOrder,
+  sectionOrder,
+  toggleWidget,
+  reorderKpis,
+  reorderSections,
+  resetDefaults,
+}: Props) {
+  const isMobile = useIsMobile();
+
   return (
     <Sheet>
       <Tooltip>
@@ -47,22 +140,38 @@ export function DashboardCustomizer({ visibleWidgets, toggleWidget, resetDefault
         </TooltipTrigger>
         <TooltipContent>Personalizar dashboard</TooltipContent>
       </Tooltip>
-      <SheetContent side="right" className="w-80">
+      <SheetContent side="right" className="w-80 overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Personalizar Dashboard</SheetTitle>
-          <SheetDescription>Escolha quais widgets exibir.</SheetDescription>
+          <SheetDescription>Escolha e reordene os widgets.</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
-          {WIDGET_ORDER.map((id) => (
-            <div key={id} className="flex items-center justify-between">
-              <span className="text-sm">{WIDGET_LABELS[id]}</span>
-              <Switch
-                checked={visibleWidgets[id] ?? true}
-                onCheckedChange={() => toggleWidget(id)}
-              />
-            </div>
-          ))}
+        <div className="mt-6 space-y-6">
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Indicadores
+            </h4>
+            <DraggableList
+              items={kpiOrder}
+              visibleWidgets={visibleWidgets}
+              toggleWidget={toggleWidget}
+              onReorder={reorderKpis}
+              isMobile={isMobile}
+            />
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              Seções
+            </h4>
+            <DraggableList
+              items={sectionOrder}
+              visibleWidgets={visibleWidgets}
+              toggleWidget={toggleWidget}
+              onReorder={reorderSections}
+              isMobile={isMobile}
+            />
+          </div>
         </div>
 
         <Button
