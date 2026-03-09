@@ -98,22 +98,19 @@ export function CardList() {
             {cards.map((card) => (
               <UICard key={card.id} className="group">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted text-primary">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-muted text-primary shrink-0">
                         <CreditCard className="h-5 w-5" />
                       </div>
-                      <div>
-                        <span className="font-medium">{card.name}</span>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>
-                            Fecha dia {card.billing_day} | Vence dia{" "}
-                            {card.due_day}
-                          </span>
-                        </div>
+                      <div className="min-w-0">
+                        <span className="font-medium truncate block">{card.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Fecha dia {card.billing_day} | Vence dia {card.due_day}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between sm:justify-end gap-2 border-t sm:border-0 pt-2 sm:pt-0 pl-11 sm:pl-0">
                       {card.credit_limit != null && card.credit_limit > 0 && (
                         <span className="font-semibold tabular-nums text-foreground">
                           {formatCurrency(Number(card.credit_limit))}
