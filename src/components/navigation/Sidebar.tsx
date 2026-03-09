@@ -26,7 +26,7 @@ export function Sidebar() {
       )}
     >
       {/* Header: Logo + Collapse toggle */}
-      <div className="flex h-16 items-center border-b border-sidebar-border px-3">
+      <div className="flex h-16 items-center border-b border-sidebar-border/50 px-3">
         {collapsed ? (
           <>
             <img src={iconImg} alt="Finow" className="h-8 w-8 rounded-lg" />
