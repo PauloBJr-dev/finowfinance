@@ -7,6 +7,7 @@ import { showUndoToast } from "@/components/shared/UndoToast";
 import { useDeleteTransaction, useRestoreTransaction } from "@/hooks/use-transactions";
 import { formatDateRelative, isSameDay } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Receipt } from "lucide-react";
 
 type Transaction = Tables<"transactions"> & {
   categories?: {
@@ -107,9 +108,11 @@ export function TransactionList({ transactions, isLoading }: TransactionListProp
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="mb-4 text-4xl">📝</div>
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+          <Receipt className="h-7 w-7 text-muted-foreground" />
+        </div>
         <h3 className="text-lg font-medium">Nenhuma transação</h3>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground max-w-sm">
           Use o botão + para adicionar sua primeira transação
         </p>
       </div>
