@@ -117,14 +117,14 @@ export default function Chat() {
 
   return (
     <MainLayout>
-      <div className="flex h-[calc(100vh-8rem)] flex-col md:h-[calc(100vh-4rem)]">
+      <div className="flex h-[calc(100vh-11.5rem)] flex-col md:h-[calc(100vh-7rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="relative border-b px-4 py-3">
+          <div className="flex items-center gap-2 pr-20">
             <img src={mentorIcon} alt="Mentor" className="h-6 w-6 rounded" />
             <h1 className="text-lg font-semibold">Mentor Financeiro</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="absolute right-4 top-2.5 flex items-center gap-1">
             <NotificationCenter />
             <Button variant="ghost" size="icon" onClick={clearChat} title="Limpar conversa">
               <Trash2 className="h-4 w-4" />
@@ -230,7 +230,7 @@ export default function Chat() {
         </div>
 
         {/* Input */}
-        <div className="border-t px-4 py-3">
+        <div className="border-t px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className="mx-auto flex max-w-2xl items-end gap-2">
             <Textarea
               ref={textareaRef}
@@ -238,7 +238,7 @@ export default function Chat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Pergunte sobre suas finanças…"
-              className="min-h-[44px] max-h-32 resize-none"
+              className="!min-h-[44px] max-h-32 resize-none"
               rows={1}
               maxLength={500}
               disabled={isStreaming}
