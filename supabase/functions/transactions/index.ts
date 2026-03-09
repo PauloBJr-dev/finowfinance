@@ -523,6 +523,47 @@ serve(async (req) => {
         updates.tags = body.tags.filter((t: unknown) => typeof t === 'string')
       }
 
+      if (body.payment_method !== undefined) {
+        const validMethods = ['cash', 'debit', 'transfer', 'boleto', 'credit_card', 'voucher', 'split']
+        if (!validMethods.includes(body.payment_method)) {
+          return new Response(
+            JSON.stringify({ error: 'Método de pagamento inválido' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        updates.payment_method = body.payment_method
+      }
+
+      if (body.account_id !== undefined) {
+        updates.account_id = body.account_id
+      }
+
+      if (body.card_id !== undefined) {
+        updates.card_id = body.card_id
+      }
+
+      // Recalcular invoice quando mudou para credit_card
+      const finalPaymentMethod = (updates.payment_method as string) || body.payment_method
+      const finalCardId = (updates.card_id as string) || body.card_id
+      const finalDate = (updates.date as string) || body.date
+
+      if (finalPaymentMethod === 'credit_card' && finalCardId && finalDate) {
+        const { data: invoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+          p_card_id: finalCardId,
+          p_user_id: userId,
+          p_transaction_date: finalDate
+        })
+        if (!invoiceError && invoiceId) {
+          updates.invoice_id = invoiceId
+        }
+      }
+
+      // Se não é credit_card, limpar invoice_id e card_id
+      if (updates.payment_method !== undefined && updates.payment_method !== 'credit_card') {
+        updates.invoice_id = null
+        updates.card_id = null
+      }
+
       if (Object.keys(updates).length === 0) {
         return new Response(
           JSON.stringify({ error: 'Nenhum campo para atualizar' }),
