@@ -1,4 +1,5 @@
-import { useLocation } from "react-router-dom";
+import { useCallback } from "react";
+import { useLocation, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { navigationItems, settingsItem, reportsItem } from "./navigation-items";
 import { MoreHorizontal } from "lucide-react";
@@ -8,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link } from "react-router-dom";
+import { routeImportMap } from "@/App";
 
 // Mobile-friendly short labels
 const mobileLabels: Record<string, string> = {
@@ -31,10 +32,16 @@ export function BottomNav() {
           const Icon = item.icon;
           const label = mobileLabels[item.label] || item.label;
 
+          const prefetch = () => {
+            const fn = routeImportMap[item.to];
+            if (fn) fn().catch(() => {});
+          };
+
           return (
             <Link
               key={item.to}
               to={item.to}
+              onTouchStart={prefetch}
               className={cn(
                 "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs transition-colors",
                 isActive

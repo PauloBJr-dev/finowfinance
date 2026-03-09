@@ -141,7 +141,7 @@ export function NotificationCenter() {
         </TooltipTrigger>
         <TooltipContent>Notificações</TooltipContent>
       </Tooltip>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col bg-background border-l border-border">
         <SheetHeader className="px-4 pt-4 pb-2">
           <div className="flex items-center justify-between">
             <SheetTitle>Notificações</SheetTitle>
