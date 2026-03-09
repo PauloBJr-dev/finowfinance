@@ -52,7 +52,8 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
     if (transaction) {
       setType(transaction.type as TransactionType);
       setAmount(Number(transaction.amount));
-      setDate(new Date(transaction.date + 'T12:00:00'));
+      const [year, month, day] = transaction.date.split('-').map(Number);
+      setDate(new Date(year, month - 1, day));
       setCategoryId(transaction.category_id);
       setPaymentMethod(transaction.payment_method as PaymentMethod);
       setDescription(transaction.description || "");
