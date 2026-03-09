@@ -16,6 +16,7 @@ interface Props {
   transactions: Array<{
     amount: number;
     type: string;
+    payment_method?: string;
     categories: { name: string; color: string | null; icon: string | null } | null;
   }> | undefined;
   isLoading: boolean;
