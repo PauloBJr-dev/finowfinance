@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Brain, Sparkles, Bell, TrendingUp, AlertCircle, ShieldCheck, User } from "lucide-react";
+import { Brain, Sparkles, Bell, TrendingUp, AlertCircle, ShieldCheck, User, CalendarCheck } from "lucide-react";
 import { useAISettings, useUpdateAISettings, useAIUsage, useTodayUsage } from "@/hooks/use-ai";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
