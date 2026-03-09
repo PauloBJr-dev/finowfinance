@@ -86,24 +86,67 @@ export function useInvoices(cardId: string | null) {
   });
 }
 
-export function useInvoiceTransactions(invoiceId: string | null) {
+export function useInvoiceDetails(invoiceId: string | null) {
   return useQuery({
-    queryKey: ['invoice-transactions', invoiceId],
+    queryKey: ['invoice-details', invoiceId],
     queryFn: async () => {
-      if (!invoiceId) return [];
+      if (!invoiceId) return { transactions: [], installments: [], computedTotal: 0 };
 
-      const { data, error } = await supabase
+      // 1. Buscar transações vinculadas à fatura
+      const { data: txs, error: txError } = await supabase
         .from('transactions')
         .select('*, categories(id, name, icon, color)')
         .eq('invoice_id', invoiceId)
         .is('deleted_at', null)
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (txError) throw txError;
+
+      // 2. Buscar IDs de transações que têm installment_group (para excluir da soma)
+      const txIds = (txs ?? []).map((t) => t.id);
+      let installmentGroupTxIds: Set<string> = new Set();
+      if (txIds.length > 0) {
+        const { data: groups } = await supabase
+          .from('installment_groups')
+          .select('transaction_id')
+          .in('transaction_id', txIds);
+        if (groups) {
+          installmentGroupTxIds = new Set(groups.map((g) => g.transaction_id));
+        }
+      }
+
+      // 3. Buscar installments vinculados à fatura
+      const { data: installs, error: instError } = await supabase
+        .from('installments')
+        .select('*, installment_groups!inner(transaction_id, total_installments, transactions:transaction_id(description, categories(id, name, icon, color)))')
+        .eq('invoice_id', invoiceId);
+
+      if (instError) throw instError;
+
+      // 4. Calcular total: transações SEM installment_group + installments
+      const directTxTotal = (txs ?? [])
+        .filter((t) => !installmentGroupTxIds.has(t.id))
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const installmentsTotal = (installs ?? [])
+        .reduce((sum, i) => sum + Number(i.amount), 0);
+
+      return {
+        transactions: (txs ?? []).filter((t) => !installmentGroupTxIds.has(t.id)),
+        installments: installs ?? [],
+        computedTotal: directTxTotal + installmentsTotal,
+      };
     },
     enabled: !!invoiceId,
   });
+}
+
+/** @deprecated Use useInvoiceDetails instead */
+export function useInvoiceTransactions(invoiceId: string | null) {
+  const details = useInvoiceDetails(invoiceId);
+  return {
+    ...details,
+    data: details.data ? [...details.data.transactions] : undefined,
+  };
 }
 
 export function usePayInvoice() {
