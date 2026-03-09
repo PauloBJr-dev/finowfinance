@@ -25,24 +25,37 @@ export function Sidebar() {
         collapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Header: Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-sidebar-border/50 px-3">
+      {/* Header: Logo + Collapse toggle */}
+      <div className={cn(
+        "flex h-16 items-center border-b border-sidebar-border/50 px-3",
+        collapsed ? "justify-center" : "justify-between"
+      )}>
         {collapsed ? (
           <img src={iconImg} alt="Finow" className="h-8 w-8 rounded-lg" />
         ) : (
-          <img src={logo} alt="Finow" className="h-8 w-auto" />
+          <>
+            <img src={logo} alt="Finow" className="h-8 w-auto" />
+            <button
+              onClick={toggle}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </>
         )}
       </div>
 
-      {/* Collapse toggle */}
-      <div className={cn("flex px-3 pt-3", collapsed ? "justify-center" : "justify-end")}>
-        <button
-          onClick={toggle}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
-        >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
-      </div>
+      {/* Collapse toggle (collapsed state) */}
+      {collapsed && (
+        <div className="flex justify-center px-3 pt-3">
+          <button
+            onClick={toggle}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Primary navigation */}
       <nav className="flex-1 overflow-y-auto p-3">
