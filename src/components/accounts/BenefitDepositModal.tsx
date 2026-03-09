@@ -74,7 +74,7 @@ function DepositForm({
     resolver: zodResolver(depositSchema),
     defaultValues: {
       amount: 0,
-      date: new Date().toISOString().split("T")[0],
+      date: formatDateLocal(new Date()),
       description: "",
     },
   });
