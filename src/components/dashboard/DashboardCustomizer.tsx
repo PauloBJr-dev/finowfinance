@@ -93,8 +93,6 @@ export function DashboardCustomizer({
   reorderSections,
   resetDefaults,
 }: Props) {
-  const isMobile = useIsMobile();
-
   return (
     <Sheet>
       <Tooltip>
@@ -124,7 +122,6 @@ export function DashboardCustomizer({
               visibleWidgets={visibleWidgets}
               toggleWidget={toggleWidget}
               onReorder={reorderKpis}
-              isMobile={isMobile}
             />
           </div>
 
@@ -137,7 +134,6 @@ export function DashboardCustomizer({
               visibleWidgets={visibleWidgets}
               toggleWidget={toggleWidget}
               onReorder={reorderSections}
-              isMobile={isMobile}
             />
           </div>
         </div>
