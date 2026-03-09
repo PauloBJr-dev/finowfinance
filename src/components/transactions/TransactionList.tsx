@@ -43,8 +43,9 @@ function groupTransactionsByDate(transactions: Transaction[]): GroupedTransactio
   const today = new Date();
 
   transactions.forEach((tx) => {
-    const txDate = new Date(tx.date);
-    const dateKey = txDate.toISOString().split('T')[0];
+    const [y, m, d] = tx.date.split('-').map(Number);
+    const txDate = new Date(y, m - 1, d);
+    const dateKey = tx.date;
 
     if (!groups.has(dateKey)) {
       groups.set(dateKey, {
