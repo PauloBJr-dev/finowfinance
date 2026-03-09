@@ -205,25 +205,51 @@ export function useCreateTransaction() {
 }
 
 /**
- * Hook para atualizar transação via Edge Function
+ * Hook para atualizar transação via Supabase client (direto, sem Edge Function)
  */
 export function useUpdateTransaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: TransactionUpdate & { id: string }) => {
-      const { data, error } = await supabase.functions.invoke(`transactions/${id}`, {
-        method: 'PUT',
-        body: updates,
-      });
+      const finalUpdates: Record<string, unknown> = { ...updates };
+
+      // Se mudou para cartão de crédito, recalcular invoice_id
+      if (updates.payment_method === 'credit_card' && updates.card_id && updates.date) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+
+        const { data: invoiceId, error: invoiceError } = await supabase.rpc('find_or_create_invoice', {
+          p_card_id: updates.card_id,
+          p_user_id: user.id,
+          p_transaction_date: updates.date,
+        });
+
+        if (invoiceError) throw new Error('Erro ao calcular fatura');
+        finalUpdates.invoice_id = invoiceId;
+        finalUpdates.account_id = null;
+      }
+
+      // Se mudou para outro método, limpar invoice e card
+      if (updates.payment_method !== undefined && updates.payment_method !== 'credit_card') {
+        finalUpdates.invoice_id = null;
+        finalUpdates.card_id = null;
+      }
+
+      const { data, error } = await supabase
+        .from('transactions')
+        .update(finalUpdates)
+        .eq('id', id)
+        .select('*, categories(*), accounts(*), cards(*)')
+        .single();
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY });
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success("Transação atualizada!");
     },
     onError: (error) => {
