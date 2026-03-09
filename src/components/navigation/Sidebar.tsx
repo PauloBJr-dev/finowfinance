@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavItem } from "./NavItem";
 import { primaryItems, secondaryItems, reportsItem, settingsItem } from "./navigation-items";
@@ -25,18 +25,22 @@ export function Sidebar() {
         collapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Header: Logo + Collapse toggle */}
-      <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border/50 px-3">
+      {/* Header: Logo */}
+      <div className="flex h-16 items-center justify-center border-b border-sidebar-border/50 px-3">
         {collapsed ? (
           <img src={iconImg} alt="Finow" className="h-8 w-8 rounded-lg" />
         ) : (
           <img src={logo} alt="Finow" className="h-8 w-auto" />
         )}
+      </div>
+
+      {/* Collapse toggle */}
+      <div className={cn("flex px-3 pt-3", collapsed ? "justify-center" : "justify-end")}>
         <button
           onClick={toggle}
-          className="absolute right-3 flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground hover:bg-white/10 dark:hover:bg-white/5"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
 
