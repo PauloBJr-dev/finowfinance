@@ -82,7 +82,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer: Reports, Settings, Logout */}
-      <div className="border-t border-sidebar-border p-3 space-y-1">
+      <div className="border-t border-sidebar-border/50 p-3 space-y-1">
         <NavItem
           to={reportsItem.to}
           icon={reportsItem.icon}
