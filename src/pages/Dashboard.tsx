@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useAccounts } from "@/hooks/use-accounts";
@@ -44,10 +44,17 @@ export default function Dashboard() {
     endDate: toDateStr(endOfMonth(now)),
   });
 
-  const { visibleWidgets, toggleWidget, resetDefaults } = useDashboardPreferences();
+  const {
+    visibleWidgets: w,
+    kpiOrder,
+    sectionOrder,
+    toggleWidget,
+    reorderKpis,
+    reorderSections,
+    resetDefaults,
+  } = useDashboardPreferences();
   const { plan } = useAuth();
   const { hidden, toggle, mask } = usePrivacy();
-  const w = visibleWidgets;
 
   const { data: profile } = useProfile();
   const { data: accounts = [], isLoading: loadingAccounts } = useAccounts();
@@ -67,8 +74,7 @@ export default function Dashboard() {
     (a) => a.type === "benefit_card" && !a.deleted_at
   ), [accounts]);
   const benefitBalance = useMemo(() => benefitAccounts.reduce(
-    (sum, a) => sum + Number(a.current_balance),
-    0
+    (sum, a) => sum + Number(a.current_balance), 0
   ), [benefitAccounts]);
   const hasBenefit = benefitAccounts.length > 0;
 
@@ -96,7 +102,6 @@ export default function Dashboard() {
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const balance = income - expenses;
-
   const pendingBills = (billsSummary?.pending || 0) + (billsSummary?.overdue || 0);
 
   const firstName = profile?.name ? getFirstName(profile.name) : "";
@@ -105,6 +110,172 @@ export default function Dashboard() {
   const handlePeriodChange = useCallback((startDate: string, endDate: string) => {
     setDateRange({ startDate, endDate });
   }, []);
+
+  // ── KPI renderer map ──
+  const kpiRenderers: Record<string, () => ReactNode> = {
+    kpi_balance: () => (
+      <Card key="kpi_balance">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/15">
+            <Wallet className="h-4 w-4 text-blue-500" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingAccounts ? <Skeleton className="h-8 w-24" /> : (
+            <>
+              <p className="text-2xl font-bold">{mask(formatCurrency(netWorth))}</p>
+              {hasBenefit && <p className="text-xs text-muted-foreground mt-1">Inclui saldo de benefícios</p>}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    kpi_expenses: () => (
+      <Card key="kpi_expenses">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Despesas</CardTitle>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/15">
+            <TrendingDown className="h-4 w-4 text-destructive" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingTx ? <Skeleton className="h-8 w-24" /> : (
+            <>
+              <p className="text-2xl font-bold text-destructive">{mask(formatCurrency(expenses))}</p>
+              {!hidden && <KpiComparisonBadge current={expenses} previous={prevMonth?.expenses ?? null} invertColor />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    kpi_income: () => (
+      <Card key="kpi_income">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Receitas</CardTitle>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingTx ? <Skeleton className="h-8 w-24" /> : (
+            <>
+              <p className="text-2xl font-bold text-primary">{mask(formatCurrency(income))}</p>
+              {!hidden && <KpiComparisonBadge current={income} previous={prevMonth?.income ?? null} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    kpi_net: () => (
+      <Card key="kpi_net">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium">Balanço</CardTitle>
+          <div className={cn("flex h-8 w-8 items-center justify-center rounded-full", balance >= 0 ? "bg-primary/15" : "bg-destructive/15")}>
+            <Scale className={cn("h-4 w-4", balance >= 0 ? "text-primary" : "text-destructive")} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingTx ? <Skeleton className="h-8 w-24" /> : (
+            <>
+              <p className={cn("text-2xl font-bold", balance >= 0 ? "text-primary" : "text-destructive")}>{mask(formatCurrency(balance))}</p>
+              {!hidden && <KpiComparisonBadge current={balance} previous={prevMonth?.balance ?? null} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    kpi_benefit: () => {
+      if (!hasBenefit) return null;
+      return (
+        <Card key="kpi_benefit">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Vale Refeição</CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15">
+              <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loadingAccounts ? <Skeleton className="h-8 w-24" /> : (
+              <>
+                <p className="text-2xl font-bold text-orange-500">{mask(formatCurrency(benefitBalance))}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {benefitAccounts.length} conta(s) · {lastDeposit?.date
+                    ? `Último depósito: ${formatDate(lastDeposit.date)}`
+                    : "Nenhum depósito"}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      );
+    },
+  };
+
+  // ── Section renderer map ──
+  const sectionRenderers: Record<string, () => ReactNode> = {
+    micro_insight: () => (
+      <MicroInsightCard
+        key="micro_insight"
+        income={income}
+        expenses={expenses}
+        prevExpenses={prevMonth?.expenses ?? null}
+        transactions={transactions}
+      />
+    ),
+    month_flow: () => (
+      <MonthFlowCard
+        key="month_flow"
+        income={income}
+        expenses={expenses}
+        pendingBills={pendingBills}
+        isLoading={loadingTx}
+      />
+    ),
+    reminders: () => <RemindersCard key="reminders" />,
+    ai_insights: () => (
+      <InsightsCard key="ai_insights" startDate={dateRange.startDate} endDate={dateRange.endDate} />
+    ),
+    current_invoices: () => <CurrentInvoicesCard key="current_invoices" />,
+    expenses_chart: () => (
+      <ExpensesByCategoryChart key="expenses_chart" transactions={transactions} isLoading={loadingTx} />
+    ),
+    upcoming_bills: () => (
+      <UpcomingBillsCard key="upcoming_bills" bills={upcomingBills} isLoading={loadingUpcoming} />
+    ),
+    recent_transactions: () => <RecentTransactionsCard key="recent_transactions" />,
+  };
+
+  // ── Render sections with intelligent layout ──
+  const renderSections = () => {
+    const visibleSections = sectionOrder.filter((id) => w[id]);
+    const elements: ReactNode[] = [];
+    let i = 0;
+
+    while (i < visibleSections.length) {
+      const id = visibleSections[i];
+      const nextId = visibleSections[i + 1];
+
+      // Group expenses_chart + upcoming_bills side by side if adjacent
+      if (
+        (id === "expenses_chart" && nextId === "upcoming_bills") ||
+        (id === "upcoming_bills" && nextId === "expenses_chart")
+      ) {
+        elements.push(
+          <div key={`grid-${id}-${nextId}`} className="grid gap-4 md:grid-cols-2">
+            {sectionRenderers[id]()}
+            {sectionRenderers[nextId]()}
+          </div>
+        );
+        i += 2;
+      } else {
+        elements.push(sectionRenderers[id]());
+        i += 1;
+      }
+    }
+
+    return elements;
+  };
 
   return (
     <MainLayout>
@@ -142,7 +313,11 @@ export default function Dashboard() {
             </Tooltip>
             <DashboardCustomizer
               visibleWidgets={w}
+              kpiOrder={kpiOrder}
+              sectionOrder={sectionOrder}
               toggleWidget={toggleWidget}
+              reorderKpis={reorderKpis}
+              reorderSections={reorderSections}
               resetDefaults={resetDefaults}
             />
           </div>
@@ -151,199 +326,13 @@ export default function Dashboard() {
         {/* Period Filter */}
         <PeriodFilter onPeriodChange={handlePeriodChange} />
 
-        {/* Micro Insight */}
-        {w.micro_insight && (
-          <MicroInsightCard
-            income={income}
-            expenses={expenses}
-            prevExpenses={prevMonth?.expenses ?? null}
-            transactions={transactions}
-          />
-        )}
-
-        {/* Summary cards */}
+        {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {w.kpi_balance && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/15">
-                  <Wallet className="h-4 w-4 text-blue-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingAccounts ? (
-                  <Skeleton className="h-8 w-24" />
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold">{mask(formatCurrency(netWorth))}</p>
-                    {hasBenefit && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Inclui saldo de benefícios
-                      </p>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {w.kpi_expenses && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/15">
-                  <TrendingDown className="h-4 w-4 text-destructive" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingTx ? (
-                  <Skeleton className="h-8 w-24" />
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-destructive">
-                      {mask(formatCurrency(expenses))}
-                    </p>
-                    {!hidden && (
-                      <KpiComparisonBadge
-                        current={expenses}
-                        previous={prevMonth?.expenses ?? null}
-                        invertColor
-                      />
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {w.kpi_income && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingTx ? (
-                  <Skeleton className="h-8 w-24" />
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-primary">
-                      {mask(formatCurrency(income))}
-                    </p>
-                    {!hidden && (
-                      <KpiComparisonBadge
-                        current={income}
-                        previous={prevMonth?.income ?? null}
-                      />
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {w.kpi_net && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Balanço</CardTitle>
-                <div className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full",
-                  balance >= 0 ? "bg-primary/15" : "bg-destructive/15"
-                )}>
-                  <Scale className={cn("h-4 w-4", balance >= 0 ? "text-primary" : "text-destructive")} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingTx ? (
-                  <Skeleton className="h-8 w-24" />
-                ) : (
-                  <>
-                    <p className={cn(
-                      "text-2xl font-bold",
-                      balance >= 0 ? "text-primary" : "text-destructive"
-                    )}>
-                      {mask(formatCurrency(balance))}
-                    </p>
-                    {!hidden && (
-                      <KpiComparisonBadge
-                        current={balance}
-                        previous={prevMonth?.balance ?? null}
-                      />
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {w.kpi_benefit && hasBenefit && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Vale Refeição</CardTitle>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15">
-                  <UtensilsCrossed className="h-4 w-4 text-orange-500" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingAccounts ? (
-                  <Skeleton className="h-8 w-24" />
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-orange-500">
-                      {mask(formatCurrency(benefitBalance))}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {benefitAccounts.length} conta(s) · {lastDeposit?.date
-                        ? `Último depósito: ${formatDate(lastDeposit.date)}`
-                        : "Nenhum depósito"}
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {kpiOrder.filter((id) => w[id]).map((id) => kpiRenderers[id]())}
         </div>
 
-        {/* Month Flow Card */}
-        {w.month_flow && (
-          <MonthFlowCard
-            income={income}
-            expenses={expenses}
-            pendingBills={pendingBills}
-            isLoading={loadingTx}
-          />
-        )}
-
-        {w.reminders && <RemindersCard />}
-
-        {/* AI Insights */}
-        {w.ai_insights && (
-          <InsightsCard startDate={dateRange.startDate} endDate={dateRange.endDate} />
-        )}
-
-        {/* Current Invoices */}
-        {w.current_invoices && <CurrentInvoicesCard />}
-
-        {/* Charts + Upcoming bills */}
-        {(w.expenses_chart || w.upcoming_bills) && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {w.expenses_chart && (
-              <ExpensesByCategoryChart
-                transactions={transactions}
-                isLoading={loadingTx}
-              />
-            )}
-            {w.upcoming_bills && (
-              <UpcomingBillsCard bills={upcomingBills} isLoading={loadingUpcoming} />
-            )}
-          </div>
-        )}
-
-        {/* Recent Transactions */}
-        {w.recent_transactions && <RecentTransactionsCard />}
+        {/* Sections */}
+        {renderSections()}
       </div>
     </MainLayout>
   );
