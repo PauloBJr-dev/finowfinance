@@ -36,7 +36,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
     <div className="space-y-3">
       <PeriodFilter onPeriodChange={handlePeriodChange} />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Select
           value={filters.type || "all"}
           onValueChange={(value) =>
@@ -47,7 +47,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             })
           }
         >
-          <SelectTrigger className="h-9 w-[130px]">
+          <SelectTrigger className="h-9 w-full">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
@@ -66,7 +66,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             })
           }
         >
-          <SelectTrigger className="h-9 w-[150px]">
+          <SelectTrigger className="h-9 w-full">
             <SelectValue placeholder="Categoria" />
           </SelectTrigger>
           <SelectContent>
@@ -88,7 +88,7 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             })
           }
         >
-          <SelectTrigger className="h-9 w-[150px]">
+          <SelectTrigger className="h-9 w-full">
             <SelectValue placeholder="Conta" />
           </SelectTrigger>
           <SelectContent>
@@ -100,8 +100,10 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             ))}
           </SelectContent>
         </Select>
+      </div>
 
-        {hasActiveFilters && (
+      {hasActiveFilters && (
+        <div className="flex justify-end">
           <Button
             variant="ghost"
             size="sm"
@@ -109,10 +111,10 @@ export function TransactionFilters({ filters, onFiltersChange }: TransactionFilt
             className="h-9 px-2 text-muted-foreground"
           >
             <X className="mr-1 h-4 w-4" />
-            Limpar
+            Limpar filtros
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
