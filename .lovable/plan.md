@@ -1,25 +1,16 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Correção: Valores truncados nos Summary Cards (Contas a Pagar)
 
-## Resumo
+## Problema
+No mobile (375px), os 3 summary cards em `grid-cols-3` com ícone circular `h-8 w-8` + texto ficam com apenas ~110px cada. O ícone `shrink-0` consome ~40px, sobrando ~50px para o texto — insuficiente para valores como "R$ 385,30", que ficam truncados como "R$ ...".
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+## Solução
+Mudar o layout dos summary cards no mobile para **empilhar ícone e texto verticalmente** (centralizado), removendo a disposição horizontal que não cabe. No desktop, manter horizontal.
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+### Arquivo: `src/pages/ContasPagar.tsx`
+- Cards mobile: layout vertical (`flex-col items-center text-center`) — ícone em cima, label e valor embaixo
+- Cards desktop (`sm:`): manter horizontal como está
+- Remover `truncate` do valor (não precisa truncar em layout vertical)
+- Reduzir ícone para `h-7 w-7` no mobile
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
-
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
