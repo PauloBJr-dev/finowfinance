@@ -26,28 +26,18 @@ export function Sidebar() {
       )}
     >
       {/* Header: Logo + Collapse toggle */}
-      <div className="flex h-16 items-center border-b border-sidebar-border/50 px-3">
+      <div className="relative flex h-16 items-center justify-center border-b border-sidebar-border/50 px-3">
         {collapsed ? (
-          <>
-            <img src={iconImg} alt="Finow" className="h-8 w-8 rounded-lg" />
-            <button
-              onClick={toggle}
-              className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </>
+          <img src={iconImg} alt="Finow" className="h-8 w-8 rounded-lg" />
         ) : (
-          <>
-            <img src={logo} alt="Finow" className="h-8 w-auto" />
-            <button
-              onClick={toggle}
-              className="ml-auto flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </>
+          <img src={logo} alt="Finow" className="h-8 w-auto" />
         )}
+        <button
+          onClick={toggle}
+          className="absolute right-3 flex h-7 w-7 items-center justify-center rounded-md text-sidebar-foreground hover:bg-white/10 dark:hover:bg-white/5"
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
       </div>
 
       {/* Primary navigation */}
