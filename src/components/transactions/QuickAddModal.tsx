@@ -234,7 +234,9 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               invoice_id: invoiceId,
               installment_number: i + 1,
               amount: amounts[i],
-              due_date: months[i].tformatDateLformatDateLformatDateLocal(months[i]) });
+              due_date: formatDateLocal(months[i]),
+              status: "pending" as const,
+            });
 
           if (installmentError) {
             toast.error(`Erro ao criar parcela ${i + 1}.`);

@@ -16,6 +16,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { useUpdateTransaction } from "@/hooks/use-transactions";
 import { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
+import { formatDateLocal } from "@/lib/format";
 import { CalendarIcon, Loader2, Trash2, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";

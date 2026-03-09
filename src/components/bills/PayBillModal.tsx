@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { usePayBill, Bill } from "@/hooks/use-bills";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateLocal } from "@/lib/format";
 import type { Database } from "@/integrations/supabase/types";
 
 type PaymentMethod = Database["public"]["Enums"]["payment_method"];
