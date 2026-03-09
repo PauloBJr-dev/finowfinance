@@ -198,15 +198,16 @@ export function usePayInvoice() {
 
       if (invoiceError) throw invoiceError;
     },
-    onSuccess: (_, { invoice, cardName }) => {
+    onSuccess: (_, { invoice, cardName, computedTotal }) => {
       queryClient.invalidateQueries({ queryKey: INVOICES_KEY });
+      queryClient.invalidateQueries({ queryKey: ['invoice-details'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['bills-summary'] });
 
       const amount = new Intl.NumberFormat('pt-BR', {
         style: 'currency', currency: 'BRL'
-      }).format(invoice.total_amount);
+      }).format(computedTotal);
 
       toast.success(`Fatura paga! ${amount} debitados.`, {
         description: `Fatura do ${cardName} quitada com sucesso.`,

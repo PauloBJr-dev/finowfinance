@@ -405,7 +405,19 @@ serve(async (req) => {
               })
 
             if (instInvoiceError) {
-              console.error(`[transactions] Error finding invoice for installment ${i + 1}:`, instInvoiceError.message)
+              console.error(`[transactions] CRITICAL: Error finding invoice for installment ${i + 1}:`, instInvoiceError.message)
+              return new Response(
+                JSON.stringify({ error: `Erro ao encontrar fatura para parcela ${i + 1}` }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
+            }
+
+            if (!instInvoiceId) {
+              console.error(`[transactions] CRITICAL: invoice_id is null for installment ${i + 1}, card=${txData.card_id}, date=${installmentDateStr}`)
+              return new Response(
+                JSON.stringify({ error: `Fatura não encontrada para parcela ${i + 1}` }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              )
             }
 
             // Buscar due_date da fatura

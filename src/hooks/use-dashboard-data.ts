@@ -78,7 +78,7 @@ export function usePreviousMonthTotals(startDate: string, endDate: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("amount, type")
+        .select("amount, type, payment_method")
         .is("deleted_at", null)
         .gte("date", prevStartStr)
         .lte("date", prevEndStr);
@@ -89,7 +89,7 @@ export function usePreviousMonthTotals(startDate: string, endDate: string) {
       let expenses = 0;
       data?.forEach((t) => {
         if (t.type === "income") income += Number(t.amount);
-        else if (t.type === "expense") expenses += Number(t.amount);
+        else if (t.type === "expense" && t.payment_method !== "credit_card") expenses += Number(t.amount);
       });
 
       return { income, expenses, balance: income - expenses };

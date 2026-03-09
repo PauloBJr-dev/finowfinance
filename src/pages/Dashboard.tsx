@@ -144,6 +144,7 @@ export default function Dashboard() {
             <>
               <p className="text-2xl font-bold text-destructive">{mask(formatCurrency(expenses))}</p>
               {!hidden && <KpiComparisonBadge current={expenses} previous={prevMonth?.expenses ?? null} invertColor />}
+              <p className="text-xs text-muted-foreground mt-1">Não inclui despesas do cartão de crédito</p>
             </>
           )}
         </CardContent>
