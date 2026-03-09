@@ -109,7 +109,7 @@ function DepositForm({
 
       form.reset({
         amount: 0,
-        date: new Date().toISOString().split("T")[0],
+        date: formatDateLocal(new Date()),
         description: "",
       });
       onOpenChange(false);

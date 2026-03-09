@@ -145,7 +145,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
     setIsSubmittingCard(true);
     try {
-      const selectedDate = formatDateLocal(date)ntCount === 1) {
+      const selectedDate = formatDateLocal(date) 1) {
         // À vista
         const targetMonth = getTargetInvoiceMonth(card.billing_day, date);
         const invoiceId = await getOrCreateInvoice(selectedCardId, user.id, targetMonth);
@@ -233,8 +233,7 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
               invoice_id: invoiceId,
               installment_number: i + 1,
               amount: amounts[i],
-              due_date: months[i].tformatDateLformatDateLocal(months[i]) as const,
-            });
+              due_date: months[i].tformatDateLformatDateLformatDateLocal(months[i]) });
 
           if (installmentError) {
             toast.error(`Erro ao criar parcela ${i + 1}.`);
@@ -274,15 +273,12 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
           description: description || "Conta a pagar",
           amount,
           category_id: categoryId!,
-          due_date: dueDate.toISOString().formatDateLocal(dueDate)ng: isRecurring,
-        });
-      } else {
+          due_date: dueDate.toISOString().formatDateLocal(dueDatformatDateLocal(dueDate)  } else {
         await createTransaction.mutateAsync({
           amount,
           type,
           payment_method: paymentMethod as any,
-          date: date.toISOString().split("T")[0],
-          description: description || null,
+          date: date.toISOString().split("T")[0],formatDateLocal(date)ion || null,
           category_id: categoryId,
           account_id: accountId,
         });

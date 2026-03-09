@@ -65,7 +65,7 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         id: transaction.id,
         type,
         amount,
-        date: date.toISOString().split('T')[0],
+        date: formatDateLocal(date),
         category_id: categoryId,
         payment_method: paymentMethod,
         description: description || null,

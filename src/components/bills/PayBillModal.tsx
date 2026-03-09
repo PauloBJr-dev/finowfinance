@@ -50,7 +50,7 @@ export function PayBillModal({ open, onOpenChange, bill, onSuccess }: PayBillMod
       bill_id: bill.id,
       payment_method: paymentMethod,
       account_id: accountId,
-      payment_date: paymentDate.toISOString().split("T")[0],
+      payment_date: formatDateLocal(paymentDate),
     });
 
     onSuccess();
