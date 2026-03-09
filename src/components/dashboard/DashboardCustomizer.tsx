@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Settings2, RotateCcw, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { Settings2, RotateCcw, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -13,7 +13,6 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WIDGET_LABELS } from "@/hooks/use-dashboard-preferences";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   visibleWidgets: Record<string, boolean>;
@@ -30,13 +29,11 @@ function DraggableList({
   visibleWidgets,
   toggleWidget,
   onReorder,
-  isMobile,
 }: {
   items: string[];
   visibleWidgets: Record<string, boolean>;
   toggleWidget: (id: string) => void;
   onReorder: (from: number, to: number) => void;
-  isMobile: boolean;
 }) {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
@@ -60,51 +57,22 @@ function DraggableList({
     setDragging(null);
   };
 
-  const moveUp = (index: number) => {
-    if (index > 0) onReorder(index, index - 1);
-  };
-
-  const moveDown = (index: number) => {
-    if (index < items.length - 1) onReorder(index, index + 1);
-  };
-
   return (
     <div className="space-y-1">
       {items.map((id, index) => (
         <div
           key={id}
-          draggable={!isMobile}
+          draggable
           onDragStart={() => handleDragStart(index)}
           onDragEnter={() => handleDragEnter(index)}
           onDragEnd={handleDragEnd}
           onDragOver={(e) => e.preventDefault()}
           className={cn(
-            "flex items-center gap-2 rounded-md px-2 py-2 transition-colors",
-            dragging === index && "opacity-50 bg-muted",
-            !isMobile && "cursor-grab active:cursor-grabbing"
+            "flex items-center gap-2 rounded-md px-2 py-2 transition-colors cursor-grab active:cursor-grabbing",
+            dragging === index && "opacity-50 bg-muted"
           )}
         >
-          {!isMobile && (
-            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-          )}
-          {isMobile && (
-            <div className="flex flex-col gap-0.5 shrink-0">
-              <button
-                onClick={() => moveUp(index)}
-                disabled={index === 0}
-                className="p-0.5 rounded hover:bg-muted disabled:opacity-20"
-              >
-                <ChevronUp className="h-3 w-3" />
-              </button>
-              <button
-                onClick={() => moveDown(index)}
-                disabled={index === items.length - 1}
-                className="p-0.5 rounded hover:bg-muted disabled:opacity-20"
-              >
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+          <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
           <span className="text-sm flex-1 select-none">{WIDGET_LABELS[id]}</span>
           <Switch
             checked={visibleWidgets[id] ?? true}

@@ -5,15 +5,14 @@ import { CalendarIcon } from "lucide-react";
 import {
   format,
   startOfMonth, endOfMonth,
-  startOfDay, endOfDay,
-  subDays, subMonths,
+  subMonths,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DateRange } from "react-day-picker";
 
-type PeriodKey = "today" | "yesterday" | "7d" | "15d" | "last_month" | "this_month" | "custom";
+type PeriodKey = "last_month" | "this_month" | "custom";
 
 interface PeriodOption {
   key: PeriodKey;
@@ -22,38 +21,6 @@ interface PeriodOption {
 }
 
 const PERIOD_OPTIONS: PeriodOption[] = [
-  {
-    key: "today",
-    label: "Hoje",
-    getRange: () => {
-      const now = new Date();
-      return { from: startOfDay(now), to: endOfDay(now) };
-    },
-  },
-  {
-    key: "yesterday",
-    label: "Ontem",
-    getRange: () => {
-      const y = subDays(new Date(), 1);
-      return { from: startOfDay(y), to: endOfDay(y) };
-    },
-  },
-  {
-    key: "7d",
-    label: "7 dias",
-    getRange: () => ({
-      from: startOfDay(subDays(new Date(), 6)),
-      to: endOfDay(new Date()),
-    }),
-  },
-  {
-    key: "15d",
-    label: "15 dias",
-    getRange: () => ({
-      from: startOfDay(subDays(new Date(), 14)),
-      to: endOfDay(new Date()),
-    }),
-  },
   {
     key: "last_month",
     label: "Mês passado",
