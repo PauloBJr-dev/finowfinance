@@ -30,7 +30,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       >
 
 
-        <div className="container px-4 sm:px-6 py-6">
+        <div className="container px-4 sm:px-6 py-6 animate-fade-in">
           {children}
         </div>
       </main>

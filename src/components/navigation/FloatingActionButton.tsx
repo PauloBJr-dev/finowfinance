@@ -12,9 +12,9 @@ export function FloatingActionButton({ onClick, className }: FloatingActionButto
       onClick={onClick}
       className={cn(
         "fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all duration-300 will-change-transform",
-        "hover:scale-110 hover:shadow-xl active:scale-95",
+        "hover:scale-105 hover:shadow-xl active:scale-95",
         "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-        "animate-scale-in",
+        "animate-fade-up",
         // Desktop
         "bottom-8 right-8",
         // Mobile: right side, above BottomNav
