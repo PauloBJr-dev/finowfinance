@@ -1,42 +1,25 @@
 
 
-# Correção: Cron Job com vault.decrypted_secrets
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## Problema
-O cron job atual tem o CRON_SECRET hardcoded em texto claro no SQL command.
+## Resumo
 
-## Solução
-1. Remover o cron job atual (`coach-weekly-checkin`)
-2. Recriar usando `vault.decrypted_secrets` para buscar o secret dinamicamente
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
-## SQL a executar (migração)
-
-```sql
--- Remover job atual com secret exposto
-SELECT cron.unschedule('coach-weekly-checkin');
-
--- Recriar usando vault para não expor secret
-SELECT cron.schedule(
-  'coach-weekly-checkin',
-  '0 23 * * 0',
-  $$
-  SELECT net.http_post(
-    url := 'https://fbsuhhmuwkqzpslonlxt.supabase.co/functions/v1/personal-coach',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-cron-secret', (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'CRON_SECRET' LIMIT 1)
-    ),
-    body := '{"type": "weekly"}'::jsonb
-  );
-  $$
-);
-```
-
-## O que NÃO muda
-- Continua sendo **apenas um** cron job (weekly)
-- A função `personal-coach` detecta internamente se é o último domingo e trata como mensal
-- Nenhum `coach-monthly-checkin` será criado
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
 ## Arquivos modificados
-Apenas uma migração SQL. Nenhum arquivo de código alterado.
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
