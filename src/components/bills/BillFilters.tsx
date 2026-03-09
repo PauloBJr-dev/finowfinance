@@ -66,7 +66,7 @@ export function BillFilters({
         onValueChange={(v) => onStatusFilterChange(v as BillStatus | "all")}
         className="w-full"
       >
-        <TabsList className="w-full flex overflow-x-auto no-scrollbar">
+        <TabsList className="w-full flex overflow-x-auto scrollbar-hide flex-nowrap">
           <TabsTrigger value="pending" className="flex-1 min-w-0 text-xs sm:text-sm whitespace-nowrap">
             A Vencer
             {counts && counts.pending > 0 && (

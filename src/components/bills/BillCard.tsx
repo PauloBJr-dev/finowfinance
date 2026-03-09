@@ -1,6 +1,6 @@
 import { differenceInDays, format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, Check, AlertTriangle, Calendar, Trash2 } from "lucide-react";
+import { Clock, Check, AlertTriangle, Calendar, Trash2, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,44 +99,45 @@ export function BillCard({ bill, onPay, onDelete }: BillCardProps) {
           </div>
         </div>
         
-        <div className="flex flex-col items-end gap-2">
-          <span className={cn(
-            "text-lg font-semibold",
-            isPaid && "text-muted-foreground",
-            isOverdue && "text-destructive"
-          )}>
-            {formatCurrency(bill.amount)}
-          </span>
-          
-          <div className="flex gap-2">
-            {!isPaid && (
-              <Button
-                size="sm"
-                onClick={() => onPay(bill)}
-                className="h-8"
-              >
-                Pagar
-              </Button>
-            )}
+        {/* Value — always visible */}
+        <span className={cn(
+          "text-lg font-semibold shrink-0",
+          isPaid && "text-muted-foreground",
+          isOverdue && "text-destructive"
+        )}>
+          {formatCurrency(bill.amount)}
+        </span>
+      </div>
+
+      {/* Action buttons — separate row on mobile */}
+      <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
+        {bill.recurrence_group_id && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            Recorrente • dia {format(dueDate, "dd", { locale: ptBR })}
+          </p>
+        )}
+        
+        <div className="flex gap-2 ml-auto">
+          {!isPaid && (
             <Button
               size="sm"
-              variant="ghost"
-              onClick={() => onDelete(bill)}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              onClick={() => onPay(bill)}
+              className="h-9 min-h-[48px] sm:min-h-0 sm:h-8"
             >
-              <Trash2 className="h-4 w-4" />
+              Pagar
             </Button>
-          </div>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onDelete(bill)}
+            className="h-9 w-9 min-h-[48px] sm:min-h-0 sm:h-8 sm:w-8 p-0 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-      
-      {bill.recurrence_group_id && (
-        <div className="mt-3 pt-3 border-t">
-          <p className="text-xs text-muted-foreground">
-            🔄 Conta recorrente • Vencimento: dia {format(dueDate, "dd", { locale: ptBR })} de cada mês
-          </p>
-        </div>
-      )}
     </Card>
   );
 }
