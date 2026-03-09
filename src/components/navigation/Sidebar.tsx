@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavItem } from "./NavItem";
 import { primaryItems, secondaryItems, reportsItem, settingsItem } from "./navigation-items";
