@@ -9,6 +9,7 @@ import {
   SheetTrigger,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { WIDGET_LABELS } from "@/hooks/use-dashboard-preferences";
 
 interface Props {
