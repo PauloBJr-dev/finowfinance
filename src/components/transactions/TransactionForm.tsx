@@ -13,12 +13,11 @@ import { PaymentMethodSelect } from "@/components/shared/PaymentMethodSelect";
 import { CategorySelect } from "@/components/shared/CategorySelect";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCards } from "@/hooks/use-cards";
-
 import { useUpdateTransaction } from "@/hooks/use-transactions";
 import { Tables } from "@/integrations/supabase/types";
 import { cn } from "@/lib/utils";
 import { formatDateLocal } from "@/lib/format";
-import { CalendarIcon, Loader2, Trash2, X } from "lucide-react";
+import { CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -35,7 +34,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({ open, onOpenChange, transaction, onDelete }: TransactionFormProps) {
   const isMobile = useIsMobile();
-  
+
   const [type, setType] = useState<TransactionType>("expense");
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState<Date>(new Date());
@@ -44,21 +43,20 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
   const [description, setDescription] = useState("");
   const [accountId, setAccountId] = useState<string | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
+
   const { data: accounts = [] } = useAccounts();
   const { data: cards = [] } = useCards();
   const updateTransaction = useUpdateTransaction();
 
-  // Load transaction data
   useEffect(() => {
     if (transaction) {
       setType(transaction.type as TransactionType);
       setAmount(Number(transaction.amount));
-      setDate(new Date(transaction.date));
+      setDate(new Date(transaction.date + 'T12:00:00'));
       setCategoryId(transaction.category_id);
       setPaymentMethod(transaction.payment_method as PaymentMethod);
       setDescription(transaction.description || "");
-
-      if (transaction.payment_method === "credit_card") {
+      if (transaction.payment_method === 'credit_card') {
         setCardId(transaction.card_id);
         setAccountId(null);
       } else {
@@ -68,20 +66,10 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
     }
   }, [transaction]);
 
-  const handlePaymentMethodChange = (value: PaymentMethod) => {
-    setPaymentMethod(value);
-    if (value === "credit_card") {
-      setAccountId(null);
-    } else {
-      setCardId(null);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!transaction) return;
-
+    const isCredit = paymentMethod === "credit_card";
     try {
-      const isCredit = paymentMethod === "credit_card";
       await updateTransaction.mutateAsync({
         id: transaction.id,
         _originalTransaction: {
@@ -104,19 +92,15 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
     }
   };
 
-  const isCredit = paymentMethod === "credit_card";
-
   const content = (
-    <div className="flex flex-col gap-4 px-4 py-2">
+    <div className="flex flex-col gap-6 p-4">
       {/* Type Toggle */}
       <div className="flex items-center justify-center gap-2 rounded-lg bg-muted p-1">
         <button
           onClick={() => setType("expense")}
           className={cn(
-            "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-            type === "expense"
-              ? "bg-destructive text-destructive-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+            "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            type === "expense" ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Despesa
@@ -124,172 +108,121 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
         <button
           onClick={() => setType("income")}
           className={cn(
-            "flex-1 rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-            type === "income"
-              ? "bg-success text-success-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+            "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors",
+            type === "income" ? "bg-success/10 text-success" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Receita
         </button>
       </div>
 
-      {/* Amount + Date row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Valor</Label>
-          <CurrencyInput
-            value={amount}
-            onChange={setAmount}
-            placeholder="R$ 0,00"
-            className="text-base font-semibold h-10"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Data</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left font-normal h-10 text-sm"
-              >
-                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                {format(date, "dd/MM/yyyy")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={(d) => d && setDate(d)}
-                locale={ptBR}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+      {/* Amount */}
+      <div className="space-y-2">
+        <Label>Valor</Label>
+        <CurrencyInput value={amount} onChange={setAmount} placeholder="R$ 0,00" className="text-xl font-semibold h-12" />
       </div>
 
-      {/* Category + Account/Card row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Categoria</Label>
-          <CategorySelect
-            value={categoryId}
-            onChange={setCategoryId}
-            type={type}
-          />
-        </div>
-        <div className="space-y-1.5">
-          {isCredit ? (
-            <>
-              <Label className="text-xs">Cartão</Label>
-              <Select value={cardId || ""} onValueChange={setCardId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Selecione o cartão" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cards.map((card) => (
-                    <SelectItem key={card.id} value={card.id}>
-                      {card.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          ) : (
-            <>
-              <Label className="text-xs">Conta</Label>
-              <Select value={accountId || ""} onValueChange={setAccountId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </>
-          )}
-        </div>
+      {/* Date */}
+      <div className="space-y-2">
+        <Label>Data</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full justify-start text-left font-normal">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {format(date, "PPP", { locale: ptBR })}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} locale={ptBR} initialFocus />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Category */}
+      <div className="space-y-2">
+        <Label>Categoria</Label>
+        <CategorySelect value={categoryId} onChange={setCategoryId} type={type} />
       </div>
 
       {/* Payment Method */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Forma de pagamento</Label>
+      <div className="space-y-2">
+        <Label>Forma de pagamento</Label>
         <PaymentMethodSelect
           value={paymentMethod}
-          onChange={(v) => handlePaymentMethodChange(v as PaymentMethod)}
+          onChange={(v) => {
+            setPaymentMethod(v as PaymentMethod);
+            if (v !== 'credit_card') setCardId(null);
+            else setAccountId(null);
+          }}
           transactionType={type}
         />
       </div>
 
+      {/* Card or Account selector */}
+      {paymentMethod === "credit_card" ? (
+        <div className="space-y-2">
+          <Label>Cartão</Label>
+          <Select value={cardId || ""} onValueChange={setCardId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione um cartão" />
+            </SelectTrigger>
+            <SelectContent>
+              {cards.map((card) => (
+                <SelectItem key={card.id} value={card.id}>
+                  {card.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label>Conta</Label>
+          <Select value={accountId || ""} onValueChange={setAccountId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione uma conta" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Description */}
-      <div className="space-y-1.5">
-        <Label className="text-xs">Descrição</Label>
-        <Input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Ex: Mercado, Almoço..."
-          className="h-10"
-        />
+      <div className="space-y-2">
+        <Label>Descrição</Label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Mercado, Almoço..." />
       </div>
     </div>
   );
 
   const footer = (
-    <div className="flex gap-2 px-4 py-3">
+    <div className="flex gap-2 p-4">
       {onDelete && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onDelete}
-          className="text-destructive hover:text-destructive shrink-0"
-        >
+        <Button variant="outline" onClick={onDelete} className="text-destructive hover:text-destructive">
           <Trash2 className="h-4 w-4" />
         </Button>
       )}
-      <Button
-        onClick={handleSubmit}
-        disabled={updateTransaction.isPending || amount <= 0}
-        className="flex-1"
-      >
-        {updateTransaction.isPending ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Salvando...
-          </>
-        ) : (
-          "Salvar alterações"
-        )}
+      <Button onClick={handleSubmit} disabled={updateTransaction.isPending || amount <= 0} className="flex-1">
+        {updateTransaction.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar alterações"}
       </Button>
     </div>
   );
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} dismissible={false}>
-        <DrawerContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-          <DrawerHeader className="pb-0">
-            <div className="flex items-center justify-between">
-              <DrawerTitle>Editar transação</DrawerTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Editar transação</DrawerTitle>
           </DrawerHeader>
-          <div className="max-h-[70vh] overflow-y-auto">
-            {content}
-          </div>
-          <DrawerFooter className="pt-0">{footer}</DrawerFooter>
+          {content}
+          <DrawerFooter>{footer}</DrawerFooter>
         </DrawerContent>
       </Drawer>
     );
@@ -297,13 +230,11 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Editar transação</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto">
-          {content}
-        </div>
+        {content}
         <DialogFooter>{footer}</DialogFooter>
       </DialogContent>
     </Dialog>
