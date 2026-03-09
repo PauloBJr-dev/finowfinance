@@ -163,5 +163,5 @@ export function useChat() {
     setIsStreaming(false);
   }, []);
 
-  return { messages, isStreaming, isLoadingContext, sendMessage, clearChat, stopStreaming };
+  return { messages, setMessages, isStreaming, isLoadingContext, sendMessage, clearChat, stopStreaming };
 }

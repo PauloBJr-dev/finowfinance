@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useChat } from "@/hooks/use-chat";
 import { useAISettings } from "@/hooks/use-ai";
@@ -11,6 +12,7 @@ import mentorIcon from "@/assets/finow-icon-96.png";
 import { PremiumGate } from "@/components/shared/PremiumGate";
 import { useAuth } from "@/hooks/use-auth";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { supabase } from "@/integrations/supabase/client";
 
 function formatMarkdownSimple(text: string) {
   return text
@@ -28,11 +30,13 @@ const QUICK_SUGGESTIONS = [
 export default function Chat() {
   const { plan } = useAuth();
   const isPremium = plan === "premium" || plan === "lifetime";
-  const { messages, isStreaming, isLoadingContext, sendMessage, clearChat, stopStreaming } = useChat();
+  const { messages, isStreaming, isLoadingContext, sendMessage, clearChat, stopStreaming, setMessages } = useChat();
   const { data: aiSettings } = useAISettings();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [checkinLoaded, setCheckinLoaded] = useState(false);
 
   // Session-cached suggestions (generated once, no AI call)
   const [suggestions] = useState(QUICK_SUGGESTIONS);
@@ -41,6 +45,46 @@ export default function Chat() {
     aiSettings &&
     !aiSettings.allow_coach_use_transactions &&
     !aiSettings.allow_coach_use_goals;
+
+  // Carregar check-in se vier via query param
+  useEffect(() => {
+    const checkinId = searchParams.get("checkin_id");
+    if (!checkinId || checkinLoaded) return;
+
+    // Marcar como carregado para não repetir
+    setCheckinLoaded(true);
+
+    // Remover query param da URL imediatamente
+    setSearchParams({}, { replace: true });
+
+    // Buscar o reminder de forma silenciosa
+    (async () => {
+      try {
+        const { data: reminder, error } = await supabase
+          .from("reminders")
+          .select("message, data_points, type")
+          .eq("id", checkinId)
+          .single();
+
+        if (error || !reminder) {
+          console.log("[Chat] Check-in not found or expired, opening normal chat");
+          return;
+        }
+
+        // Injetar como primeira mensagem do assistant
+        setMessages([
+          {
+            role: "assistant",
+            content: reminder.message,
+            dataPoints: Array.isArray(reminder.data_points) ? reminder.data_points as string[] : [],
+          },
+        ]);
+      } catch (err) {
+        console.log("[Chat] Error loading check-in, opening normal chat:", err);
+        // Fallback silencioso: abre chat normal
+      }
+    })();
+  }, [searchParams, checkinLoaded, setSearchParams, setMessages]);
 
   useEffect(() => {
     if (scrollRef.current) {

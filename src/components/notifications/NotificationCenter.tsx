@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, AlertTriangle, Target, PiggyBank, X, CheckCheck } from "lucide-react";
+import { Bell, AlertTriangle, Target, PiggyBank, X, CheckCheck, CalendarCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,6 +46,9 @@ function getIconForType(type: string) {
       return <Target className="h-4 w-4 text-primary" />;
     case "savings_suggestion":
       return <PiggyBank className="h-4 w-4 text-emerald-500" />;
+    case "weekly_checkin":
+    case "monthly_checkin":
+      return <CalendarCheck className="h-4 w-4 text-primary" />;
     default:
       return <Bell className="h-4 w-4 text-muted-foreground" />;
   }
@@ -100,6 +103,9 @@ export function NotificationCenter() {
       reminder.related_entity_id
     ) {
       navigate("/metas");
+      setOpen(false);
+    } else if (reminder.type === "weekly_checkin" || reminder.type === "monthly_checkin") {
+      navigate(`/chat?checkin_id=${reminder.id}`);
       setOpen(false);
     }
   };
