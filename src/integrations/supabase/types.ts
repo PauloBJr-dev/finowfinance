@@ -69,40 +69,49 @@ export type Database = {
           allow_coach_use_goals: boolean
           allow_coach_use_transactions: boolean
           categorization_enabled: boolean
+          checkin_time: string
           created_at: string
           daily_token_limit: number
           id: string
+          monthly_checkin_enabled: boolean
           persona_memory: string | null
           reminders_enabled: boolean
           store_conversations: boolean
           updated_at: string
           user_id: string
+          weekly_checkin_enabled: boolean
         }
         Insert: {
           allow_coach_use_goals?: boolean
           allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
+          checkin_time?: string
           created_at?: string
           daily_token_limit?: number
           id?: string
+          monthly_checkin_enabled?: boolean
           persona_memory?: string | null
           reminders_enabled?: boolean
           store_conversations?: boolean
           updated_at?: string
           user_id: string
+          weekly_checkin_enabled?: boolean
         }
         Update: {
           allow_coach_use_goals?: boolean
           allow_coach_use_transactions?: boolean
           categorization_enabled?: boolean
+          checkin_time?: string
           created_at?: string
           daily_token_limit?: number
           id?: string
+          monthly_checkin_enabled?: boolean
           persona_memory?: string | null
           reminders_enabled?: boolean
           store_conversations?: boolean
           updated_at?: string
           user_id?: string
+          weekly_checkin_enabled?: boolean
         }
         Relationships: [
           {

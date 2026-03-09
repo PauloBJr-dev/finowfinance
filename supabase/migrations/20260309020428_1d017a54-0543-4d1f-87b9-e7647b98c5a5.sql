@@ -1,0 +1,4 @@
+ALTER TABLE ai_settings 
+  ADD COLUMN IF NOT EXISTS weekly_checkin_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS monthly_checkin_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS checkin_time TEXT NOT NULL DEFAULT '20:00';
