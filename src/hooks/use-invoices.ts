@@ -167,7 +167,6 @@ export function usePayInvoice() {
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
       if (invoice.status === 'paid') throw new Error('Fatura já foi paga');
-      if (invoice.total_amount <= 0) throw new Error('Fatura sem valor a pagar');
 
       const monthLabel = new Intl.DateTimeFormat('pt-BR', {
         month: 'long', year: 'numeric'
