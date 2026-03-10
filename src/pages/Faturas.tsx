@@ -284,11 +284,39 @@ export default function Faturas() {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
-  // When invoices load or card changes, find the default invoice (first open, or most recent)
+  // When invoices load or card changes, find the invoice for the current month, or closest open
   useEffect(() => {
     if (!invoices?.length) return;
-    const openIdx = invoices.findIndex((inv) => inv.status === "open");
-    setSelectedIndex(openIdx >= 0 ? openIdx : 0);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-11
+
+    // Try to find invoice matching current month (invoices sorted DESC by closing_date)
+    const currentMonthIdx = invoices.findIndex((inv) => {
+      const d = new Date(inv.closing_date + "T12:00:00");
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+    if (currentMonthIdx >= 0) {
+      setSelectedIndex(currentMonthIdx);
+      return;
+    }
+
+    // Fallback: closest open invoice to today
+    const openInvoices = invoices
+      .map((inv, idx) => ({ inv, idx }))
+      .filter(({ inv }) => inv.status === "open");
+    if (openInvoices.length) {
+      const closest = openInvoices.reduce((best, cur) => {
+        const bestDiff = Math.abs(new Date(best.inv.closing_date).getTime() - now.getTime());
+        const curDiff = Math.abs(new Date(cur.inv.closing_date).getTime() - now.getTime());
+        return curDiff < bestDiff ? cur : best;
+      });
+      setSelectedIndex(closest.idx);
+      return;
+    }
+
+    // Last fallback: most recent (index 0 since DESC)
+    setSelectedIndex(0);
   }, [invoices]);
 
   // Reset when card changes
