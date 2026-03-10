@@ -29,6 +29,11 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string 
     dot: "bg-primary",
     badge: "bg-primary/15 text-primary border-primary/30",
   },
+  future: {
+    label: "Futura",
+    dot: "bg-blue-500",
+    badge: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+  },
   closed: {
     label: "Fechada",
     dot: "bg-yellow-500",
@@ -40,6 +45,18 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string 
     badge: "bg-destructive/15 text-destructive border-destructive/30",
   },
 };
+
+/** Derives visual status: open invoices with closing_date in a future month become "future" */
+function getDisplayStatus(status: string, closingDate: string): string {
+  if (status !== "open") return status;
+  const now = new Date();
+  const closing = new Date(closingDate + "T12:00:00");
+  if (closing.getFullYear() > now.getFullYear() || 
+      (closing.getFullYear() === now.getFullYear() && closing.getMonth() > now.getMonth())) {
+    return "future";
+  }
+  return "open";
+}
 
 function getUtilizationColor(pct: number): string {
   if (pct > 85) return "[&>div]:bg-destructive";
@@ -127,7 +144,8 @@ export function CurrentInvoicesCard() {
           </>
         ) : (
           invoices.map((inv) => {
-            const cfg = STATUS_CONFIG[inv.status] ?? STATUS_CONFIG.open;
+            const derivedStatus = getDisplayStatus(inv.status, inv.closing_date);
+            const cfg = STATUS_CONFIG[derivedStatus] ?? STATUS_CONFIG.open;
             const hasLimit = inv.credit_limit > 0;
             const utilization = hasLimit
               ? Math.min((inv.total_amount / inv.credit_limit) * 100, 100)

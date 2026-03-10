@@ -28,9 +28,22 @@ import { InvoiceInstallmentGroup } from "@/components/invoices/InvoiceInstallmen
 /* ─── Status badge helpers ─── */
 const statusConfig: Record<string, { label: string; className: string }> = {
   open: { label: "Aberta", className: "bg-primary/15 text-primary border-primary/30" },
+  future: { label: "Futura", className: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30" },
   closed: { label: "Fechada", className: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" },
   paid: { label: "Paga", className: "bg-muted text-muted-foreground border-border" },
 };
+
+/** Derives visual status: open invoices with closing_date in a future month become "future" */
+function getDisplayStatus(invoice: Invoice): string {
+  if (invoice.status !== "open") return invoice.status;
+  const now = new Date();
+  const closing = new Date(invoice.closing_date + "T12:00:00");
+  if (closing.getFullYear() > now.getFullYear() || 
+      (closing.getFullYear() === now.getFullYear() && closing.getMonth() > now.getMonth())) {
+    return "future";
+  }
+  return "open";
+}
 
 /* ─── Invoice Content (transactions + installments) ─── */
 function InvoiceContent({ invoiceId }: { invoiceId: string }) {
@@ -332,8 +345,9 @@ export default function Faturas() {
   const hasPrev = selectedIndex < (invoices?.length ?? 0) - 1; // older months (higher index in DESC)
   const hasNext = selectedIndex > 0; // newer months (lower index in DESC)
 
-  const status = currentInvoice ? (statusConfig[currentInvoice.status] ?? statusConfig.open) : null;
-  const canPay = currentInvoice && currentInvoice.status !== "paid" && computedTotal > 0;
+  const displayStatus = currentInvoice ? getDisplayStatus(currentInvoice) : null;
+  const status = displayStatus ? (statusConfig[displayStatus] ?? statusConfig.open) : null;
+  const canPay = currentInvoice && displayStatus !== "paid" && displayStatus !== "future" && computedTotal > 0;
 
   return (
     <MainLayout>
@@ -414,7 +428,7 @@ export default function Faturas() {
 
                 {/* Invoice card — always expanded */}
                 {currentInvoice && (
-                  <UICard className={currentInvoice.status === "open" ? "border-l-4 border-l-primary" : ""}>
+                  <UICard className={displayStatus === "open" ? "border-l-4 border-l-primary" : displayStatus === "future" ? "border-l-4 border-l-blue-500" : ""}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
