@@ -271,12 +271,16 @@ export function useDeleteTransaction() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.functions.invoke(`transactions/${id}`, {
-        method: 'DELETE',
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       return id;
     },
     onSuccess: () => {
