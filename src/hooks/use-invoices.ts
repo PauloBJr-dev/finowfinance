@@ -118,7 +118,7 @@ export function useInvoiceDetails(invoiceId: string | null) {
       // 3. Buscar installments vinculados à fatura
       const { data: installs, error: instError } = await supabase
         .from('installments')
-        .select('*, installment_groups!inner(transaction_id, total_installments, transactions:transaction_id(description, deleted_at, categories(id, name, icon, color)))')
+        .select('*, installment_groups!inner(transaction_id, total_installments, transactions:transaction_id(description, date, deleted_at, categories(id, name, icon, color)))')
         .eq('invoice_id', invoiceId);
 
       if (instError) throw instError;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,16 +13,17 @@ import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Receipt, CreditCard, ChevronDown, ChevronUp, Calendar as CalendarIcon, AlertTriangle, Wallet, Loader2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Receipt, CreditCard, ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle, Wallet, Loader2, X, FileText } from "lucide-react";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { InvoiceTransactionItem } from "@/components/invoices/InvoiceTransactionItem";
+import { InvoiceInstallmentGroup } from "@/components/invoices/InvoiceInstallmentGroup";
 
 /* ─── Status badge helpers ─── */
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -31,134 +32,99 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   paid: { label: "Paga", className: "bg-muted text-muted-foreground border-border" },
 };
 
-/* ─── Invoice Transaction List (expanded) ─── */
-function InvoiceTransactions({ invoiceId }: { invoiceId: string }) {
+/* ─── Invoice Content (transactions + installments) ─── */
+function InvoiceContent({ invoiceId }: { invoiceId: string }) {
   const { data, isLoading } = useInvoiceDetails(invoiceId);
 
-  if (isLoading) return <div className="space-y-2 py-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>;
+  if (isLoading) return <div className="space-y-2 py-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>;
 
   const transactions = data?.transactions ?? [];
   const installments = data?.installments ?? [];
 
   if (!transactions.length && !installments.length) {
-    return <p className="py-3 text-sm text-muted-foreground text-center">Nenhuma transação nesta fatura.</p>;
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+        <p className="text-sm font-medium text-muted-foreground">Sem lançamentos</p>
+        <p className="text-xs text-muted-foreground mt-1">Nenhuma transação neste período.</p>
+      </div>
+    );
   }
 
+  // Group installments by group_id
+  const installmentsByGroup = new Map<string, any[]>();
+  for (const inst of installments) {
+    const gid = inst.group_id;
+    if (!installmentsByGroup.has(gid)) installmentsByGroup.set(gid, []);
+    installmentsByGroup.get(gid)!.push(inst);
+  }
+
+  // Build unified list for ordering
+  type ListItem =
+    | { kind: "tx"; date: string; data: any }
+    | { kind: "group"; date: string; groupId: string; installments: any[] };
+
+  const items: ListItem[] = [];
+
+  // Direct transactions (not in installment groups)
+  for (const tx of transactions) {
+    items.push({ kind: "tx", date: tx.date, data: tx });
+  }
+
+  // Installment groups
+  for (const [groupId, insts] of installmentsByGroup) {
+    const firstInst = insts[0];
+    const parentDate = firstInst.installment_groups?.transactions?.date || firstInst.due_date;
+    items.push({ kind: "group", date: parentDate, groupId, installments: insts });
+  }
+
+  // Sort by date desc
+  items.sort((a, b) => b.date.localeCompare(a.date));
+
   return (
-    <div className="divide-y divide-border">
-      {/* Direct transactions (no installment group) */}
-      {transactions.map((tx: any) => (
-        <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 gap-1 sm:gap-0 text-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
-            <span className="truncate">{tx.description || "Sem descrição"}</span>
-            {tx.categories?.name && (
-              <Badge variant="outline" className="text-xs shrink-0 w-fit">{tx.categories.name}</Badge>
-            )}
-          </div>
-          <span className="font-medium tabular-nums shrink-0 sm:ml-3">{formatCurrency(tx.amount)}</span>
-        </div>
-      ))}
-      {/* Installments */}
-      {installments.map((inst: any) => {
-        const group = inst.installment_groups;
-        const originalTx = group?.transactions;
-        const desc = originalTx?.description || "Parcela";
-        const catName = originalTx?.categories?.name;
+    <div>
+      {items.map((item, idx) => {
+        const isLast = idx === items.length - 1;
+
+        if (item.kind === "tx") {
+          const tx = item.data;
+          return (
+            <InvoiceTransactionItem
+              key={tx.id}
+              description={tx.description}
+              amount={tx.amount}
+              date={tx.date}
+              category={tx.categories}
+              isLast={isLast}
+            />
+          );
+        }
+
+        // Installment group
+        const insts = item.installments;
+        const group = insts[0].installment_groups;
+        const parentTx = group?.transactions;
+        const firstInstNumber = Math.min(...insts.map((i: any) => i.installment_number));
+
         return (
-          <div key={inst.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 gap-1 sm:gap-0 text-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
-              <span className="truncate">{desc}</span>
-              <Badge variant="secondary" className="text-xs shrink-0 w-fit">
-                Parcela {inst.installment_number}/{group?.total_installments}
-              </Badge>
-              {catName && (
-                <Badge variant="outline" className="text-xs shrink-0 w-fit">{catName}</Badge>
-              )}
-            </div>
-            <span className="font-medium tabular-nums shrink-0 sm:ml-3">{formatCurrency(inst.amount)}</span>
-          </div>
+          <InvoiceInstallmentGroup
+            key={item.groupId}
+            description={parentTx?.description || "Parcela"}
+            category={parentTx?.categories}
+            currentInstallmentNumber={firstInstNumber}
+            totalInstallments={group?.total_installments ?? 0}
+            groupTotal={insts.reduce((s: number, i: any) => s + Number(i.amount), 0)}
+            installments={insts.map((i: any) => ({
+              id: i.id,
+              installment_number: i.installment_number,
+              amount: i.amount,
+              due_date: i.due_date,
+            }))}
+            isLast={isLast}
+          />
         );
       })}
     </div>
-  );
-}
-
-/* ─── Invoice Card ─── */
-function InvoiceCard({
-  invoice,
-  cardName,
-  onPay,
-}: {
-  invoice: Invoice;
-  cardName: string;
-  onPay: (invoice: Invoice) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const { data: details } = useInvoiceDetails(invoice.id);
-  const computedTotal = details?.computedTotal ?? invoice.total_amount;
-  const status = statusConfig[invoice.status] ?? statusConfig.open;
-  const canPay = invoice.status !== "paid" && computedTotal > 0;
-
-  return (
-    <UICard
-      className={cn(
-        "transition-colors",
-        invoice.status === "open" && "border-l-4 border-l-primary"
-      )}
-    >
-      <CardHeader
-        className="cursor-pointer select-none pb-3"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-base capitalize">
-              {formatInvoiceMonth(new Date(invoice.closing_date + "T12:00:00"))}
-            </CardTitle>
-            <Badge variant="outline" className={status.className}>
-              {status.label}
-            </Badge>
-          </div>
-          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        </div>
-      </CardHeader>
-
-      <CardContent className="pt-0 space-y-3">
-        {/* Summary row */}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <CalendarIcon className="h-3.5 w-3.5" />
-            {formatCyclePeriod(
-              new Date(invoice.cycle_start_date + "T12:00:00"),
-              new Date(invoice.cycle_end_date + "T12:00:00")
-            )}
-          </span>
-          <span>Vence: {formatDate(invoice.due_date)}</span>
-        </div>
-
-        {/* Value + Pay button — stacked on mobile */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <span className="text-xl font-semibold tabular-nums">{formatCurrency(computedTotal)}</span>
-          {canPay && (
-            <Button
-              size="sm"
-              variant="destructive"
-              className="w-full sm:w-auto"
-              onClick={(e) => { e.stopPropagation(); onPay(invoice); }}
-            >
-              Pagar Fatura
-            </Button>
-          )}
-        </div>
-
-        {/* Expanded transactions */}
-        {expanded && (
-          <div className="pt-2 border-t border-border">
-            <InvoiceTransactions invoiceId={invoice.id} />
-          </div>
-        )}
-      </CardContent>
-    </UICard>
   );
 }
 
@@ -196,13 +162,11 @@ function PayInvoiceModal({
     <div className="flex flex-col gap-4 p-4">
       {invoice && (
         <>
-          {/* Total */}
           <div className="rounded-lg border bg-muted/30 p-4 text-center space-y-1">
             <p className="text-sm text-muted-foreground">Total da fatura — {cardName}</p>
             <p className="text-2xl font-bold tabular-nums">{formatCurrency(computedTotal)}</p>
           </div>
 
-          {/* Account select */}
           <div className="space-y-2">
             <Label>Conta para débito</Label>
             <Select value={accountId} onValueChange={setAccountId}>
@@ -222,15 +186,11 @@ function PayInvoiceModal({
             </Select>
           </div>
 
-          {/* Payment date — Calendar + Popover */}
           <div className="space-y-2">
             <Label>Data do pagamento</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(payDate, "PPP", { locale: ptBR })}
                 </Button>
@@ -248,7 +208,6 @@ function PayInvoiceModal({
             </Popover>
           </div>
 
-          {/* Warning */}
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
             <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-muted-foreground">
@@ -256,7 +215,6 @@ function PayInvoiceModal({
             </p>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancelar
@@ -268,10 +226,7 @@ function PayInvoiceModal({
               className="flex-1"
             >
               {payMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando…
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando…</>
               ) : (
                 "Confirmar Pagamento"
               )}
@@ -326,14 +281,36 @@ export default function Faturas() {
   const { data: invoices, isLoading: invoicesLoading } = useInvoices(activeCardId);
   const selectedCard = cards?.find((c) => c.id === activeCardId);
 
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
 
+  // When invoices load or card changes, find the default invoice (first open, or most recent)
+  useEffect(() => {
+    if (!invoices?.length) return;
+    const openIdx = invoices.findIndex((inv) => inv.status === "open");
+    setSelectedIndex(openIdx >= 0 ? openIdx : 0);
+  }, [invoices]);
+
+  // Reset when card changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [activeCardId]);
+
+  const currentInvoice = invoices?.[selectedIndex] ?? null;
+  const { data: details } = useInvoiceDetails(currentInvoice?.id ?? null);
+  const computedTotal = details?.computedTotal ?? currentInvoice?.total_amount ?? 0;
+
   const hasCards = !!cards?.length;
+  const hasPrev = selectedIndex > 0;
+  const hasNext = selectedIndex < (invoices?.length ?? 0) - 1;
+
+  const status = currentInvoice ? (statusConfig[currentInvoice.status] ?? statusConfig.open) : null;
+  const canPay = currentInvoice && currentInvoice.status !== "paid" && computedTotal > 0;
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header — padrão com NotificationCenter absolute */}
+        {/* Header */}
         <div className="relative">
           <div className="pr-12">
             <h1 className="text-2xl font-bold tracking-tight">Faturas</h1>
@@ -360,6 +337,7 @@ export default function Faturas() {
           </UICard>
         ) : (
           <>
+            {/* Card selector */}
             <div className="flex items-center gap-3">
               <Receipt className="h-5 w-5 text-muted-foreground shrink-0" />
               <Select
@@ -371,36 +349,100 @@ export default function Faturas() {
                 </SelectTrigger>
                 <SelectContent>
                   {cards!.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Invoices list */}
+            {/* Monthly navigator */}
             {invoicesLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
-              </div>
-            ) : !invoices?.length ? (
+              <Skeleton className="h-10 w-full" />
+            ) : invoices?.length ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!hasPrev}
+                    onClick={() => setSelectedIndex((i) => i - 1)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <span className="text-base font-semibold capitalize">
+                    {currentInvoice
+                      ? formatInvoiceMonth(new Date(currentInvoice.closing_date + "T12:00:00"))
+                      : "—"}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={!hasNext}
+                    onClick={() => setSelectedIndex((i) => i + 1)}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Invoice card — always expanded */}
+                {currentInvoice && (
+                  <UICard className={currentInvoice.status === "open" ? "border-l-4 border-l-primary" : ""}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <CardTitle className="text-base capitalize">
+                            {formatInvoiceMonth(new Date(currentInvoice.closing_date + "T12:00:00"))}
+                          </CardTitle>
+                          {status && (
+                            <Badge variant="outline" className={status.className}>
+                              {status.label}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-3">
+                      {/* Summary row */}
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <CalendarIcon className="h-3.5 w-3.5" />
+                          {formatCyclePeriod(
+                            new Date(currentInvoice.cycle_start_date + "T12:00:00"),
+                            new Date(currentInvoice.cycle_end_date + "T12:00:00")
+                          )}
+                        </span>
+                        <span>Vence: {formatDate(currentInvoice.due_date)}</span>
+                      </div>
+
+                      {/* Value + Pay button */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <span className="text-xl font-semibold tabular-nums">{formatCurrency(computedTotal)}</span>
+                        {canPay && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="w-full sm:w-auto"
+                            onClick={() => setPayingInvoice(currentInvoice)}
+                          >
+                            Pagar Fatura
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Transaction list */}
+                      <div className="pt-2 border-t border-border">
+                        <InvoiceContent invoiceId={currentInvoice.id} />
+                      </div>
+                    </CardContent>
+                  </UICard>
+                )}
+              </>
+            ) : (
               <EmptyState
                 icon={<Receipt className="h-7 w-7 text-muted-foreground" />}
                 title="Nenhuma fatura encontrada"
                 description="Não há faturas para este cartão ainda."
               />
-            ) : (
-              <div className="space-y-3">
-                {invoices.map((inv) => (
-                  <InvoiceCard
-                    key={inv.id}
-                    invoice={inv}
-                    cardName={selectedCard?.name ?? ""}
-                    onPay={setPayingInvoice}
-                  />
-                ))}
-              </div>
             )}
           </>
         )}
