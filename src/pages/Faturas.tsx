@@ -329,8 +329,8 @@ export default function Faturas() {
   const computedTotal = details?.computedTotal ?? currentInvoice?.total_amount ?? 0;
 
   const hasCards = !!cards?.length;
-  const hasPrev = selectedIndex > 0;
-  const hasNext = selectedIndex < (invoices?.length ?? 0) - 1;
+  const hasPrev = selectedIndex < (invoices?.length ?? 0) - 1; // older months (higher index in DESC)
+  const hasNext = selectedIndex > 0; // newer months (lower index in DESC)
 
   const status = currentInvoice ? (statusConfig[currentInvoice.status] ?? statusConfig.open) : null;
   const canPay = currentInvoice && currentInvoice.status !== "paid" && computedTotal > 0;
