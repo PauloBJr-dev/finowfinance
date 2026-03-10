@@ -94,7 +94,7 @@ function InvoiceCard({
   onPay: (invoice: Invoice) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { data: details } = useInvoiceDetails(expanded ? invoice.id : null);
+  const { data: details } = useInvoiceDetails(invoice.id);
   const computedTotal = details?.computedTotal ?? invoice.total_amount;
   const status = statusConfig[invoice.status] ?? statusConfig.open;
   const canPay = invoice.status !== "paid" && computedTotal > 0;
