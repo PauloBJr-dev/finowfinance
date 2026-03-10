@@ -77,17 +77,21 @@ export function TransactionList({ transactions, isLoading }: TransactionListProp
 
   const handleDelete = async () => {
     if (!deleteTransaction) return;
-    
+
     const txId = deleteTransaction.id;
     const txDescription = deleteTransaction.description || "Transação";
-    
-    await deleteTransactionMutation.mutateAsync(txId);
-    setDeleteTransaction(null);
-    
-    showUndoToast({
-      message: `"${txDescription}" excluída`,
-      onUndo: () => restoreTransactionMutation.mutate(txId),
-    });
+
+    setDeleteTransaction(null); // Fecha o modal imediatamente
+
+    try {
+      await deleteTransactionMutation.mutateAsync(txId);
+      showUndoToast({
+        message: `"${txDescription}" excluída`,
+        onUndo: () => restoreTransactionMutation.mutate(txId),
+      });
+    } catch (error) {
+      console.error("[handleDelete] Erro:", error);
+    }
   };
 
   if (isLoading) {
