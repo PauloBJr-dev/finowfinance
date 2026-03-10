@@ -21,6 +21,7 @@ interface InvoiceSummary {
   status: string;
   due_date: string;
   closing_date: string;
+  cycle_start_date: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string }> = {
