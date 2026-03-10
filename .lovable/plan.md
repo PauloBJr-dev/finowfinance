@@ -1,25 +1,63 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Corrigir bug de exclusão de transação
 
-## Resumo
+Duas alterações cirúrgicas, apenas nos dois arquivos especificados.
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+---
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+## 1. `src/hooks/use-transactions.ts` — `useDeleteTransaction` (lines 273-281)
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+Substituir a `mutationFn` que usa Edge Function por soft delete direto com verificação de auth:
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+```typescript
+mutationFn: async (id: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado");
+
+  const { error } = await supabase
+    .from("transactions")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+  return id;
+},
+```
+
+O restante do hook (`onSuccess`, `onError`) permanece inalterado.
+
+---
+
+## 2. `src/components/transactions/TransactionList.tsx` — `handleDelete` (lines 78-91)
+
+Fechar o modal **antes** do await e envolver em try/catch:
+
+```typescript
+const handleDelete = async () => {
+  if (!deleteTransaction) return;
+
+  const txId = deleteTransaction.id;
+  const txDescription = deleteTransaction.description || "Transação";
+
+  setDeleteTransaction(null); // Fecha o modal imediatamente
+
+  try {
+    await deleteTransactionMutation.mutateAsync(txId);
+    showUndoToast({
+      message: `"${txDescription}" excluída`,
+      onUndo: () => restoreTransactionMutation.mutate(txId),
+    });
+  } catch (error) {
+    console.error("[handleDelete] Erro:", error);
+  }
+};
+```
+
+---
+
+## Nenhum outro arquivo é alterado
+
+`DeleteConfirmation`, `useRestoreTransaction`, `UndoToast` — todos permanecem intactos.
+
