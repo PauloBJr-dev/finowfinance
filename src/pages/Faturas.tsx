@@ -428,7 +428,7 @@ export default function Faturas() {
 
                 {/* Invoice card — always expanded */}
                 {currentInvoice && (
-                  <UICard className={currentInvoice.status === "open" ? "border-l-4 border-l-primary" : ""}>
+                  <UICard className={displayStatus === "open" ? "border-l-4 border-l-primary" : displayStatus === "future" ? "border-l-4 border-l-blue-500" : ""}>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
