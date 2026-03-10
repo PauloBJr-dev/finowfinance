@@ -102,6 +102,7 @@ export function CurrentInvoicesCard() {
           status: inv.status,
           due_date: inv.due_date,
           closing_date: inv.closing_date,
+          cycle_start_date: inv.cycle_start_date,
         });
       }
 
