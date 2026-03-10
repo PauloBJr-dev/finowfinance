@@ -1,25 +1,29 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Corrigir lógica de status "Aberta" vs "Futura"
 
-## Resumo
+## Problema
+A função `getDisplayStatus` compara o mês do `closing_date` com o mês atual do calendário. O cartão Nu tem `billing_day=3`, então compras de março vão para a fatura de Abril (closing_date em abril). Como abril > março, a fatura é marcada como "Futura" — mas ela é a fatura **atual** que está recebendo lançamentos.
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+## Solução
+Usar `cycle_start_date` e `cycle_end_date` da fatura para determinar se o dia de hoje está dentro do ciclo. Se hoje pertence ao ciclo da fatura, ela é "Aberta". Se o ciclo ainda não começou, ela é "Futura".
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+## Lógica corrigida em `getDisplayStatus`
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+```text
+Se status != 'open' → retorna status original
+Se hoje >= cycle_start_date da fatura → "open" (Aberta)
+Se hoje < cycle_start_date → "future" (Futura)
+```
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+Isso garante que:
+- Fatura de Abril (ciclo 04/mar – 03/abr) com hoje = 10/mar → **Aberta**
+- Fatura de Maio (ciclo 04/abr – 03/mai) com hoje = 10/mar → **Futura**
+- Quando Abril for paga e o mês avançar para abril, Maio passará a ser "Aberta" automaticamente
+
+## Arquivo modificado
+- `src/pages/Faturas.tsx` — apenas a função `getDisplayStatus` (linhas 37-46)
+- `src/components/dashboard/CurrentInvoicesCard.tsx` — mesma correção na função `getDisplayStatus` local
+
+Sem alteração no banco de dados. Sem alteração em outros arquivos.
+
