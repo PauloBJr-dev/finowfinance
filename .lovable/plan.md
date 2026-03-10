@@ -1,25 +1,30 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Adicionar status visual "Fatura Futura" nas faturas
 
-## Resumo
+## Regra de negócio
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+Nos apps de grandes bancos (Nubank, Inter), apenas a fatura do ciclo atual é "Aberta". Faturas de meses posteriores aparecem como "Futura". No banco de dados todas continuam com `status = 'open'`, mas na **interface** diferenciamos:
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+- **Aberta**: fatura `open` cujo `closing_date` pertence ao mês atual ou já passou (ciclo corrente)
+- **Futura**: fatura `open` cujo `closing_date` é de um mês posterior ao atual
+- **Fechada**, **Paga**: mantêm comportamento atual
+
+Não é necessária alteração no banco de dados — é uma derivação puramente visual/client-side.
 
 ## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+### `src/pages/Faturas.tsx`
+- Adicionar entrada `future` no `statusConfig` com label "Futura" e estilo azul/cinza sutil
+- Criar função `getDisplayStatus(invoice)` que retorna `'future'` se `status === 'open'` e `closing_date` é de um mês futuro, caso contrário retorna o status original
+- Usar `getDisplayStatus` em vez de `currentInvoice.status` para determinar o badge
+- Faturas "future" **não** mostram botão "Pagar Fatura" (já coberto pelo `canPay` pois geralmente `computedTotal === 0`, mas reforçar)
+
+### `src/components/dashboard/CurrentInvoicesCard.tsx`
+- Adicionar entrada `future` no `STATUS_CONFIG` local
+- Aplicar mesma lógica de derivação do status visual
+
+## Visual do badge "Futura"
+- Estilo: `bg-blue-500/15 text-blue-600 border-blue-500/30` (tom azul neutro, diferente de "Aberta")
+- No dashboard card: dot `bg-blue-500`
+
