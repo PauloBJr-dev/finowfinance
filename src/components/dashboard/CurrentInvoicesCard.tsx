@@ -46,16 +46,11 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; badge: string 
   },
 };
 
-/** Derives visual status: open invoices with closing_date in a future month become "future" */
-function getDisplayStatus(status: string, closingDate: string): string {
+/** Derives visual status based on whether today falls within the invoice's billing cycle */
+function getDisplayStatus(status: string, cycleStartDate: string): string {
   if (status !== "open") return status;
-  const now = new Date();
-  const closing = new Date(closingDate + "T12:00:00");
-  if (closing.getFullYear() > now.getFullYear() || 
-      (closing.getFullYear() === now.getFullYear() && closing.getMonth() > now.getMonth())) {
-    return "future";
-  }
-  return "open";
+  const today = new Date().toISOString().split("T")[0];
+  return today >= cycleStartDate ? "open" : "future";
 }
 
 function getUtilizationColor(pct: number): string {

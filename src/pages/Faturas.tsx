@@ -33,16 +33,13 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   paid: { label: "Paga", className: "bg-muted text-muted-foreground border-border" },
 };
 
-/** Derives visual status: open invoices with closing_date in a future month become "future" */
+/** Derives visual status based on whether today falls within the invoice's billing cycle */
 function getDisplayStatus(invoice: Invoice): string {
   if (invoice.status !== "open") return invoice.status;
-  const now = new Date();
-  const closing = new Date(invoice.closing_date + "T12:00:00");
-  if (closing.getFullYear() > now.getFullYear() || 
-      (closing.getFullYear() === now.getFullYear() && closing.getMonth() > now.getMonth())) {
-    return "future";
-  }
-  return "open";
+  const today = new Date().toISOString().split("T")[0];
+  // If today >= cycle_start_date, the cycle has started → "open" (Aberta)
+  // If today < cycle_start_date, the cycle hasn't started yet → "future" (Futura)
+  return today >= invoice.cycle_start_date ? "open" : "future";
 }
 
 /* ─── Invoice Content (transactions + installments) ─── */
