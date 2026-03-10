@@ -141,7 +141,7 @@ export function CurrentInvoicesCard() {
           </>
         ) : (
           invoices.map((inv) => {
-            const derivedStatus = getDisplayStatus(inv.status, inv.closing_date);
+            const derivedStatus = getDisplayStatus(inv.status, inv.cycle_start_date);
             const cfg = STATUS_CONFIG[derivedStatus] ?? STATUS_CONFIG.open;
             const hasLimit = inv.credit_limit > 0;
             const utilization = hasLimit
