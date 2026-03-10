@@ -118,21 +118,27 @@ export function useInvoiceDetails(invoiceId: string | null) {
       // 3. Buscar installments vinculados à fatura
       const { data: installs, error: instError } = await supabase
         .from('installments')
-        .select('*, installment_groups!inner(transaction_id, total_installments, transactions:transaction_id(description, categories(id, name, icon, color)))')
+        .select('*, installment_groups!inner(transaction_id, total_installments, transactions:transaction_id(description, deleted_at, categories(id, name, icon, color)))')
         .eq('invoice_id', invoiceId);
 
       if (instError) throw instError;
 
-      // 4. Calcular total: transações SEM installment_group + installments
+      // 3.1 Filtrar installments cuja transação-pai foi soft-deleted
+      const activeInstalls = (installs ?? []).filter((inst: any) => {
+        const parentTx = inst.installment_groups?.transactions;
+        return !parentTx?.deleted_at;
+      });
+
+      // 4. Calcular total: transações SEM installment_group + installments ativos
       const directTxTotal = (txs ?? [])
         .filter((t) => !installmentGroupTxIds.has(t.id))
         .reduce((sum, t) => sum + Number(t.amount), 0);
-      const installmentsTotal = (installs ?? [])
-        .reduce((sum, i) => sum + Number(i.amount), 0);
+      const installmentsTotal = activeInstalls
+        .reduce((sum: number, i: any) => sum + Number(i.amount), 0);
 
       return {
         transactions: (txs ?? []).filter((t) => !installmentGroupTxIds.has(t.id)),
-        installments: installs ?? [],
+        installments: activeInstalls,
         computedTotal: directTxTotal + installmentsTotal,
       };
     },
