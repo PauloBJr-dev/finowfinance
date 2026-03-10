@@ -72,7 +72,7 @@ export function CurrentInvoicesCard() {
 
       const { data, error } = await supabase
         .from("invoices")
-        .select("id, card_id, total_amount, status, due_date, closing_date")
+        .select("id, card_id, total_amount, status, due_date, closing_date, cycle_start_date")
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .neq("status", "paid")
