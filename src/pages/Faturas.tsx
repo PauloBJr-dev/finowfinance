@@ -365,7 +365,7 @@ export default function Faturas() {
                     variant="ghost"
                     size="icon"
                     disabled={!hasPrev}
-                    onClick={() => setSelectedIndex((i) => i - 1)}
+                    onClick={() => setSelectedIndex((i) => i + 1)}
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
