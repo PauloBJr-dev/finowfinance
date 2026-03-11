@@ -655,21 +655,14 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} dismissible={true}>
-        <DrawerContent className="max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-          <DrawerHeader className="flex-shrink-0 relative">
-            <DrawerTitle>{getModalTitle()}</DrawerTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              aria-label="Fechar"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </DrawerHeader>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[90vh] flex flex-col rounded-t-xl p-0" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+            <SheetTitle>{getModalTitle()}</SheetTitle>
+          </SheetHeader>
           {content}
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     );
   }
 
