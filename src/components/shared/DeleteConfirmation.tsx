@@ -97,22 +97,22 @@ export function DeleteConfirmation({
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={handleOpenChange}>
-        <DrawerContent>
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent side="bottom" className="flex flex-col rounded-t-xl p-0">
           <div className="mx-auto w-full max-w-sm">
-            <DrawerHeader className="text-center">
+            <SheetHeader className="text-center px-6 pt-6 pb-2">
               {icon}
-              <DrawerTitle>{title}</DrawerTitle>
-              <DrawerDescription>{descriptionContent}</DrawerDescription>
-            </DrawerHeader>
+              <SheetTitle>{title}</SheetTitle>
+              <SheetDescription>{descriptionContent}</SheetDescription>
+            </SheetHeader>
             {checkboxBlock}
-            <DrawerFooter className="pb-safe">
+            <SheetFooter className="flex flex-col gap-2 px-4 pb-safe">
               {confirmButton}
-              <DrawerClose asChild>{cancelButton}</DrawerClose>
-            </DrawerFooter>
+              {cancelButton}
+            </SheetFooter>
           </div>
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     );
   }
 
