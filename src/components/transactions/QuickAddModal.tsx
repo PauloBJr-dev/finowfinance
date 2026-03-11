@@ -27,7 +27,7 @@ import {
 } from "@/lib/invoice-cycle";
 import { formatCurrency, formatDate, formatDateLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ArrowLeft, Loader2, FileText, X, AlertTriangle, CreditCard } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Loader2, FileText, AlertTriangle, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
