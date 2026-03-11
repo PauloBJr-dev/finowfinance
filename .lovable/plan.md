@@ -1,25 +1,44 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Corrigir formulários mobile de transação — Sheet fixo sem arrastar
 
-## Resumo
+## Problema
+Os formulários de edição (TransactionForm) e adição (QuickAddModal) usam `Drawer` (vaul) no mobile, que possui gesto de arrastar para fechar. Isso causa fechamentos acidentais ao scrollar o formulário. Além disso, o conteúdo fica cortado por falta de scroll interno controlado.
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+## Solução
+Substituir o `Drawer` por `Sheet` (bottom) nos dois componentes mobile. O Sheet não tem gesto de arrastar, ocupa ~90% da tela, permite scroll interno fluido e fecha apenas pelo botão X.
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+## Arquivos a modificar
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+### 1. `src/components/transactions/TransactionForm.tsx`
+- Trocar `Drawer`/`DrawerContent`/`DrawerHeader`/`DrawerFooter` por `Sheet`/`SheetContent`/`SheetHeader`/`SheetFooter` com `side="bottom"`
+- Adicionar `SheetTitle` (acessibilidade) e botão X para fechar
+- Estilizar `SheetContent` com `h-[90vh] flex flex-col rounded-t-xl`
+- Envolver `content` em `div` com `flex-1 overflow-y-auto` para scroll interno
+- Footer fixo no fundo com `flex-shrink-0`
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+### 2. `src/components/transactions/QuickAddModal.tsx`
+- Mesma substituição: `Drawer` → `Sheet` com `side="bottom"`
+- Manter `max-h-[90vh]`, `flex flex-col`, scroll interno já existente
+- Remover `dismissible` prop (não existe no Sheet)
+- Manter botão X já existente
+
+### Estrutura mobile resultante (ambos)
+```text
+┌──────────────────────┐
+│  Título         [X]  │  ← SheetHeader fixo
+├──────────────────────┤
+│                      │
+│  Campos do form      │  ← overflow-y-auto
+│  (scroll interno)    │
+│                      │
+├──────────────────────┤
+│  [🗑️] [Salvar]      │  ← Footer fixo
+└──────────────────────┘
+```
+
+## O que NÃO muda
+- Comportamento desktop (continua usando Dialog)
+- Lógica de submit, validação, estados
+- Visual dos campos internos (espaçamento, labels, inputs)
+
