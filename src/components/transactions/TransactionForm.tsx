@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -217,15 +217,19 @@ export function TransactionForm({ open, onOpenChange, transaction, onDelete }: T
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Editar transação</DrawerTitle>
-          </DrawerHeader>
-          {content}
-          <DrawerFooter>{footer}</DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[90vh] flex flex-col rounded-t-xl p-0">
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+            <SheetTitle>Editar transação</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            {content}
+          </div>
+          <SheetFooter className="flex-shrink-0 border-t p-0">
+            {footer}
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     );
   }
 

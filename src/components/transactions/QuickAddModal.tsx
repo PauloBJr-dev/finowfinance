@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ import {
 } from "@/lib/invoice-cycle";
 import { formatCurrency, formatDate, formatDateLocal } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ArrowLeft, Loader2, FileText, X, AlertTriangle, CreditCard } from "lucide-react";
+import { CalendarIcon, ArrowLeft, Loader2, FileText, AlertTriangle, CreditCard } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -655,21 +655,14 @@ export function QuickAddModal({ open, onOpenChange }: QuickAddModalProps) {
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} dismissible={true}>
-        <DrawerContent className="max-h-[85vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
-          <DrawerHeader className="flex-shrink-0 relative">
-            <DrawerTitle>{getModalTitle()}</DrawerTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              aria-label="Fechar"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </DrawerHeader>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[90vh] flex flex-col rounded-t-xl p-0" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+            <SheetTitle>{getModalTitle()}</SheetTitle>
+          </SheetHeader>
           {content}
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     );
   }
 
