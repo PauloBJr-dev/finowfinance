@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Loader2, X } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
@@ -154,21 +154,16 @@ export function PayBillModal({ open, onOpenChange, bill, onSuccess }: PayBillMod
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle>Pagar Conta</DrawerTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <X className="h-5 w-5" />
-              <span className="sr-only">Fechar</span>
-            </button>
-          </DrawerHeader>
-          {content}
-        </DrawerContent>
-      </Drawer>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col rounded-t-xl p-0">
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+            <SheetTitle>Pagar Conta</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            {content}
+          </div>
+        </SheetContent>
+      </Sheet>
     );
   }
 

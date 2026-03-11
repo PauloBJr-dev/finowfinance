@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,12 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from "@/components/ui/drawer";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   Form,
   FormControl,
@@ -236,25 +236,19 @@ export function BenefitDepositModal({
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <DrawerHeader className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-2 h-8 w-8"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <DrawerTitle>Depositar em {account?.name}</DrawerTitle>
-            <DrawerDescription>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[85vh] flex flex-col rounded-t-xl p-0">
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+            <SheetTitle>Depositar em {account?.name}</SheetTitle>
+            <SheetDescription>
               Registre o crédito mensal do seu vale alimentação/refeição.
-            </DrawerDescription>
-          </DrawerHeader>
-          <DepositForm account={account} onOpenChange={onOpenChange} />
-        </DrawerContent>
-      </Drawer>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <DepositForm account={account} onOpenChange={onOpenChange} />
+          </div>
+        </SheetContent>
+      </Sheet>
     );
   }
 
