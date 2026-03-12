@@ -6,7 +6,6 @@ import {
   Target,
   PiggyBank,
   Settings,
-  MessageCircle,
   FileBarChart,
 } from "lucide-react";
 
