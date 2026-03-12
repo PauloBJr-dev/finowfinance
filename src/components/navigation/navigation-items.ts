@@ -48,12 +48,6 @@ export const secondaryItems = [
     label: "Cofrinho",
     premium: true,
   },
-  {
-    to: "/chat",
-    icon: MessageCircle,
-    label: "Mentor IA",
-    premium: true,
-  },
 ] as const;
 
 /** Reports item (navigable route) */

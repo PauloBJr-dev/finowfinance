@@ -112,7 +112,6 @@ function AppRoutes() {
         <Route path="/metas" element={<ProtectedRoute><Metas /></ProtectedRoute>} />
         <Route path="/cofrinho" element={<ProtectedRoute><Cofrinho /></ProtectedRoute>} />
         <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-        <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
