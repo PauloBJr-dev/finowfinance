@@ -326,7 +326,7 @@ export default function Dashboard() {
         </div>
 
         {/* Period Filter */}
-        <PeriodFilter onPeriodChange={handlePeriodChange} />
+        <MonthNavigator onPeriodChange={handlePeriodChange} />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
