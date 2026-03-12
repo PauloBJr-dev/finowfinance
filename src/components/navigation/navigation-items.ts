@@ -6,7 +6,6 @@ import {
   Target,
   PiggyBank,
   Settings,
-  MessageCircle,
   FileBarChart,
 } from "lucide-react";
 
@@ -46,12 +45,6 @@ export const secondaryItems = [
     to: "/cofrinho",
     icon: PiggyBank,
     label: "Cofrinho",
-    premium: true,
-  },
-  {
-    to: "/chat",
-    icon: MessageCircle,
-    label: "Mentor IA",
     premium: true,
   },
 ] as const;

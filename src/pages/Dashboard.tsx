@@ -22,7 +22,7 @@ import { KpiComparisonBadge } from "@/components/dashboard/KpiComparisonBadge";
 import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { CurrentInvoicesCard } from "@/components/dashboard/CurrentInvoicesCard";
-import { PeriodFilter } from "@/components/shared/PeriodFilter";
+import { MonthNavigator } from "@/components/shared/MonthNavigator";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -326,7 +326,7 @@ export default function Dashboard() {
         </div>
 
         {/* Period Filter */}
-        <PeriodFilter onPeriodChange={handlePeriodChange} />
+        <MonthNavigator onPeriodChange={handlePeriodChange} />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">

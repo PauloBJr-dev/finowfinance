@@ -3,6 +3,8 @@ import { Sidebar } from "@/components/navigation/Sidebar";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { FloatingActionButton } from "@/components/navigation/FloatingActionButton";
 import { QuickAddModal } from "@/components/transactions/QuickAddModal";
+import { MentorFAB } from "@/components/chat/MentorFAB";
+import { MentorChatSheet } from "@/components/chat/MentorChatSheet";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const isMobile = useIsMobile();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [mentorOpen, setMentorOpen] = useState(false);
   const { collapsed } = useSidebarContext();
 
   return (
@@ -28,16 +31,24 @@ export function MainLayout({ children }: MainLayoutProps) {
           isMobile && "pb-24"
         )}
       >
-
-
         <div className="container px-4 sm:px-6 py-6 animate-fade-in">
           {children}
         </div>
       </main>
 
       {isMobile && <BottomNav />}
-      <FloatingActionButton onClick={() => setQuickAddOpen(true)} />
-      <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+
+      {/* Mentor FAB — always visible */}
+      <MentorFAB onClick={() => setMentorOpen(true)} />
+      <MentorChatSheet open={mentorOpen} onOpenChange={setMentorOpen} />
+
+      {/* QuickAdd FAB — hidden when mentor sheet is open */}
+      {!mentorOpen && (
+        <>
+          <FloatingActionButton onClick={() => setQuickAddOpen(true)} />
+          <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+        </>
+      )}
     </div>
   );
 }
