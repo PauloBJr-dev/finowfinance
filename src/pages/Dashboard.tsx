@@ -22,7 +22,7 @@ import { KpiComparisonBadge } from "@/components/dashboard/KpiComparisonBadge";
 import { DashboardCustomizer } from "@/components/dashboard/DashboardCustomizer";
 import { InsightsCard } from "@/components/dashboard/InsightsCard";
 import { CurrentInvoicesCard } from "@/components/dashboard/CurrentInvoicesCard";
-import { PeriodFilter } from "@/components/shared/PeriodFilter";
+import { MonthNavigator } from "@/components/shared/MonthNavigator";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
