@@ -18,7 +18,6 @@ const ContasPagar = lazy(() => import("./pages/ContasPagar"));
 const Metas = lazy(() => import("./pages/Metas"));
 const Cofrinho = lazy(() => import("./pages/Cofrinho"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
-const Chat = lazy(() => import("./pages/Chat"));
 const Faturas = lazy(() => import("./pages/Faturas"));
 const Relatorios = lazy(() => import("./pages/Relatorios"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -33,10 +32,8 @@ export const routeImportMap: Record<string, () => Promise<unknown>> = {
   "/metas": () => import("./pages/Metas"),
   "/cofrinho": () => import("./pages/Cofrinho"),
   "/configuracoes": () => import("./pages/Configuracoes"),
-  "/chat": () => import("./pages/Chat"),
   "/relatorios": () => import("./pages/Relatorios"),
 };
-
 /** Prefetch all route chunks during browser idle time */
 function RoutePrefetcher() {
   useEffect(() => {
