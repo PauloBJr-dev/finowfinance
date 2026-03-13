@@ -38,12 +38,14 @@ export default function Transacoes() {
   const filteredTransactions = useMemo(() => {
     if (!searchQuery.trim()) return transactions;
     const q = searchQuery.trim().toLowerCase();
-    return transactions.filter((t) => {
+    return transactions.filter((t: any) => {
       const matchDesc = t.description?.toLowerCase().includes(q);
       const matchValue = String(t.amount).replace(".", ",").includes(q);
       const methodLabel = paymentMethodLabels[t.payment_method] || t.payment_method;
       const matchMethod = methodLabel.toLowerCase().includes(q);
-      return matchDesc || matchValue || matchMethod;
+      const matchCategory = t.categories?.name?.toLowerCase().includes(q);
+      const matchAccount = t.accounts?.name?.toLowerCase().includes(q);
+      return matchDesc || matchValue || matchMethod || matchCategory || matchAccount;
     });
   }, [transactions, searchQuery]);
 
