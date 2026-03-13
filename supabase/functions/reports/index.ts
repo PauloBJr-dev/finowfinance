@@ -12,6 +12,8 @@ const PRIMARY = [31, 122, 99] as const
 const TEXT = [28, 31, 30] as const
 const MUTED = [120, 130, 126] as const
 const BG_LIGHT = [247, 248, 246] as const
+const RED = [239, 68, 68] as const
+const GREEN = [34, 197, 94] as const
 
 function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -20,6 +22,30 @@ function formatBRL(value: number): string {
 function formatDateBR(date: string): string {
   const d = new Date(date + 'T12:00:00')
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
+}
+
+function translatePaymentMethod(method: string): string {
+  const map: Record<string, string> = {
+    credit_card: 'Cartão de Crédito',
+    debit: 'Débito',
+    transfer: 'PIX/Transferência',
+    cash: 'Dinheiro',
+    boleto: 'Boleto',
+    voucher: 'Voucher',
+    split: 'Misto',
+    pix: 'PIX',
+  }
+  return map[method] || 'Outros'
+}
+
+function translateInvoiceStatus(status: string): string {
+  const map: Record<string, string> = {
+    open: 'Aberta',
+    closed: 'Fechada',
+    paid: 'Paga',
+    overdue: 'Vencida',
+  }
+  return map[status] || status
 }
 
 // Safe accessor for aiData sections
@@ -51,6 +77,12 @@ function safeAI(aiData: any): {
   } catch {
     return { narrative: null, historicalObservation: null, projectionInterpretation: null, scoreAnalysis: null, historicalMonths: [], projection: null, score: null }
   }
+}
+
+interface CategoryDetail {
+  name: string
+  total: number
+  transactions: { description: string; amount: number; date: string; paymentMethod: string }[]
 }
 
 serve(async (req) => {
@@ -106,7 +138,6 @@ serve(async (req) => {
       })
     }
 
-    // Safely parse aiData - CORRECTION 2
     const ai = includeAI ? safeAI(rawAiData) : safeAI(null)
 
     // Fetch profile
@@ -116,10 +147,10 @@ serve(async (req) => {
       .eq('id', userId)
       .single()
 
-    // Fetch transactions with categories
+    // Fetch transactions (expanded query)
     const { data: transactions, error: txError } = await supabase
       .from('transactions')
-      .select('amount, type, date, description, category_id, categories(name, color)')
+      .select('id, amount, type, date, description, payment_method, card_id, invoice_id, category_id, categories(name, color), cards(name)')
       .eq('user_id', userId)
       .is('deleted_at', null)
       .gte('date', startDate)
@@ -133,27 +164,65 @@ serve(async (req) => {
       })
     }
 
-    // Aggregate by category
-    const expensesByCategory: Record<string, { name: string; total: number }> = {}
-    const incomeByCategory: Record<string, { name: string; total: number }> = {}
+    // Fetch invoices in period
+    const { data: invoices } = await supabase
+      .from('invoices')
+      .select('id, total_amount, closing_date, due_date, status, card_id, cards(name)')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .gte('closing_date', startDate)
+      .lte('closing_date', endDate)
+      .order('closing_date', { ascending: true })
+
+    // === CLASSIFY TRANSACTIONS ===
+    const invoicePayments: typeof transactions = []
+    const normalTxs: typeof transactions = []
+
+    for (const tx of (transactions || [])) {
+      const catName = (tx.categories as any)?.name || ''
+      if (catName === 'Pagamento de Fatura') {
+        invoicePayments.push(tx)
+      } else {
+        normalTxs.push(tx)
+      }
+    }
+
+    // Aggregate by category (excluding invoice payments)
+    const expensesByCategory: Record<string, CategoryDetail> = {}
+    const incomeByCategory: Record<string, CategoryDetail> = {}
     let totalExpenses = 0
     let totalIncome = 0
 
-    for (const tx of (transactions || [])) {
+    for (const tx of normalTxs) {
       const catName = (tx.categories as any)?.name || 'Sem categoria'
+      const txDetail = {
+        description: tx.description || 'Sem descrição',
+        amount: Number(tx.amount),
+        date: tx.date,
+        paymentMethod: translatePaymentMethod(tx.payment_method),
+      }
+
       if (tx.type === 'expense') {
         totalExpenses += Number(tx.amount)
-        if (!expensesByCategory[catName]) expensesByCategory[catName] = { name: catName, total: 0 }
+        if (!expensesByCategory[catName]) expensesByCategory[catName] = { name: catName, total: 0, transactions: [] }
         expensesByCategory[catName].total += Number(tx.amount)
+        expensesByCategory[catName].transactions.push(txDetail)
       } else {
         totalIncome += Number(tx.amount)
-        if (!incomeByCategory[catName]) incomeByCategory[catName] = { name: catName, total: 0 }
+        if (!incomeByCategory[catName]) incomeByCategory[catName] = { name: catName, total: 0, transactions: [] }
         incomeByCategory[catName].total += Number(tx.amount)
+        incomeByCategory[catName].transactions.push(txDetail)
       }
     }
 
     const expensesList = Object.values(expensesByCategory).sort((a, b) => b.total - a.total)
     const incomeList = Object.values(incomeByCategory).sort((a, b) => b.total - a.total)
+
+    // Invoice payments total
+    let totalInvoicePayments = 0
+    for (const tx of invoicePayments) {
+      totalInvoicePayments += Number(tx.amount)
+    }
 
     // Generate PDF
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -188,8 +257,8 @@ serve(async (req) => {
     // --- SUMMARY CARDS ---
     const cardWidth = contentWidth / 3 - 4
     const cards = [
-      { label: 'Receitas', value: formatBRL(totalIncome), color: [34, 197, 94] as const },
-      { label: 'Despesas', value: formatBRL(totalExpenses), color: [239, 68, 68] as const },
+      { label: 'Receitas', value: formatBRL(totalIncome), color: GREEN },
+      { label: 'Despesas', value: formatBRL(totalExpenses), color: RED },
       { label: 'Balanço', value: formatBRL(totalIncome - totalExpenses), color: PRIMARY },
     ]
 
@@ -207,9 +276,17 @@ serve(async (req) => {
       doc.setFont('helvetica', 'normal')
     })
 
-    y += 32
+    y += 26
 
-    // --- TABLE HELPER ---
+    // Disclaimer under Despesas card
+    const despesasCardX = margin + 1 * (cardWidth + 6)
+    doc.setFontSize(6)
+    doc.setTextColor(...MUTED)
+    doc.text('* Exclui pagamentos de fatura', despesasCardX + 6, y)
+
+    y += 10
+
+    // --- PAGE BREAK HELPER ---
     function checkPage(needed: number) {
       if (y + needed > 275) {
         doc.addPage()
@@ -217,19 +294,23 @@ serve(async (req) => {
       }
     }
 
-    function drawTable(title: string, items: { name: string; total: number }[], totalAmount: number) {
-      checkPage(30)
-
+    // --- SECTION HEADER HELPER ---
+    function drawSectionHeader(title: string) {
+      checkPage(20)
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(...PRIMARY)
       doc.text(title, margin, y)
       y += 2
-
       doc.setDrawColor(...PRIMARY)
       doc.setLineWidth(0.5)
       doc.line(margin, y, pageWidth - margin, y)
       y += 6
+    }
+
+    // --- DETAILED TABLE (categories with transactions) ---
+    function drawDetailedTable(title: string, items: CategoryDetail[], totalAmount: number, totalColor: readonly [number, number, number]) {
+      drawSectionHeader(title)
 
       if (items.length === 0) {
         doc.setFontSize(9)
@@ -240,51 +321,182 @@ serve(async (req) => {
         return
       }
 
-      // Table header
-      doc.setFillColor(...BG_LIGHT)
-      doc.rect(margin, y - 4, contentWidth, 8, 'F')
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(...TEXT)
-      doc.text('Categoria', margin + 4, y)
-      doc.text('Valor', pageWidth - margin - 30, y, { align: 'right' })
-      doc.text('%', pageWidth - margin - 4, y, { align: 'right' })
-      y += 6
+      for (const cat of items) {
+        checkPage(14)
 
-      doc.setFont('helvetica', 'normal')
-      items.forEach((item, i) => {
-        checkPage(8)
+        // Category header row
+        doc.setFillColor(240, 243, 241)
+        doc.rect(margin, y - 4, contentWidth, 8, 'F')
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...TEXT)
+        doc.text(cat.name, margin + 4, y)
+        doc.setTextColor(...totalColor)
+        doc.text(formatBRL(cat.total), pageWidth - margin - 4, y, { align: 'right' })
+        y += 6
 
-        if (i % 2 === 0) {
-          doc.setFillColor(250, 251, 249)
-          doc.rect(margin, y - 4, contentWidth, 7, 'F')
+        // Transaction sub-rows
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+        for (const tx of cat.transactions) {
+          checkPage(6)
+
+          doc.setTextColor(...TEXT)
+          // Description (truncated)
+          const desc = tx.description.length > 28 ? tx.description.substring(0, 26) + '…' : tx.description
+          doc.text(desc, margin + 8, y)
+
+          // Payment method
+          doc.setTextColor(...MUTED)
+          doc.text(tx.paymentMethod, margin + 68, y)
+
+          // Date
+          doc.text(formatDateBR(tx.date), margin + 108, y)
+
+          // Amount
+          doc.setTextColor(...TEXT)
+          doc.text(formatBRL(tx.amount), pageWidth - margin - 4, y, { align: 'right' })
+          y += 5
         }
 
-        const pct = totalAmount > 0 ? ((item.total / totalAmount) * 100).toFixed(1) : '0.0'
-        doc.setFontSize(9)
-        doc.setTextColor(...TEXT)
-        doc.text(item.name, margin + 4, y)
-        doc.text(formatBRL(item.total), pageWidth - margin - 30, y, { align: 'right' })
-        doc.setTextColor(...MUTED)
-        doc.text(`${pct}%`, pageWidth - margin - 4, y, { align: 'right' })
-        y += 7
-      })
+        y += 3
+      }
 
       // Total row
+      checkPage(10)
       doc.setDrawColor(220, 220, 220)
       doc.line(margin, y - 2, pageWidth - margin, y - 2)
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.setTextColor(...TEXT)
       doc.text('Total', margin + 4, y + 3)
-      doc.text(formatBRL(totalAmount), pageWidth - margin - 30, y + 3, { align: 'right' })
+      doc.setTextColor(...totalColor)
+      doc.text(formatBRL(totalAmount), pageWidth - margin - 4, y + 3, { align: 'right' })
       y += 14
     }
 
-    drawTable('Despesas por Categoria', expensesList, totalExpenses)
-    drawTable('Receitas por Categoria', incomeList, totalIncome)
+    // === SECTION: Despesas por Categoria (detailed) ===
+    drawDetailedTable('Despesas por Categoria', expensesList, totalExpenses, RED)
 
-    // ========= AI SECTIONS (if includeAI) =========
+    // === SECTION: Receitas por Categoria (detailed) ===
+    drawDetailedTable('Receitas por Categoria', incomeList, totalIncome, GREEN)
+
+    // === SECTION: Cartões de Crédito ===
+    if (invoices && invoices.length > 0) {
+      drawSectionHeader('Cartões de Crédito')
+
+      // Group invoices by card
+      const invoicesByCard: Record<string, { cardName: string; invoices: typeof invoices }> = {}
+      for (const inv of invoices) {
+        const cardId = inv.card_id
+        const cardName = (inv.cards as any)?.name || 'Cartão'
+        if (!invoicesByCard[cardId]) invoicesByCard[cardId] = { cardName, invoices: [] }
+        invoicesByCard[cardId].invoices.push(inv)
+      }
+
+      for (const [_cardId, group] of Object.entries(invoicesByCard)) {
+        checkPage(14)
+
+        // Card name header
+        doc.setFillColor(235, 240, 238)
+        doc.rect(margin, y - 4, contentWidth, 8, 'F')
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...PRIMARY)
+        doc.text(group.cardName, margin + 4, y)
+        y += 8
+
+        for (const inv of group.invoices) {
+          checkPage(12)
+
+          // Invoice header
+          const closingDate = new Date(inv.closing_date + 'T12:00:00')
+          const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(closingDate)
+          const statusLabel = translateInvoiceStatus(inv.status)
+
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...TEXT)
+          doc.text(`Fatura ${monthLabel}`, margin + 6, y)
+
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(...MUTED)
+          doc.text(`— ${statusLabel}`, margin + 6 + doc.getTextWidth(`Fatura ${monthLabel}`) + 2, y)
+
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...RED)
+          doc.text(formatBRL(Number(inv.total_amount)), pageWidth - margin - 4, y, { align: 'right' })
+          y += 6
+
+          // Find transactions linked to this invoice
+          const invoiceTxs = (transactions || []).filter(tx => tx.invoice_id === inv.id)
+
+          if (invoiceTxs.length === 0) {
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'italic')
+            doc.setTextColor(...MUTED)
+            doc.text('Nenhuma transação no período', margin + 10, y)
+            y += 6
+          } else {
+            doc.setFont('helvetica', 'normal')
+            doc.setFontSize(8)
+            for (const tx of invoiceTxs) {
+              checkPage(6)
+              doc.setTextColor(...TEXT)
+              const desc = (tx.description || 'Sem descrição')
+              const descTrunc = desc.length > 28 ? desc.substring(0, 26) + '…' : desc
+              doc.text(descTrunc, margin + 10, y)
+              doc.setTextColor(...MUTED)
+              doc.text('Cartão de Crédito', margin + 68, y)
+              doc.text(formatDateBR(tx.date), margin + 108, y)
+              doc.setTextColor(...TEXT)
+              doc.text(formatBRL(Number(tx.amount)), pageWidth - margin - 4, y, { align: 'right' })
+              y += 5
+            }
+          }
+
+          y += 4
+        }
+
+        y += 4
+      }
+    }
+
+    // === SECTION: Pagamentos de Fatura ===
+    if (invoicePayments.length > 0) {
+      drawSectionHeader('Pagamentos de Fatura')
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      for (const tx of invoicePayments) {
+        checkPage(6)
+        doc.setTextColor(...TEXT)
+        const desc = (tx.description || 'Pagamento de Fatura')
+        const descTrunc = desc.length > 28 ? desc.substring(0, 26) + '…' : desc
+        doc.text(descTrunc, margin + 4, y)
+        doc.setTextColor(...MUTED)
+        doc.text(translatePaymentMethod(tx.payment_method), margin + 68, y)
+        doc.text(formatDateBR(tx.date), margin + 108, y)
+        doc.setTextColor(...TEXT)
+        doc.text(formatBRL(Number(tx.amount)), pageWidth - margin - 4, y, { align: 'right' })
+        y += 5
+      }
+
+      // Total
+      checkPage(10)
+      doc.setDrawColor(220, 220, 220)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 4
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.setTextColor(...TEXT)
+      doc.text('Total', margin + 4, y)
+      doc.setTextColor(...MUTED)
+      doc.text(formatBRL(totalInvoicePayments), pageWidth - margin - 4, y, { align: 'right' })
+      y += 14
+    }
+
+    // ========= AI SECTIONS (if includeAI) — UNCHANGED =========
     if (includeAI) {
       const AI_NOTICE = 'Ative o compartilhamento de dados nas configurações para ver esta análise.'
 
@@ -330,7 +542,6 @@ serve(async (req) => {
       y += 6
 
       if (ai.historicalMonths.length > 0) {
-        // Table header
         doc.setFillColor(...BG_LIGHT)
         doc.rect(margin, y - 4, contentWidth, 8, 'F')
         doc.setFontSize(8)
@@ -386,9 +597,9 @@ serve(async (req) => {
         y += 6
 
         const projCards = [
-          { label: 'Receitas est.', value: formatBRL(ai.projection.estimatedIncome || 0), color: [34, 197, 94] as const },
-          { label: 'Despesas est.', value: formatBRL(ai.projection.estimatedExpenses || 0), color: [239, 68, 68] as const },
-          { label: 'Saldo est.', value: formatBRL(ai.projection.projectedBalance || 0), color: (ai.projection.projectedBalance || 0) >= 0 ? PRIMARY : [239, 68, 68] as const },
+          { label: 'Receitas est.', value: formatBRL(ai.projection.estimatedIncome || 0), color: GREEN },
+          { label: 'Despesas est.', value: formatBRL(ai.projection.estimatedExpenses || 0), color: RED },
+          { label: 'Saldo est.', value: formatBRL(ai.projection.projectedBalance || 0), color: (ai.projection.projectedBalance || 0) >= 0 ? PRIMARY : RED },
         ]
 
         projCards.forEach((card, i) => {
@@ -415,7 +626,6 @@ serve(async (req) => {
           y += projLines.length * 4 + 4
         }
 
-        // Disclaimer
         doc.setFontSize(7)
         doc.setTextColor(160, 165, 162)
         doc.text('Projeção baseada no seu histórico. Não é garantia de resultado.', margin, y)
@@ -452,7 +662,6 @@ serve(async (req) => {
 
         const sColor = scoreColors[scoreLevel] || scoreColors.attention
 
-        // Score circle (simplified)
         doc.setFillColor(245, 246, 244)
         doc.roundedRect(margin, y, 40, 25, 3, 3, 'F')
         doc.setFontSize(20)
