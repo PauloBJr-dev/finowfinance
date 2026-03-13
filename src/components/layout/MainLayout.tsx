@@ -38,17 +38,25 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {isMobile && <BottomNav />}
 
-      {/* Mentor FAB — always visible */}
-      <MentorFAB onClick={() => setMentorOpen(true)} />
-      <MentorChatSheet open={mentorOpen} onOpenChange={setMentorOpen} />
+      {/* FAB Stack */}
+      <div
+        className={cn(
+          "fixed z-50 flex flex-col items-center gap-3 transition-all duration-300",
+          "bottom-8 right-8",
+          "max-md:bottom-[4.5rem] max-md:right-4"
+        )}
+      >
+        {/* Mentor FAB — slides up when QuickAdd is hidden */}
+        <MentorFAB onClick={() => setMentorOpen(true)} />
 
-      {/* QuickAdd FAB — hidden when mentor sheet is open */}
-      {!mentorOpen && (
-        <>
+        {/* QuickAdd FAB — hidden when mentor sheet is open */}
+        {!mentorOpen && (
           <FloatingActionButton onClick={() => setQuickAddOpen(true)} />
-          <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
-        </>
-      )}
+        )}
+      </div>
+
+      <MentorChatSheet open={mentorOpen} onOpenChange={setMentorOpen} />
+      <QuickAddModal open={quickAddOpen} onOpenChange={setQuickAddOpen} />
     </div>
   );
 }
