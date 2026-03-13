@@ -33,7 +33,13 @@ export function MonthNavigator({ onPeriodChange }: MonthNavigatorProps) {
     onPeriodChange(toDateStr(startOfMonth(next)), toDateStr(endOfMonth(next)));
   };
 
+  const resetToMonth = () => {
+    setActiveQuick("month");
+    onPeriodChange(toDateStr(startOfMonth(month)), toDateStr(endOfMonth(month)));
+  };
+
   const handleToday = () => {
+    if (activeQuick === "today") return resetToMonth();
     const today = new Date();
     const str = toDateStr(today);
     setActiveQuick("today");
@@ -41,6 +47,7 @@ export function MonthNavigator({ onPeriodChange }: MonthNavigatorProps) {
   };
 
   const handleYesterday = () => {
+    if (activeQuick === "yesterday") return resetToMonth();
     const yesterday = subDays(new Date(), 1);
     const str = toDateStr(yesterday);
     setActiveQuick("yesterday");
