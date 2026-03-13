@@ -11,13 +11,14 @@ export function MentorFAB({ onClick, className }: MentorFABProps) {
     <button
       onClick={onClick}
       className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-full bg-primary/90 text-primary-foreground shadow-lg transition-all duration-300 will-change-transform",
-        "hover:scale-105 hover:shadow-xl active:scale-95",
-        "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+        "flex h-11 w-11 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-all duration-300 will-change-transform",
+        "bg-primary/80 backdrop-blur-xl border border-primary/20",
+        "hover:scale-105 hover:bg-primary/90 hover:shadow-xl active:scale-95",
+        "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
         "animate-fade-up",
         className
       )}
-      style={{ boxShadow: "0 6px 20px hsl(var(--primary) / 0.2)" }}
+      style={{ boxShadow: "0 6px 24px hsl(var(--primary) / 0.25), 0 2px 8px hsl(var(--primary) / 0.1)" }}
       aria-label="Abrir Mentor IA"
     >
       <MessageCircle className="h-5 w-5" />
