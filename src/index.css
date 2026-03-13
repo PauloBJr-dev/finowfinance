@@ -180,15 +180,17 @@
 @layer utilities {
   /* Glassmorphism utility - use only on hero cards and modals */
   .glass {
-    @supports (backdrop-filter: blur(12px)) {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  @supports (backdrop-filter: blur(12px)) {
+    .glass {
       background: hsl(var(--glass-bg));
       backdrop-filter: blur(12px);
       border: 1px solid hsl(var(--glass-border));
       box-shadow: var(--glass-shadow);
-    }
-
-    @supports not (backdrop-filter: blur(12px)) {
-      @apply bg-card border border-border shadow-lg;
     }
   }
 
