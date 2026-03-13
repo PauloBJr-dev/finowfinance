@@ -24,13 +24,26 @@ export default function Transacoes() {
 
   const { data: transactions = [], isLoading } = useTransactions(filters);
 
+  const paymentMethodLabels: Record<string, string> = {
+    cash: "dinheiro",
+    debit: "débito",
+    transfer: "transferência",
+    boleto: "boleto",
+    credit_card: "cartão de crédito",
+    voucher: "vale",
+    split: "parcelado",
+    pix: "pix",
+  };
+
   const filteredTransactions = useMemo(() => {
     if (!searchQuery.trim()) return transactions;
     const q = searchQuery.trim().toLowerCase();
     return transactions.filter((t) => {
       const matchDesc = t.description?.toLowerCase().includes(q);
-      const matchValue = String(t.amount).includes(q);
-      return matchDesc || matchValue;
+      const matchValue = String(t.amount).replace(".", ",").includes(q);
+      const methodLabel = paymentMethodLabels[t.payment_method] || t.payment_method;
+      const matchMethod = methodLabel.toLowerCase().includes(q);
+      return matchDesc || matchValue || matchMethod;
     });
   }, [transactions, searchQuery]);
 
