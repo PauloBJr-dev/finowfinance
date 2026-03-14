@@ -1,145 +1,25 @@
 
 
-# Migration: Sincronização automática de `invoices.total_amount`
+# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
 
-## SQL completo da migration (schema — funções e triggers)
+## Resumo
 
-```sql
--- 1. Remover funções/triggers antigos
-DROP FUNCTION IF EXISTS public.update_invoice_total() CASCADE;
-DROP FUNCTION IF EXISTS public.update_invoice_total_from_installments() CASCADE;
+Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
 
--- 2. Função de recálculo completo
-CREATE OR REPLACE FUNCTION public.recalculate_invoice_total(p_invoice_id UUID)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_total NUMERIC;
-BEGIN
-  IF p_invoice_id IS NULL THEN
-    RETURN;
-  END IF;
+## Arquivos criados
+- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
+- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
+- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
+- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
 
-  SELECT
-    COALESCE((
-      SELECT SUM(t.amount)
-      FROM transactions t
-      WHERE t.invoice_id = p_invoice_id
-        AND t.deleted_at IS NULL
-        AND t.type = 'expense'
-        AND NOT EXISTS (
-          SELECT 1 FROM installment_groups ig WHERE ig.transaction_id = t.id
-        )
-    ), 0)
-    +
-    COALESCE((
-      SELECT SUM(inst.amount)
-      FROM installments inst
-      JOIN installment_groups ig ON ig.id = inst.group_id
-      JOIN transactions parent ON parent.id = ig.transaction_id
-      WHERE inst.invoice_id = p_invoice_id
-        AND parent.deleted_at IS NULL
-    ), 0)
-  INTO v_total;
+## Arquivos modificados
+- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
+- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
+- `src/App.tsx` — Rota /relatorios
+- `src/components/navigation/navigation-items.ts` — Relatórios como rota
+- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
+- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
 
-  UPDATE invoices
-  SET total_amount = v_total, updated_at = now()
-  WHERE id = p_invoice_id;
-END;
-$$;
-
--- 3. Trigger function
-CREATE OR REPLACE FUNCTION public.trigger_update_invoice_total()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_invoice_id UUID;
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    v_invoice_id := OLD.invoice_id;
-  ELSIF TG_OP = 'UPDATE' THEN
-    v_invoice_id := NEW.invoice_id;
-    IF OLD.invoice_id IS DISTINCT FROM NEW.invoice_id AND OLD.invoice_id IS NOT NULL THEN
-      PERFORM recalculate_invoice_total(OLD.invoice_id);
-    END IF;
-  ELSE
-    v_invoice_id := NEW.invoice_id;
-  END IF;
-
-  PERFORM recalculate_invoice_total(v_invoice_id);
-  RETURN COALESCE(NEW, OLD);
-END;
-$$;
-
--- 4. Triggers na tabela transactions
-CREATE TRIGGER trg_invoice_total_after_insert
-  AFTER INSERT ON transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_update_invoice_total();
-
-CREATE TRIGGER trg_invoice_total_after_update
-  AFTER UPDATE OF amount, invoice_id, deleted_at, type ON transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_update_invoice_total();
-
-CREATE TRIGGER trg_invoice_total_after_delete
-  AFTER DELETE ON transactions
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_update_invoice_total();
-
--- 5. Triggers na tabela installments
-CREATE TRIGGER trg_invoice_total_after_installment_insert
-  AFTER INSERT ON installments
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_update_invoice_total();
-
-CREATE TRIGGER trg_invoice_total_after_installment_update
-  AFTER UPDATE OF amount, invoice_id ON installments
-  FOR EACH ROW
-  EXECUTE FUNCTION trigger_update_invoice_total();
-```
-
-## Update retroativo (via insert tool, separado)
-
-```sql
-UPDATE invoices i
-SET total_amount = (
-  SELECT COALESCE(SUM(t.amount), 0)
-  FROM transactions t
-  WHERE t.invoice_id = i.id
-    AND t.deleted_at IS NULL
-    AND t.type = 'expense'
-    AND NOT EXISTS (
-      SELECT 1 FROM installment_groups ig WHERE ig.transaction_id = t.id
-    )
-) + (
-  SELECT COALESCE(SUM(inst.amount), 0)
-  FROM installments inst
-  JOIN installment_groups ig ON ig.id = inst.group_id
-  JOIN transactions parent ON parent.id = ig.transaction_id
-  WHERE inst.invoice_id = i.id
-    AND parent.deleted_at IS NULL
-),
-updated_at = now()
-WHERE i.deleted_at IS NULL;
-```
-
-## Execução
-
-1. **Migration** (schema): Criar funções + triggers via ferramenta de migração
-2. **Data update**: Executar o UPDATE retroativo via insert tool
-3. **Nenhum arquivo React/TS será alterado**
-
-## Notas de segurança
-
-- Ambas as funções usam `SECURITY DEFINER` e `SET search_path TO 'public'`
-- `CASCADE` no DROP remove triggers antigos automaticamente
-- `IS DISTINCT FROM` trata NULLs corretamente na comparação de invoice_ids
-- `NOT EXISTS` em vez de `NOT IN` para evitar problemas com NULLs
-
+## Correções aplicadas
+- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
+- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
