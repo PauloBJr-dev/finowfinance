@@ -994,6 +994,10 @@ export type Database = {
         Args: { p_card_id: string; p_target_month: string; p_user_id: string }
         Returns: string
       }
+      recalculate_invoice_total: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
       update_invoice_status: {
         Args: { p_invoice_id: string; p_new_status: string }
         Returns: undefined
