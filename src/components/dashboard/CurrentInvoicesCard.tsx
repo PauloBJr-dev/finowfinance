@@ -152,7 +152,7 @@ export function CurrentInvoicesCard({ selectedPeriod }: CurrentInvoicesCardProps
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent">
             <CreditCard className="h-4 w-4 text-accent-foreground" />
           </div>
-          <CardTitle className="text-sm font-medium">Faturas Atuais</CardTitle>
+          <CardTitle className="text-sm font-medium">{cardTitle}</CardTitle>
         </div>
         <Link
           to="/faturas"
