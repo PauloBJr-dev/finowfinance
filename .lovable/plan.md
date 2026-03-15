@@ -1,25 +1,61 @@
 
 
-# Plano: Fase 3 — Relatórios Ultra-Personalizados (IMPLEMENTADO ✅)
+# Plano: Comportamento híbrido no CurrentInvoicesCard
 
-## Resumo
+## Arquivos afetados
 
-Implementação completa dos relatórios com análise IA via Gemini Flash. Inclui preview na tela com 4 seções (Narrativa, Comparativo, Projeção, Score de Saúde) e exportação PDF com ou sem IA.
+| Ação | Arquivo |
+|------|---------|
+| Editar | `src/components/dashboard/CurrentInvoicesCard.tsx` |
+| Editar (1 linha) | `src/pages/Dashboard.tsx` (linha 240) |
 
-## Arquivos criados
-- `supabase/functions/reports-preview/index.ts` — Edge function que agrega dados e gera seções IA
-- `src/pages/Relatorios.tsx` — Página dedicada de relatórios
-- `src/components/reports/ScoreGauge.tsx` — Gauge circular 0-100
-- `src/components/reports/ReportPreview.tsx` — Preview das 4 seções
+## Alterações em `CurrentInvoicesCard.tsx`
 
-## Arquivos modificados
-- `supabase/functions/reports/index.ts` — Aceita aiData com try/catch safety
-- `src/hooks/use-reports.ts` — Hook expandido com preview + PDF com IA
-- `src/App.tsx` — Rota /relatorios
-- `src/components/navigation/navigation-items.ts` — Relatórios como rota
-- `src/components/navigation/Sidebar.tsx` — NavItem em vez de modal
-- `src/components/navigation/BottomNav.tsx` — Link em vez de modal
+### 1. Imports
+Adicionar `format` de `date-fns` e `ptBR` de `date-fns/locale`.
 
-## Correções aplicadas
-- CORREÇÃO 1: google/gemini-3-flash-preview em todas as chamadas
-- CORREÇÃO 2: aiData envolto em try/catch, PDF nunca trava
+### 2. Props
+```ts
+interface CurrentInvoicesCardProps {
+  selectedPeriod?: { start: string; end: string };
+}
+export function CurrentInvoicesCard({ selectedPeriod }: CurrentInvoicesCardProps) {
+```
+
+### 3. Derivar `isFuturePeriod` e `cardTitle` (antes do return)
+```ts
+const today = new Date().toISOString().split("T")[0];
+const currentMonthStart = today.slice(0, 7) + "-01";
+const isFuturePeriod = !!selectedPeriod && selectedPeriod.start > currentMonthStart;
+const periodMonthStart = selectedPeriod?.start?.slice(0, 7);
+
+const cardTitle = isFuturePeriod && selectedPeriod
+  ? `Faturas de ${format(new Date(selectedPeriod.start + "T12:00:00"), "MMM.", { locale: ptBR })}`
+  : "Faturas Atuais";
+```
+
+### 4. Substituir bloco de seleção por cartão (linhas 83–109)
+Substituir o `Map<string, single>` pelo agrupamento + seleção condicional:
+- **Mês futuro**: fatura cujo `closing_date` inicia com `periodMonthStart`
+- **Mês atual/passado**: fatura cujo ciclo contém `today`
+- **Fallback**: `cardInvoices[0]` (mais recente, pois ordenado DESC)
+
+### 5. Adicionar `selectedPeriod` ao `queryKey`
+Para que a query reexecute quando o período muda: `["current-invoices-summary", user?.id, selectedPeriod?.start]`
+
+### 6. Título dinâmico no JSX
+Substituir `"Faturas Atuais"` por `{cardTitle}` na linha 127.
+
+## Alteração em `Dashboard.tsx`
+
+Linha 240 — de:
+```tsx
+current_invoices: () => <CurrentInvoicesCard key="current_invoices" />,
+```
+Para:
+```tsx
+current_invoices: () => <CurrentInvoicesCard key="current_invoices" selectedPeriod={{ start: dateRange.startDate, end: dateRange.endDate }} />,
+```
+
+Nenhum outro arquivo será modificado.
+
