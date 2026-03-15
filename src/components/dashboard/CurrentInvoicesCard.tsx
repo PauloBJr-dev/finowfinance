@@ -62,7 +62,11 @@ function getUtilizationColor(pct: number): string {
   return "[&>div]:bg-primary";
 }
 
-export function CurrentInvoicesCard() {
+interface CurrentInvoicesCardProps {
+  selectedPeriod?: { start: string; end: string };
+}
+
+export function CurrentInvoicesCard({ selectedPeriod }: CurrentInvoicesCardProps) {
   const { user } = useAuth();
   const { data: cards = [], isLoading: loadingCards } = useCards();
   const { mask } = usePrivacy();
