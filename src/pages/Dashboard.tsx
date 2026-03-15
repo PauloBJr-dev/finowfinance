@@ -237,7 +237,7 @@ export default function Dashboard() {
     ai_insights: () => (
       <InsightsCard key="ai_insights" startDate={dateRange.startDate} endDate={dateRange.endDate} />
     ),
-    current_invoices: () => <CurrentInvoicesCard key="current_invoices" />,
+    current_invoices: () => <CurrentInvoicesCard key="current_invoices" selectedPeriod={{ start: dateRange.startDate, end: dateRange.endDate }} />,
     expenses_chart: () => (
       <ExpensesByCategoryChart key="expenses_chart" transactions={transactions} isLoading={loadingTx} />
     ),

@@ -71,8 +71,17 @@ export function CurrentInvoicesCard({ selectedPeriod }: CurrentInvoicesCardProps
   const { data: cards = [], isLoading: loadingCards } = useCards();
   const { mask } = usePrivacy();
 
+  const today = new Date().toISOString().split("T")[0];
+  const currentMonthStart = today.slice(0, 7) + "-01";
+  const isFuturePeriod = !!selectedPeriod && selectedPeriod.start > currentMonthStart;
+  const periodMonthStart = selectedPeriod?.start?.slice(0, 7);
+
+  const cardTitle = isFuturePeriod && selectedPeriod
+    ? `Faturas de ${format(new Date(selectedPeriod.start + "T12:00:00"), "MMM.", { locale: ptBR })}`
+    : "Faturas Atuais";
+
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
-    queryKey: ["current-invoices-summary", user?.id],
+    queryKey: ["current-invoices-summary", user?.id, selectedPeriod?.start],
     queryFn: async () => {
       if (!user?.id || cards.length === 0) return [];
 
@@ -86,29 +95,42 @@ export function CurrentInvoicesCard({ selectedPeriod }: CurrentInvoicesCardProps
 
       if (error) throw error;
 
-      const byCard = new Map<string, typeof data[number]>();
+      const allByCard = new Map<string, Array<typeof data[number]>>();
       for (const inv of data ?? []) {
-        if (!byCard.has(inv.card_id)) {
-          byCard.set(inv.card_id, inv);
-        }
+        if (!allByCard.has(inv.card_id)) allByCard.set(inv.card_id, []);
+        allByCard.get(inv.card_id)!.push(inv);
       }
 
       const cardMap = new Map(cards.map((c) => [c.id, c]));
 
       const result: InvoiceSummary[] = [];
-      for (const [cardId, inv] of byCard) {
+      for (const [cardId, cardInvoices] of allByCard) {
         const card = cardMap.get(cardId);
         if (!card) continue;
+
+        let selected: typeof data[number];
+
+        if (isFuturePeriod && periodMonthStart) {
+          selected =
+            cardInvoices.find((inv) => inv.closing_date.startsWith(periodMonthStart)) ??
+            cardInvoices[0];
+        } else {
+          selected =
+            cardInvoices.find(
+              (inv) => inv.cycle_start_date <= today && inv.closing_date >= today
+            ) ?? cardInvoices[0];
+        }
+
         result.push({
-          id: inv.id,
+          id: selected.id,
           card_id: cardId,
           card_name: card.name,
-          total_amount: Number(inv.total_amount),
+          total_amount: Number(selected.total_amount),
           credit_limit: Number(card.credit_limit) || 0,
-          status: inv.status,
-          due_date: inv.due_date,
-          closing_date: inv.closing_date,
-          cycle_start_date: inv.cycle_start_date,
+          status: selected.status,
+          due_date: selected.due_date,
+          closing_date: selected.closing_date,
+          cycle_start_date: selected.cycle_start_date,
         });
       }
 
