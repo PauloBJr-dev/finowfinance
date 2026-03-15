@@ -11,6 +11,8 @@ import { Progress } from "@/components/ui/progress";
 import { CreditCard, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface InvoiceSummary {
   id: string;
